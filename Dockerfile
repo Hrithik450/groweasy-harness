@@ -15,7 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     ffmpeg \
     curl \
+    bubblewrap \
  && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /srv/workspaces
 
 WORKDIR /app
 
@@ -44,6 +47,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOST=0.0.0.0
 ENV DSH_ALLOW_WILDCARD=1
+ENV DSH_WORKSPACES_ROOT=/srv/workspaces
 ENV NEXT_PUBLIC_APP_URL=https://harness.mhrithik.com
 
 COPY --from=builder /app /app
