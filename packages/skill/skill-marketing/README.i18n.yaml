@@ -1,0 +1,49 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/skill/skill-marketing/README.md
+/:
+  en: 3c55cccb0973009e
+  zh: 3145accfa085166b
+/deepseek-ai-dsh-skill-marketing:
+  en: 7364e0dca50ddff9
+  zh: 41303ca0e68216ae
+/deepseek-ai-dsh-skill-marketing/summary:
+  en: 21302d13a1391865
+  zh: 0d36cad2224f2952
+/deepseek-ai-dsh-skill-marketing/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: ffd1397bddb36f43
+/deepseek-ai-dsh-skill-marketing/use-this-package:
+  en: c3595ec6283ac86c
+  zh: b4293eaa64857b85
+/deepseek-ai-dsh-skill-marketing/use-this-package/minimal-configuration:
+  en: e001601f2f9779b1
+  zh: 077d3703b8c82774
+/deepseek-ai-dsh-skill-marketing/understand-the-implementation:
+  en: e57c263f2d950fd0
+  zh: 82fa39eea3ec5bbc
+/deepseek-ai-dsh-skill-marketing/further-exploration:
+  en: 78a6fe36bd4b7b4f
+  zh: 43b505ed24f2e689
+/deepseek-ai-dsh-skill-marketing/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-skill-marketing/model-experience/marketing-skill:
+  en: e5662216bd3470d9
+  zh: e5662216bd3470d9
+/deepseek-ai-dsh-skill-marketing/model-experience/marketing-skill/what-the-model-sees:
+  en: 46c1204da0486e9f
+  zh: 59af01a89cc03294
+/deepseek-ai-dsh-skill-marketing/model-experience/marketing-skill/token-effect:
+  en: b5d8d6084c9bd517
+  zh: 01fdf47b93383c5f
+/deepseek-ai-dsh-skill-marketing/model-experience/marketing-skill/kv-cache-effect:
+  en: 61959f5d73820e9c
+  zh: fc520c48658af4c9
+/deepseek-ai-dsh-skill-marketing/known-limitations-and-deferred-work:
+  en: 7f8a8e5a0863ed3a
+  zh: 983baf7a2d5356b5
+/deepseek-ai-dsh-skill-marketing/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: e88aeb617ffb74ea

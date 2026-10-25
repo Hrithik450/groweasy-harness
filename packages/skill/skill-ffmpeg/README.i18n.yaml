@@ -1,0 +1,49 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/skill/skill-ffmpeg/README.md
+/:
+  en: e21566a857942356
+  zh: d5da88c7ce4799e5
+/deepseek-ai-dsh-skill-ffmpeg:
+  en: 5d6a2b9e92701dd6
+  zh: 944e509e69393cae
+/deepseek-ai-dsh-skill-ffmpeg/summary:
+  en: 96859fc13d45f791
+  zh: cdf6fd32c57c1412
+/deepseek-ai-dsh-skill-ffmpeg/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: ffd1397bddb36f43
+/deepseek-ai-dsh-skill-ffmpeg/use-this-package:
+  en: c3595ec6283ac86c
+  zh: b4293eaa64857b85
+/deepseek-ai-dsh-skill-ffmpeg/use-this-package/minimal-configuration:
+  en: e001601f2f9779b1
+  zh: 077d3703b8c82774
+/deepseek-ai-dsh-skill-ffmpeg/understand-the-implementation:
+  en: 7df7afd7e04e363a
+  zh: bc8b2e31adbc1c6f
+/deepseek-ai-dsh-skill-ffmpeg/further-exploration:
+  en: 978bfa999a327296
+  zh: a1e85dcfe3dba13d
+/deepseek-ai-dsh-skill-ffmpeg/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-skill-ffmpeg/model-experience/ffmpeg-skill:
+  en: 8b0229ceb659f132
+  zh: 8b0229ceb659f132
+/deepseek-ai-dsh-skill-ffmpeg/model-experience/ffmpeg-skill/what-the-model-sees:
+  en: 818f540b62e0e729
+  zh: f379c9ece584876c
+/deepseek-ai-dsh-skill-ffmpeg/model-experience/ffmpeg-skill/token-effect:
+  en: fd68c162f6a22167
+  zh: 49f75ed95957ba71
+/deepseek-ai-dsh-skill-ffmpeg/model-experience/ffmpeg-skill/kv-cache-effect:
+  en: 61959f5d73820e9c
+  zh: fc520c48658af4c9
+/deepseek-ai-dsh-skill-ffmpeg/known-limitations-and-deferred-work:
+  en: 0e10ddc077c2a9b7
+  zh: b34d2d3501ff5ef9
+/deepseek-ai-dsh-skill-ffmpeg/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: e88aeb617ffb74ea
