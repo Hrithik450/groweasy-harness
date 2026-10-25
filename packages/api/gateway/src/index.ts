@@ -272,7 +272,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
               const rawCookies = req.headers.cookie || ''
               const cookieMatch = /dsh-user-id=([0-9a-fA-F-]+)/.exec(rawCookies)
               if (cookieMatch?.[1]) {
-                (admission.peer as Record<string, unknown>).userId = cookieMatch[1]
+                admission.peer.userId = cookieMatch[1]
               }
               const release = (): void => {
                 // release removes the API Peer synchronously, before awaiting

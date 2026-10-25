@@ -93,8 +93,7 @@ export class WorkspaceController extends TypertRemoteService {
    */
   @Remote('create')
   async create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
-    const peer = this.ctx.invocation?.peer as (Record<string, unknown> | undefined)
-    const userId = peer?.userId as string | undefined
+    const userId = this.ctx.invocation?.peer?.userId
     if (userId && !request.path.includes(userId)) {
       const root = process.env.DSH_WORKSPACES_ROOT || (process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv/workspaces'))
       const userDir = join(root, userId)
@@ -119,8 +118,7 @@ export class WorkspaceController extends TypertRemoteService {
    */
   @Remote('initializeDefault')
   async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue | undefined> {
-    const peer = this.ctx.invocation?.peer as (Record<string, unknown> | undefined)
-    const userId = peer?.userId as string | undefined
+    const userId = this.ctx.invocation?.peer?.userId
     if (userId) {
       const existing = this.ctx.workspaceRegistry.list().find(w => w.path.includes(userId))
       if (existing) return { workspace: workspaceView(existing) }
@@ -237,8 +235,7 @@ export class WorkspaceController extends TypertRemoteService {
    */
   @Remote({ mode: 'stream' })
   async *follow(signal: AbortSignal): AsyncIterable<WorkspaceFollowFrame> {
-    const peer = this.ctx.invocation?.peer as (Record<string, unknown> | undefined)
-    const userId = peer?.userId as string | undefined
+    const userId = this.ctx.invocation?.peer?.userId
     if (userId) {
       const allWorkspaces = this.ctx.workspaceRegistry.list()
       const userWorkspaces = allWorkspaces.filter(w => w.path.includes(userId))

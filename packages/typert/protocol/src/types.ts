@@ -475,6 +475,8 @@ export interface PeerScope {
   readonly signal: AbortSignal
   /** Whether the Peer may open a forwarded-event stream; this does not grant business permissions. */
   readonly interactions: 'answer' | 'none'
+  /** Optional tenant user ID associated with this connection */
+  userId?: string
   /**
    * Tear down every registration made through `ctx`.
    * @returns settles once the scope has quiesced; racing calls share one completion.
