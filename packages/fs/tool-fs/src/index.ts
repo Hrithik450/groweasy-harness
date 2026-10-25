@@ -1,0 +1,160 @@
+/**
+ * Model-facing read, read_image, write, and edit tools over `ctx.fs`. This package owns schemas, validation,
+ * read windows, formatting, and observation events, never a concrete provider. An optional
+ * event policy supplies mutation guards; without one the tools use unconditional provider calls.
+ * @module @deepseek-ai/dsh-tool-fs
+ */
+
+import type {} from '@deepseek-ai/dsh-working-directory'
+import type { Context } from '@deepseek-ai/cordis'
+import z from '@deepseek-ai/schemastery'
+import type {} from '@deepseek-ai/dsh-user-approval'
+import { applyReadTool, READ_LIMIT, STREAM_MIN_SIZE } from './read.ts'
+import { applyWriteTool } from './write.ts'
+import { applyEditTool } from './edit.ts'
+import { applyReadImageTool } from './read-image.ts'
+import { applyReadVideoTool } from './read-video.ts'
+import { applyGenerateImageTool } from './generate-image.ts'
+import { applyConvertVoiceTool } from './convert-voice.ts'
+import { applyDubAudioTool } from './dub-audio.ts'
+import { applyGenerateVideoTool } from './generate-video.ts'
+import { applyRenderVideoTool } from './render-video.ts'
+import { applyRenderCaptionsTool } from './render-captions.ts'
+import { READ_MAX_BYTES, READ_MAX_LINE_LENGTH } from './read-render.ts'
+import { FsSandboxController } from './sandbox.ts'
+
+/** Cordis plugin name used by loader diagnostics. */
+export const name = 'tool-fs'
+
+/** Services required by the filesystem tool suite. */
+export const inject = ['tools', 'fs', 'systemPrompt', 'workingDirectory']
+
+/** Plugin config (all optional — `Config` supplies the defaults). */
+export interface Config {
+  /** Register `read` and its guidance. Defaults to true. */
+  read?: boolean
+  /** Register `read_image` while an attachment store is mounted. Defaults to true. */
+  readImage?: boolean
+  /** Register `read_video` while an attachment store is mounted. Defaults to false. */
+  readVideo?: boolean
+  /** Register `generate_image` when an LLM provider is mounted. Defaults to false. */
+  generateImage?: boolean
+  /** Register `convert_voice` for speech-to-speech voice tone transformation. Defaults to false. */
+  convertVoice?: boolean
+  /** Register `dub_audio` for multi-lingual audio dubbing. Defaults to false. */
+  dubAudio?: boolean
+  /** Register `generate_video` for AI video motion generation. Defaults to false. */
+  generateVideo?: boolean
+  /** Register `render_video` for video concatenation and transitions. Defaults to false. */
+  renderVideo?: boolean
+  /** Register `render_captions` for video caption burning. Defaults to false. */
+  renderCaptions?: boolean
+  /** Register `write` and its guidance. Defaults to true. */
+  write?: boolean
+  /** Register `edit` and its guidance. Defaults to true. */
+  edit?: boolean
+  /** Default and maximum number of lines returned by one `read` call. */
+  readLimit?: number
+  /** Maximum characters returned for a single line before truncation. */
+  readMaxLineLength?: number
+  /** Maximum bytes returned for the selected lines of one `read` call. */
+  readMaxBytes?: number
+  /** Files at or above this size stream instead of loading whole into memory. */
+  readStreamMinSize?: number
+}
+
+export const Config: z<Config> = z.object({
+  read: z.boolean().default(true),
+  readImage: z.boolean().default(true),
+  readVideo: z.boolean().default(false),
+  generateImage: z.boolean().default(false),
+  convertVoice: z.boolean().default(false),
+  dubAudio: z.boolean().default(false),
+  generateVideo: z.boolean().default(false),
+  renderVideo: z.boolean().default(false),
+  renderCaptions: z.boolean().default(false),
+  write: z.boolean().default(true),
+  edit: z.boolean().default(true),
+  readLimit: z.number().default(READ_LIMIT),
+  readMaxLineLength: z.number().default(READ_MAX_LINE_LENGTH),
+  readMaxBytes: z.number().default(READ_MAX_BYTES),
+  readStreamMinSize: z.number().default(STREAM_MIN_SIZE),
+})
+
+/** Configuration after schemastery applied the defaults. */
+type ResolvedConfig = Required<Config>
+
+/** Every read cap counts lines/chars/bytes — a positive integer, or windowing arithmetic misbehaves silently. */
+function assertPositiveInteger(name: string, value: number): void {
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`tool-fs: ${name} must be a positive integer`)
+  }
+}
+
+/** Register the selected filesystem tools; `read_image` additionally requires a mounted attachment store. */
+export function apply(ctx: Context, config: Config): void {
+  // schemastery (Config) has already filled every defaulted field.
+  const resolved = config as ResolvedConfig
+  assertPositiveInteger('readLimit', resolved.readLimit)
+  assertPositiveInteger('readMaxLineLength', resolved.readMaxLineLength)
+  assertPositiveInteger('readMaxBytes', resolved.readMaxBytes)
+  assertPositiveInteger('readStreamMinSize', resolved.readStreamMinSize)
+  if (resolved.read) {
+    applyReadTool(ctx, {
+      limit: resolved.readLimit,
+      maxLineLength: resolved.readMaxLineLength,
+      maxBytes: resolved.readMaxBytes,
+      streamMinSize: resolved.readStreamMinSize,
+    })
+  }
+  // read_image is composition-conditional: without a mounted attachment store
+  // the deployment cannot durably commit image bytes, so the tool never
+  // registers; the execute body keeps a defensive re-check for direct callers.
+  if (resolved.readImage) {
+    ctx.inject(['attachments'], (imageCtx) => {
+      applyReadImageTool(imageCtx)
+    })
+  }
+  if (resolved.readVideo) {
+    ctx.inject(['attachments'], (videoCtx) => {
+      applyReadVideoTool(videoCtx)
+    })
+  }
+  // One escalation API shared by all mutating tools: advertisement gating,
+  // per-call policy resolution, and denial-marker mapping, all keyed off whether
+  // the mounted ctx.fs confines (ctx.fs.sandboxMode).
+  const sandbox = (
+    resolved.write
+    || resolved.edit
+    || resolved.generateImage
+    || resolved.convertVoice
+    || resolved.dubAudio
+    || resolved.generateVideo
+    || resolved.renderVideo
+    || resolved.renderCaptions
+  )
+    ? new FsSandboxController(ctx)
+    : undefined
+  if (resolved.generateImage) {
+    ctx.inject(['llm'], (imageCtx) => {
+      applyGenerateImageTool(imageCtx, sandbox)
+    })
+  }
+  if (resolved.convertVoice) {
+    applyConvertVoiceTool(ctx, sandbox)
+  }
+  if (resolved.dubAudio) {
+    applyDubAudioTool(ctx, sandbox)
+  }
+  if (resolved.generateVideo) {
+    applyGenerateVideoTool(ctx, sandbox)
+  }
+  if (resolved.renderVideo) {
+    applyRenderVideoTool(ctx, sandbox)
+  }
+  if (resolved.renderCaptions) {
+    applyRenderCaptionsTool(ctx, sandbox)
+  }
+  if (resolved.write && sandbox) applyWriteTool(ctx, sandbox)
+  if (resolved.edit && sandbox) applyEditTool(ctx, sandbox)
+}
