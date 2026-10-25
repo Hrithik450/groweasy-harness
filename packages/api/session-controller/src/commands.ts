@@ -1,5 +1,7 @@
 /** Session commands whose activation policy is explicit at each Remote method. */
 
+import { join } from 'node:path'
+import { resolveWorkspacesRoot } from '@deepseek-ai/dsh-home-paths'
 import { modelAvailable } from './catalog.ts'
 import type { Context } from '@deepseek-ai/cordis'
 import { uuidv7 } from '@deepseek-ai/dsh-util-crypto'
@@ -121,7 +123,13 @@ export class SessionCommandController {
         })
       }
     }
-    const cwd = workspace?.path ?? request.cwd ?? this.defaultCwd
+    const userId = (this.ctx as { invocation?: { peer?: { userId?: string } } }).invocation?.peer?.userId
+    let defaultUserCwd: string | undefined
+    if (userId) {
+      const root = resolveWorkspacesRoot()
+      defaultUserCwd = join(root, userId)
+    }
+    const cwd = workspace?.path ?? request.cwd ?? defaultUserCwd ?? this.defaultCwd
     let created: ApiSessionCreated
     try {
       created = await this.agents.createSession({

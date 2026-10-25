@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { uuidv7 } from '@deepseek-ai/dsh-util-crypto'
+import { resolveWorkspacesRoot } from '@deepseek-ai/dsh-home-paths'
 import { Context, Service, symbols } from '@deepseek-ai/cordis'
 import type {
   ConnectionRpcAttachment,
@@ -287,7 +288,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
 
               if (!process.env.VITEST) {
                 // Enforce tenant workspace directory provisioning
-                const root = process.env.DSH_WORKSPACES_ROOT || '/srv/workspaces'
+                const root = resolveWorkspacesRoot()
                 const userDir = join(root, resolvedUserId)
                 const tmpDir = join(userDir, 'tmp')
                 const dshPath = join(userDir, '.dsh')

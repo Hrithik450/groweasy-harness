@@ -10,6 +10,7 @@
 
 import { existsSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { resolveWorkspacesRoot } from '@deepseek-ai/dsh-home-paths'
 import {
   SESSION_FORMAT_VERSION,
   KNOWN_SESSION_EVENT_TYPES,
@@ -253,19 +254,15 @@ export function projectKey(cwd: string): string {
  */
 export function resolveTenantSessionsDir(cwd: string | undefined): string | undefined {
   if (!cwd || process.env.VITEST) return undefined
-  const customRoot = process.env.DSH_WORKSPACES_ROOT
-  const roots = customRoot
-    ? [resolve(customRoot)]
-    : ['/srv/workspaces']
+  const root = resolveWorkspacesRoot()
   const absCwd = resolve(cwd)
-  for (const root of roots) {
-    const absRoot = resolve(root)
-    const rel = relative(absRoot, absCwd)
-    if (!rel.startsWith('..') && !isAbsolute(rel) && rel !== '') {
-      const parts = rel.split(sep).filter(Boolean)
-      if (parts.length > 0) {
-        return join(absRoot, parts[0]!, '.dsh', 'sessions')
-      }
+  const absRoot = resolve(root)
+  const rel = relative(absRoot, absCwd)
+  if (!rel.startsWith('..') && !isAbsolute(rel) && rel !== '') {
+    const parts = rel.split(sep).filter(Boolean)
+    const user = parts[0]
+    if (user) {
+      return join(absRoot, user, '.dsh', 'sessions')
     }
   }
   const candidate = join(absCwd, '.dsh', 'sessions')

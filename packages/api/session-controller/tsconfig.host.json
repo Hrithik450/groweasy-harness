@@ -114,6 +114,9 @@
       "path": "../../workspace/workspace"
     },
     {
+      "path": "../../util/home-paths"
+    },
+    {
       "path": "../../session/working-directory"
     }
   ]

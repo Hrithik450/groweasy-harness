@@ -42,6 +42,9 @@
       "path": "../../util/deque"
     },
     {
+      "path": "../../util/home-paths"
+    },
+    {
       "path": "../../util/timeout"
     }
   ]

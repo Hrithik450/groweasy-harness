@@ -11,12 +11,14 @@ import {
   canonicalizeWatchPath,
   defaultAgentsHome,
   defaultDshHome,
+  defaultWorkspacesRoot,
   dshCachePath,
   dshHomeDisplay,
   dshHomePath,
   expandHomePath,
   resolveAgentsHome,
   resolveDshHome,
+  resolveWorkspacesRoot,
 } from '@deepseek-ai/dsh-home-paths'
 
 afterEach(() => {
@@ -112,6 +114,12 @@ describe('dsh path helpers', () => {
     } finally {
       vi.unstubAllEnvs()
     }
+  })
+
+  it('resolves workspaces root with environment override or default', () => {
+    expect(resolveWorkspacesRoot({ DSH_WORKSPACES_ROOT: '/custom/workspaces' })).toBe(resolve('/custom/workspaces'))
+    expect(resolveWorkspacesRoot({ DSH_WORKSPACES_ROOT: '   ' })).toBe(defaultWorkspacesRoot())
+    expect(resolveWorkspacesRoot({})).toBe(defaultWorkspacesRoot())
   })
 
   it('canonicalizes a watcher ancestor while preserving a missing suffix', async () => {

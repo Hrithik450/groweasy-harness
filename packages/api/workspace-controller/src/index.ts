@@ -1,8 +1,8 @@
 /** Host Workspace Remote owner: explicit commands and reconnect-safe state. */
 
 import { mkdirSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { resolveWorkspacesRoot } from '@deepseek-ai/dsh-home-paths'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
@@ -94,7 +94,7 @@ export class WorkspaceController extends TypertRemoteService {
   async create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
     const userId = this.ctx.invocation?.peer?.userId
     if (userId) {
-      const root = process.env.DSH_WORKSPACES_ROOT || (process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv/workspaces'))
+      const root = resolveWorkspacesRoot()
       const userDir = join(root, userId)
       const tmpDir = join(userDir, 'tmp')
       const dshPath = join(userDir, '.dsh')
@@ -119,7 +119,7 @@ export class WorkspaceController extends TypertRemoteService {
   async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue | undefined> {
     const userId = this.ctx.invocation?.peer?.userId
     if (userId) {
-      const root = process.env.DSH_WORKSPACES_ROOT || (process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv/workspaces'))
+      const root = resolveWorkspacesRoot()
       const userDir = join(root, userId)
       const existing = this.ctx.workspaceRegistry.list().find(w => w.path === userDir || w.path.startsWith(userDir + '/'))
       if (existing) return { workspace: workspaceView(existing) }
@@ -236,7 +236,7 @@ export class WorkspaceController extends TypertRemoteService {
   async *follow(signal: AbortSignal): AsyncIterable<WorkspaceFollowFrame> {
     const userId = this.ctx.invocation?.peer?.userId
     if (userId) {
-      const root = process.env.DSH_WORKSPACES_ROOT || (process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv/workspaces'))
+      const root = resolveWorkspacesRoot()
       const userDir = join(root, userId)
       const allWorkspaces = this.ctx.workspaceRegistry.list()
       const userWorkspaces = allWorkspaces.filter(w => w.path === userDir || w.path.startsWith(userDir + '/'))
@@ -254,7 +254,7 @@ export class WorkspaceController extends TypertRemoteService {
     const visible = (workspaceId: WorkspaceId): boolean => {
       const ws = this.ctx.workspaceRegistry.get(workspaceId)
       if (userId && ws) {
-        const root = process.env.DSH_WORKSPACES_ROOT || (process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv/workspaces'))
+        const root = resolveWorkspacesRoot()
         const userDir = join(root, userId)
         return ws.path === userDir || ws.path.startsWith(userDir + '/')
       }

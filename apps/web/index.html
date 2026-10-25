@@ -4,9 +4,39 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" media="(prefers-color-scheme: light)" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="/favicon-dark.svg"
+      media="(prefers-color-scheme: dark)"
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="/favicon.svg"
+      media="(prefers-color-scheme: light)"
+    />
     <title>Harness Local Build</title>
+    <script>
+      globalThis.__DSH_WEB__ = true;
+      try {
+        if (!/(?:^|;\s*)dsh-user-id=([0-9a-fA-F-]+)/.test(document.cookie)) {
+          var stored = localStorage.getItem("dsh.user.id.v7");
+          var uid =
+            stored && /^[0-9a-fA-F-]+$/.test(stored)
+              ? stored
+              : crypto.randomUUID
+                ? crypto.randomUUID()
+                : "0192a76f-" +
+                  Math.random().toString(16).slice(2, 6) +
+                  "-7000-8000-" +
+                  Math.random().toString(16).slice(2, 14);
+          document.cookie =
+            "dsh-user-id=" + uid + "; Path=/; Max-Age=315360000; SameSite=Lax";
+          localStorage.setItem("dsh.user.id.v7", uid);
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

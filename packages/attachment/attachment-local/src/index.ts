@@ -21,7 +21,7 @@ import type {
   VideoAttachmentLimits,
   VideoAttachmentRef,
 } from '@deepseek-ai/dsh-attachment'
-import { dshCachePath, resolveDshHome } from '@deepseek-ai/dsh-home-paths'
+import { dshCachePath, resolveDshHome, resolveWorkspacesRoot } from '@deepseek-ai/dsh-home-paths'
 import type { NormalizationPolicy } from './normalization.ts'
 import { CompressionLimiter, compressionFailure } from './compression-limiter.ts'
 import { commitPreparedImageFile, normalizedImagePath, prepareImageFile, readImageFile, validateImageFile } from './store.ts'
@@ -235,24 +235,22 @@ export class LocalAttachmentStore extends AttachmentStore {
   private resolveTenantRoot(): string | undefined {
     if (process.env.VITEST) return undefined
     const userId = (this.ctx as { invocation?: { peer?: { userId?: string } } }).invocation?.peer?.userId
-    const workspacesRoot = process.env.DSH_WORKSPACES_ROOT || '/srv/workspaces'
+    const workspacesRoot = resolveWorkspacesRoot()
     if (userId) {
       const userDir = join(workspacesRoot, userId, '.dsh', 'attachments', 'v1')
       mkdirSync(userDir, { recursive: true })
       return userDir
     }
     const targetDir = process.cwd()
-    const customRoot = process.env.DSH_WORKSPACES_ROOT
-    const roots = customRoot
-      ? [resolve(customRoot)]
-      : ['/srv/workspaces']
+    const roots = [workspacesRoot]
     for (const root of roots) {
       const absRoot = resolve(root)
       const rel = relative(absRoot, targetDir)
       if (!rel.startsWith('..') && !isAbsolute(rel) && rel !== '') {
         const parts = rel.split(sep).filter(Boolean)
-        if (parts.length > 0) {
-          const userDir = join(absRoot, parts[0]!, '.dsh', 'attachments', 'v1')
+        const user = parts[0]
+        if (user) {
+          const userDir = join(absRoot, user, '.dsh', 'attachments', 'v1')
           mkdirSync(userDir, { recursive: true })
           return userDir
         }
@@ -275,10 +273,7 @@ export class LocalAttachmentStore extends AttachmentStore {
 
       if (process.env.VITEST) return primary
 
-      const customRoot = process.env.DSH_WORKSPACES_ROOT
-      const roots = customRoot
-        ? [resolve(customRoot)]
-        : ['/srv/workspaces']
+      const roots = [resolveWorkspacesRoot()]
       for (const root of roots) {
         try {
           if (existsSync(root)) {

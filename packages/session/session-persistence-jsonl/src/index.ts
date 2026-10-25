@@ -16,6 +16,7 @@ import {
 import { existsSync, readdirSync, type Dirent } from 'node:fs'
 import { open, mkdir, readdir, realpath, link, rm, stat, truncate } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
+import { resolveWorkspacesRoot } from '@deepseek-ai/dsh-home-paths'
 import { performance } from 'node:perf_hooks'
 import { scheduler } from 'node:timers/promises'
 import { createHash, randomBytes } from 'node:crypto'
@@ -1679,10 +1680,9 @@ class JsonlSessionPersistence extends SessionPersistence {
       if (!isENOENT(error)) throw error
     }
 
-    const customRoot = process.env.DSH_WORKSPACES_ROOT
-    const roots = customRoot
-      ? [resolve(customRoot)]
-      : (process.env.VITEST ? [] : ['/srv/workspaces'])
+    const roots = process.env.VITEST
+      ? (process.env.DSH_WORKSPACES_ROOT ? [resolve(process.env.DSH_WORKSPACES_ROOT)] : [])
+      : [resolveWorkspacesRoot()]
     for (const root of roots) {
       signal?.throwIfAborted()
       try {

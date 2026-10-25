@@ -23,6 +23,7 @@
     { "path": "../../typert/protocol" },
     { "path": "../remote-access/tsconfig.host.json" },
     { "path": "../../util/deque" },
+    { "path": "../../util/home-paths" },
     { "path": "../../util/native-command" },
     { "path": "../../workspace/workspace" }
   ]

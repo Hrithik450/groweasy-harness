@@ -8,6 +8,35 @@ import { opendir, realpath } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 
+/** Environment variable that overrides the tenant workspaces root directory. */
+export const DSH_WORKSPACES_ROOT_ENV = 'DSH_WORKSPACES_ROOT'
+
+/**
+ * Resolve the platform-default tenant workspaces root.
+ *
+ * Linux production uses `/srv/workspaces`; all other platforms fall back to
+ * `~/srv/workspaces` so development and macOS CI work without elevated
+ * filesystem access. Set `DSH_WORKSPACES_ROOT` to override on any platform.
+ * @returns the absolute default workspaces root path for the current platform.
+ */
+export function defaultWorkspacesRoot(): string {
+  return process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv', 'workspaces')
+}
+
+/**
+ * Resolve the active tenant workspaces root.
+ *
+ * Precedence, highest first: `$DSH_WORKSPACES_ROOT`, then the platform
+ * default. An empty or whitespace-only `$DSH_WORKSPACES_ROOT` is treated as
+ * unset.
+ * @param env - environment mapping used to read `DSH_WORKSPACES_ROOT`; defaults to `process.env`.
+ * @returns the normalized absolute workspaces root path.
+ */
+export function resolveWorkspacesRoot(env: Record<string, string | undefined> = process.env): string {
+  const fromEnv = env[DSH_WORKSPACES_ROOT_ENV]
+  return resolve(fromEnv !== undefined && fromEnv.trim().length > 0 ? fromEnv : defaultWorkspacesRoot())
+}
+
 /** Directory name for the default DeepSeek Harness home under the OS home. */
 export const DSH_HOME_DIR_NAME = '.dsh'
 
