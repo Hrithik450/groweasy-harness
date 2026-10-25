@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+.pnpm-store
+.env
+.env.*
+dist
+*.log
+coverage
+.cache
+.sessions
+.storages
+tmp
+website/.vitepress/dist
+website/.vitepress/cache

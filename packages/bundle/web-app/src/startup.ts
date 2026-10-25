@@ -92,7 +92,7 @@ export function apply(ctx: Context): void {
   const program = webCommand()
   program.action(() => {
     const options = program.opts<WebOptions>()
-    if (options.host !== undefined && isWildcardHost(options.host)) {
+    if (options.host !== undefined && isWildcardHost(options.host) && process.env.DSH_ALLOW_WILDCARD !== '1') {
       program.error(`error: --host ${options.host} is an unspecified (wildcard) address, which is not supported: binding every interface would expose remote code execution to the network; bind one concrete IPv4 or IPv6 address instead`)
     }
     if (options.port !== undefined && !/^\d+$/.test(options.port)) {

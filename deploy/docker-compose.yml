@@ -1,0 +1,16 @@
+services:
+  web:
+    image: ghcr.io/hrithik450/groweasy-harness:latest
+    container_name: harness-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - DSH_ALLOW_WILDCARD=1
+      - NEXT_PUBLIC_APP_URL=https://harness.mhrithik.com
