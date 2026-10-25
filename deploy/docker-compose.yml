@@ -22,3 +22,16 @@ services:
       - DSH_ALLOW_WILDCARD=1
       - DSH_WORKSPACES_ROOT=/srv/workspaces
       - NEXT_PUBLIC_APP_URL=https://harness.mhrithik.com
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/.docker/config.json:/config.json:ro
+    environment:
+      - DOCKER_API_VERSION=1.44
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=60
+      - WATCHTOWER_INCLUDE_RESTARTING=true
