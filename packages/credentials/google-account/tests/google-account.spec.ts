@@ -98,8 +98,9 @@ describe('GoogleAccount & UUIDv7 Multi-Tenant Provisioning', () => {
       expect(existsSync(provisioned.sessionsPath)).toBe(true)
       expect(existsSync(provisioned.attachmentsPath)).toBe(true)
       expect(existsSync(provisioned.defaultSessionPath)).toBe(true)
-      // Workspace root remains pristine without stray tmp symlinks
-      expect(existsSync(join(provisioned.workspacePath, 'tmp'))).toBe(false)
+      // User root hosts .dsh sessions and attachments directly without intermediate sub-workspaces
+      expect(provisioned.workspacePath).toBe(provisioned.userRoot)
+      expect(provisioned.dshPath).toBe(join(provisioned.userRoot, '.dsh'))
     })
   })
 

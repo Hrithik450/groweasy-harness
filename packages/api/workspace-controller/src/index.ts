@@ -1,6 +1,5 @@
 /** Host Workspace Remote owner: explicit commands and reconnect-safe state. */
 
-import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -94,16 +93,16 @@ export class WorkspaceController extends TypertRemoteService {
   @Remote('create')
   async create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
     const userId = this.ctx.invocation?.peer?.userId
-    if (userId && !request.path.includes(userId)) {
+    if (userId) {
       const root = process.env.DSH_WORKSPACES_ROOT || (process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv/workspaces'))
       const userDir = join(root, userId)
-      const wsId = randomUUID()
-      const wsPath = join(userDir, wsId)
       const tmpDir = join(userDir, 'tmp')
-      const dshPath = join(wsPath, '.dsh', 'sessions')
+      const dshPath = join(userDir, '.dsh')
+      mkdirSync(userDir, { recursive: true })
       mkdirSync(tmpDir, { recursive: true })
-      mkdirSync(dshPath, { recursive: true })
-      return await this.commands.create({ path: wsPath })
+      mkdirSync(join(dshPath, 'sessions'), { recursive: true })
+      mkdirSync(join(dshPath, 'attachments'), { recursive: true })
+      return await this.commands.create({ path: userDir })
     }
     return await this.commands.create(request)
   }
@@ -120,17 +119,17 @@ export class WorkspaceController extends TypertRemoteService {
   async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue | undefined> {
     const userId = this.ctx.invocation?.peer?.userId
     if (userId) {
-      const existing = this.ctx.workspaceRegistry.list().find(w => w.path.includes(userId))
-      if (existing) return { workspace: workspaceView(existing) }
       const root = process.env.DSH_WORKSPACES_ROOT || (process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv/workspaces'))
       const userDir = join(root, userId)
-      const wsId = randomUUID()
-      const wsPath = join(userDir, wsId)
+      const existing = this.ctx.workspaceRegistry.list().find(w => w.path === userDir || w.path.startsWith(userDir + '/'))
+      if (existing) return { workspace: workspaceView(existing) }
       const tmpDir = join(userDir, 'tmp')
-      const dshPath = join(wsPath, '.dsh', 'sessions')
+      const dshPath = join(userDir, '.dsh')
+      mkdirSync(userDir, { recursive: true })
       mkdirSync(tmpDir, { recursive: true })
-      mkdirSync(dshPath, { recursive: true })
-      const ws = await this.ctx.workspaceRegistry.create(wsPath, wsId)
+      mkdirSync(join(dshPath, 'sessions'), { recursive: true })
+      mkdirSync(join(dshPath, 'attachments'), { recursive: true })
+      const ws = await this.ctx.workspaceRegistry.create(userDir, 'Workspace')
       return { workspace: workspaceView(ws) }
     }
     const workspace = await this.ctx.workspaceRegistry.initializeDefault(async () => {
@@ -237,25 +236,27 @@ export class WorkspaceController extends TypertRemoteService {
   async *follow(signal: AbortSignal): AsyncIterable<WorkspaceFollowFrame> {
     const userId = this.ctx.invocation?.peer?.userId
     if (userId) {
+      const root = process.env.DSH_WORKSPACES_ROOT || (process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv/workspaces'))
+      const userDir = join(root, userId)
       const allWorkspaces = this.ctx.workspaceRegistry.list()
-      const userWorkspaces = allWorkspaces.filter(w => w.path.includes(userId))
+      const userWorkspaces = allWorkspaces.filter(w => w.path === userDir || w.path.startsWith(userDir + '/'))
       if (userWorkspaces.length === 0) {
-        const root = process.env.DSH_WORKSPACES_ROOT || (process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv/workspaces'))
-        const userDir = join(root, userId)
-        const wsId = randomUUID()
-        const wsPath = join(userDir, wsId)
         const tmpDir = join(userDir, 'tmp')
-        const dshPath = join(wsPath, '.dsh', 'sessions')
+        const dshPath = join(userDir, '.dsh')
+        mkdirSync(userDir, { recursive: true })
         mkdirSync(tmpDir, { recursive: true })
-        mkdirSync(dshPath, { recursive: true })
-        await this.ctx.workspaceRegistry.create(wsPath, wsId)
+        mkdirSync(join(dshPath, 'sessions'), { recursive: true })
+        mkdirSync(join(dshPath, 'attachments'), { recursive: true })
+        await this.ctx.workspaceRegistry.create(userDir, 'Workspace')
       }
     }
     const access = this.ctx.remoteAccess
     const visible = (workspaceId: WorkspaceId): boolean => {
       const ws = this.ctx.workspaceRegistry.get(workspaceId)
-      if (userId && ws && ws.path.includes('/srv/workspaces/')) {
-        return ws.path.includes('/srv/workspaces/' + userId)
+      if (userId && ws) {
+        const root = process.env.DSH_WORKSPACES_ROOT || (process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv/workspaces'))
+        const userDir = join(root, userId)
+        return ws.path === userDir || ws.path.startsWith(userDir + '/')
       }
       return access.allows({ kind: 'workspace', id: workspaceId })
     }

@@ -41,18 +41,17 @@ export function resolveWorkspacesRoot(): string {
 /**
  * Provision the complete multi-tenant filesystem hierarchy for a user.
  *
- * Structure:
+ * Pure user sessions & attachments structure:
  * <workspacesRoot>/
- * └── <user_uuidv7>/
+ * └── <user_id>/
  *     ├── tmp/
- *     └── <workspace_uuidv7>/
- *         └── .dsh/
- *             ├── attachments/
- *             └── sessions/
- *                 └── <session_uuidv7>/
+ *     └── .dsh/
+ *         ├── attachments/
+ *         └── sessions/
+ *             └── <session_uuidv7>/
  *
  * @param userId - User UUIDv7 (anonymous or authenticated)
- * @param existingWorkspaceId - Optional existing workspace ID to reuse
+ * @param existingWorkspaceId - Optional existing workspace ID to preserve compatibility
  */
 export function provisionUserWorkspace(
   userId: string,
@@ -62,9 +61,9 @@ export function provisionUserWorkspace(
   const userRoot = join(workspacesRoot, userId);
   const userTmp = join(userRoot, "tmp");
 
-  const workspaceId = existingWorkspaceId ?? uuidv7();
-  const workspacePath = join(userRoot, workspaceId);
-  const dshPath = join(workspacePath, ".dsh");
+  const workspaceId = existingWorkspaceId ?? userId;
+  const workspacePath = userRoot;
+  const dshPath = join(userRoot, ".dsh");
   const sessionsPath = join(dshPath, "sessions");
   const attachmentsPath = join(dshPath, "attachments");
 

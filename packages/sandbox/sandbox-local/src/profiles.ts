@@ -18,8 +18,10 @@ import type { SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
 export function bwrapProfileArgs(policy: SandboxPolicy): string[] {
   const args = ['--ro-bind', '/', '/', '--dev', '/dev', '--unshare-pid', '--proc', '/proc', '--die-with-parent']
   if (policy.mode === 'workspace-write') {
-    const userTmp = join(dirname(policy.workspaceRoot), 'tmp')
-    if (userTmp !== '/tmp' && existsSync(userTmp)) {
+    const wsTmp = join(policy.workspaceRoot, 'tmp')
+    const parentTmp = join(dirname(policy.workspaceRoot), 'tmp')
+    const userTmp = existsSync(wsTmp) ? wsTmp : (existsSync(parentTmp) ? parentTmp : undefined)
+    if (userTmp && userTmp !== '/tmp') {
       args.push('--bind', userTmp, '/tmp')
       args.push('--bind', userTmp, userTmp)
     } else {
@@ -39,8 +41,10 @@ export function landlockProfileArgs(policy: SandboxPolicy): string[] {
   const readWrite = ['/dev/null']
   if (policy.mode === 'workspace-write') {
     readWrite.push('/tmp', policy.workspaceRoot)
-    const userTmp = join(dirname(policy.workspaceRoot), 'tmp')
-    if (userTmp !== '/tmp' && existsSync(userTmp)) {
+    const wsTmp = join(policy.workspaceRoot, 'tmp')
+    const parentTmp = join(dirname(policy.workspaceRoot), 'tmp')
+    const userTmp = existsSync(wsTmp) ? wsTmp : (existsSync(parentTmp) ? parentTmp : undefined)
+    if (userTmp && userTmp !== '/tmp') {
       readWrite.push(userTmp)
     }
   }
