@@ -107,7 +107,8 @@ export function ConversationContent(props: ConversationContentProps) {
     ? undefined
     : workspaceDisplayTitle(storedChipTitle, t('workspace.defaultName'))
 
-  const hideWorkspaceChip = Boolean(props.hideWorkspaceChip)
+  const isWeb = typeof globalThis !== 'undefined' && Boolean((globalThis as { __DSH_WEB__?: boolean }).__DSH_WEB__)
+  const hideWorkspaceChip = props.hideWorkspaceChip ?? isWeb
 
   const heroWorkspaceRow = (
     <div className={css.heroWorkspaceRow}>

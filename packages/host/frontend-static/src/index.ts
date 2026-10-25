@@ -129,7 +129,7 @@ export function apply(ctx: Context, config: Config): void {
   // Insert after all index transforms so the base precedes every resource reference.
   const renderIndex = async (): Promise<string> => {
     const body = ctx.webServer.renderIndex(await readFile(distIndex, 'utf8'))
-    return body.replace(/<head(?:\s[^>]*)?>/i, open => `${open}<base href="./">`)
+    return body.replace(/<head(?:\s[^>]*)?>/i, open => `${open}<base href="./"><script>globalThis.__DSH_WEB__=true;</script>`)
   }
   ctx.effect(() => ctx.webServer.registerFallback(async (req, res) => {
     // Non-GET/HEAD without a matching named route is 405 (fallback-only

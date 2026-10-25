@@ -238,7 +238,12 @@ export function WorkspacePicker({
   useDirectoryFlow,
   renderSlot,
   t,
+  hideWorkspaceActions,
 }: WorkspacePickerProps) {
+  const isWeb = typeof globalThis !== 'undefined' && Boolean((globalThis as { __DSH_WEB__?: boolean }).__DSH_WEB__)
+  if (hideWorkspaceActions || isWeb) {
+    return null
+  }
   return (
     <WorkspacePickFlow
       t={t}

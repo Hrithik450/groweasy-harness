@@ -927,8 +927,10 @@ export function WorkspaceBrowser({
   setDirectoryBusy,
   renderSlot,
   t,
-  hideWorkspaceActions = false,
+  hideWorkspaceActions: propsHideWorkspaceActions,
 }: WorkspaceBrowserProps) {
+  const isWeb = typeof globalThis !== 'undefined' && Boolean((globalThis as { __DSH_WEB__?: boolean }).__DSH_WEB__)
+  const hideWorkspaceActions = propsHideWorkspaceActions ?? isWeb
   const home = useHostInfo(info => info.home)
   const shortcuts = useShortcuts(rows => rows)
   const searchShortcut = shortcuts.find(row => row.id === 'session.search')
