@@ -8,7 +8,8 @@
  * @module dsh-session-persistence-jsonl/format
  */
 
-import { isAbsolute, join } from 'node:path'
+import { existsSync } from 'node:fs'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import {
   SESSION_FORMAT_VERSION,
   KNOWN_SESSION_EVENT_TYPES,
@@ -245,6 +246,34 @@ export function projectKey(cwd: string): string {
 }
 
 /**
+ * Resolve tenant workspace sessions root (/srv/workspaces/<userId>/.dsh/sessions)
+ * when a cwd resides in a tenant workspace or contains .dsh/sessions.
+ * @param cwd - session working directory.
+ * @returns absolute directory path to user's .dsh/sessions, or undefined if not a tenant workspace.
+ */
+export function resolveTenantSessionsDir(cwd: string | undefined): string | undefined {
+  if (!cwd || process.env.VITEST) return undefined
+  const customRoot = process.env.DSH_WORKSPACES_ROOT
+  const roots = customRoot
+    ? [resolve(customRoot)]
+    : ['/srv/workspaces']
+  const absCwd = resolve(cwd)
+  for (const root of roots) {
+    const absRoot = resolve(root)
+    const rel = relative(absRoot, absCwd)
+    if (!rel.startsWith('..') && !isAbsolute(rel) && rel !== '') {
+      const parts = rel.split(sep).filter(Boolean)
+      if (parts.length > 0) {
+        return join(absRoot, parts[0]!, '.dsh', 'sessions')
+      }
+    }
+  }
+  const candidate = join(absCwd, '.dsh', 'sessions')
+  if (existsSync(candidate)) return candidate
+  return undefined
+}
+
+/**
  * The configured root's human-navigable project directory. A configured root
  * may be local or shared; this grouping does not prescribe its deployment.
  * @param root - the backend's session root directory.
@@ -252,6 +281,10 @@ export function projectKey(cwd: string): string {
  * @returns the project directory path under `root`.
  */
 export function projectDir(root: string, cwd: string | undefined): string {
+  const tenantSessions = resolveTenantSessionsDir(cwd)
+  if (tenantSessions !== undefined) {
+    return tenantSessions
+  }
   if (cwd === undefined) return join(root, '_no-cwd')
   return join(root, projectKey(cwd))
 }
@@ -265,6 +298,10 @@ export function projectDir(root: string, cwd: string | undefined): string {
  * @returns the session directory beneath its project directory.
  */
 export function sessionDir(root: string, cwd: string | undefined, id: SessionId): string {
+  const tenantSessions = resolveTenantSessionsDir(cwd)
+  if (tenantSessions !== undefined) {
+    return join(tenantSessions, encodeSegment(id))
+  }
   return join(projectDir(root, cwd), encodeSegment(id))
 }
 

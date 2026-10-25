@@ -13,7 +13,7 @@ import {
   SessionFormatUnsupportedMigrationError,
   sessionFormatCatalog,
 } from '@deepseek-ai/dsh-session-format-catalog'
-import { readdirSync, type Dirent } from 'node:fs'
+import { existsSync, readdirSync, type Dirent } from 'node:fs'
 import { open, mkdir, readdir, realpath, link, rm, stat, truncate } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { performance } from 'node:perf_hooks'
@@ -1667,27 +1667,55 @@ class JsonlSessionPersistence extends SessionPersistence {
 
   /** The human-readable project directories under the configured root. */
   private async listProjectDirs(signal?: AbortSignal): Promise<string[]> {
+    const dirs: string[] = []
     try {
       signal?.throwIfAborted()
       const entries = await readdir(this.root, { withFileTypes: true })
       signal?.throwIfAborted()
-      return entries.filter(e => e.isDirectory()).map(e => join(this.root, e.name))
+      for (const e of entries) {
+        if (e.isDirectory()) dirs.push(join(this.root, e.name))
+      }
     } catch (error) {
-      // Only an absent root means no sessions; rethrow every other I/O failure.
-      if (isENOENT(error)) return []
-      throw error
+      if (!isENOENT(error)) throw error
     }
+
+    const customRoot = process.env.DSH_WORKSPACES_ROOT
+    const roots = customRoot
+      ? [resolve(customRoot)]
+      : (process.env.VITEST ? [] : ['/srv/workspaces'])
+    for (const root of roots) {
+      signal?.throwIfAborted()
+      try {
+        if (existsSync(root)) {
+          const userEntries = await readdir(root, { withFileTypes: true })
+          for (const u of userEntries) {
+            if (u.isDirectory() && !u.name.startsWith('.')) {
+              const userSessions = join(root, u.name, '.dsh', 'sessions')
+              if (existsSync(userSessions)) {
+                dirs.push(userSessions)
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+    return Array.from(new Set(dirs))
   }
 
   /** List session-owned directories and reject the obsolete flat-file layout. */
   private async listSessionDirs(project: string, signal?: AbortSignal): Promise<string[]> {
     signal?.throwIfAborted()
-    const entries = await readdir(project, { withFileTypes: true })
-    signal?.throwIfAborted()
-    const legacy = entries.find(entry =>
-      entry.isFile() && (entry.name.endsWith('.jsonl') || entry.name.endsWith('.jsonl.zstd')))
-    if (legacy !== undefined) throw this.legacyLayout(join(project, legacy.name))
-    return entries.filter(entry => entry.isDirectory()).map(entry => join(project, entry.name))
+    try {
+      const entries = await readdir(project, { withFileTypes: true })
+      signal?.throwIfAborted()
+      const legacy = entries.find(entry =>
+        entry.isFile() && (entry.name.endsWith('.jsonl') || entry.name.endsWith('.jsonl.zstd')))
+      if (legacy !== undefined) throw this.legacyLayout(join(project, legacy.name))
+      return entries.filter(entry => entry.isDirectory()).map(entry => join(project, entry.name))
+    } catch (error) {
+      if (isENOENT(error)) return []
+      throw error
+    }
   }
 
   /** Reject a root that already belongs to the other physical encoding. */

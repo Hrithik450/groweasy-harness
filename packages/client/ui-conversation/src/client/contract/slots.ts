@@ -407,6 +407,8 @@ export interface ConversationInjected {
   selectWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /** Session-addressed composer block source, or the stable absent source. */
   hooks: { composerBlock: ObservableSnapshot<ComposerBlock | undefined> }
+  /** Suppress workspace selection chip and directory flows (for multi-tenant web). */
+  hideWorkspaceChip?: boolean | undefined
 }
 
 /** Business callbacks injected into the strict Session body. */

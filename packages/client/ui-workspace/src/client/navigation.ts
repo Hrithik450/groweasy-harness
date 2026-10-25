@@ -331,7 +331,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const recent = workspace.phase === 'ready' && sessions.phase === 'ready'
       ? recentWorkspace(workspace.items, sessions.byId)
       : undefined
-    const target = workspaceId ?? currentWorkspaceId ?? recent
+    const target = workspaceId ?? currentWorkspaceId ?? recent ?? workspace.items[0]?.workspaceId
     if (target === undefined) {
       if (initializeDraft) {
         this.notify({ kind: 'createFailed', message: this.ctx.locale.bind('workspace')('draft.workspaceRequired') })
@@ -463,6 +463,9 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       const prepared = await this.initializeDefaultWorkspace(navigation)
       if (navigation.aborted) return
       target = prepared?.workspaceId
+    }
+    if (target === undefined && workspaces.items.length > 0) {
+      target = workspaces.items[0]?.workspaceId
     }
     if (sessionId === undefined && target !== undefined) sessionId = await this.connectWorkspace(target)
     if (sessionId !== undefined && !navigation.aborted) {

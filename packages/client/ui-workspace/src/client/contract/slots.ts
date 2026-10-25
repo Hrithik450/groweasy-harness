@@ -272,6 +272,8 @@ export type WorkspaceBrowserInjected = {
   unarchiveSession: (sessionId: SessionId) => Promise<void>
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
   createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  /** Suppress workspace actions, directory flows, and workspace groupings (for multi-tenant web). */
+  hideWorkspaceActions?: boolean | undefined
 }
 
 /** The browser's declared viewing store handle, shared with the row actions that write view state. */
@@ -487,6 +489,8 @@ export type WorkspaceBrowserProps =
 export type WorkspacePickerInjected = DirectoryPickingInjected & {
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
   createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  /** Suppress workspace actions, directory flows, and workspace groupings (for multi-tenant web). */
+  hideWorkspaceActions?: boolean | undefined
 }
 
 /**

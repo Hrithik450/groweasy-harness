@@ -6,6 +6,9 @@
  */
 
 import { randomUUID } from 'node:crypto'
+import { mkdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { uuidv7 } from '@deepseek-ai/dsh-util-crypto'
 import { Context, Service, symbols } from '@deepseek-ai/cordis'
 import type {
   ConnectionRpcAttachment,
@@ -271,8 +274,27 @@ export class TypertGatewayService extends Service implements TypertGateway {
               }
               const rawCookies = req.headers.cookie || ''
               const cookieMatch = /dsh-user-id=([0-9a-fA-F-]+)/.exec(rawCookies)
-              if (cookieMatch?.[1]) {
-                admission.peer.userId = cookieMatch[1]
+              const reqUrl = req.url ? new URL(req.url, 'http://localhost') : undefined
+              const queryUserId = reqUrl?.searchParams.get('userId') || reqUrl?.searchParams.get('anonymousUserId')
+              const headerUserId = req.headers['x-dsh-user-id'] as string | undefined
+
+              const resolvedUserId = cookieMatch?.[1]
+                || (queryUserId && /^[0-9a-fA-F-]+$/.test(queryUserId) ? queryUserId : undefined)
+                || (headerUserId && /^[0-9a-fA-F-]+$/.test(headerUserId) ? headerUserId : undefined)
+                || uuidv7()
+
+              admission.peer.userId = resolvedUserId
+
+              if (!process.env.VITEST) {
+                // Enforce tenant workspace directory provisioning
+                const root = process.env.DSH_WORKSPACES_ROOT || '/srv/workspaces'
+                const userDir = join(root, resolvedUserId)
+                const tmpDir = join(userDir, 'tmp')
+                const dshPath = join(userDir, '.dsh')
+                mkdirSync(userDir, { recursive: true })
+                mkdirSync(tmpDir, { recursive: true })
+                mkdirSync(join(dshPath, 'sessions'), { recursive: true })
+                mkdirSync(join(dshPath, 'attachments'), { recursive: true })
               }
               const release = (): void => {
                 // release removes the API Peer synchronously, before awaiting

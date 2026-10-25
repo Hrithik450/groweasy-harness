@@ -37,6 +37,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 // Type-only: pulls the Session root standard-hook merge.
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+import z from '@deepseek-ai/schemastery'
 import {
   type ArchiveSessionInjected, type ForkSessionInjected, menuOpenStateFactory, type PinSessionInjected,
   type SessionArchiveConfirmInjected, type SessionArchiveConfirmRequest,
@@ -45,7 +46,7 @@ import {
 } from './contract/slots.ts'
 import { createWorkspaceShortcutControls, installWorkspaceShortcuts } from './shortcuts.ts'
 import { UiWorkspaceService } from './navigation.ts'
-import { createWorkspaceViewStore } from './stores.ts'
+import { createWorkspaceViewStore, type SessionGroupBy } from './stores.ts'
 import { WorkspaceBrowser } from './rows/WorkspaceBrowser.tsx'
 import { ArchiveSessionMenuItem, ArchiveSessionRowButton, SessionArchiveConfirmDialog } from './session-actions/ArchiveSession.tsx'
 import { derive } from './session-actions/derived.ts'
@@ -103,19 +104,32 @@ export const inject = [
   'slots', 'sessions', 'workspaces', 'locale', 'remote', 'remote.directoryPicker', 'layout', 'shortcuts', 'remoteAccess',
 ]
 
+/** Runtime configuration for the Workspace browser and picker. */
+export interface Config {
+  defaultGroupBy?: SessionGroupBy
+  hideWorkspaceActions?: boolean
+}
+
+/** Validated runtime configuration for the Workspace browser and picker. */
+export const Config: z<Config> = z.object({
+  defaultGroupBy: z.union([z.const('workspace'), z.const('workspace-tree'), z.const('flat')]).default('workspace'),
+  hideWorkspaceActions: z.boolean().default(false),
+})
+
 /**
  * Register the browser and picker once their slot declarations are on the
  * ledger. Inject factories return plain callbacks; data reads use the
  * framework's global hooks.
  * @param ctx - client root context.
+ * @param config - workspace UI configuration.
  */
-export function apply(ctx: Context): void {
+export function apply(ctx: Context, config: Config = Config({})): void {
   const sessions = ctx.get('sessions') as ISessions
   const workspaces = ctx.get('workspaces') as IWorkspaces
   // One viewing-store instance, created here as ui-layout does for its layout
   // store: the browser declares the handle, and the UiWorkspace service writes
   // view order through the same instance the renderer hands the browser.
-  const viewHandle = createWorkspaceViewStore()
+  const viewHandle = createWorkspaceViewStore(config.defaultGroupBy)
   const viewInstance = viewHandle.create()
   const viewStore: typeof viewHandle = { ...viewHandle, create: () => viewInstance }
   const rowToast = createSnapshotStore<RowToastState | null>(null)
@@ -262,6 +276,7 @@ export function apply(ctx: Context): void {
     dismissToast: () => { rowToast.set(null) },
   })
   const browserInjected = (): WorkspaceBrowserInjected => ({
+    hideWorkspaceActions: config.hideWorkspaceActions,
     // Explicit group actions keep their target; unscoped New Session inherits
     // the current Session Workspace before the recent-Workspace fallback.
     startSession: (workspaceId, options) => { uiWorkspace.startSession(workspaceId, options) },
@@ -284,6 +299,7 @@ export function apply(ctx: Context): void {
     hooks: { directoryFlow: browserFlowSource, hostInfo, workspaceShortcuts: shortcutControls.state, shortcuts: ctx.shortcuts.catalog },
   })
   const pickerInjected = (): WorkspacePickerInjected => ({
+    hideWorkspaceActions: config.hideWorkspaceActions,
     createWorkspace: input => workspaces.create(input),
     hooks: { directoryFlow: pickerFlowSource },
   })

@@ -21,7 +21,7 @@ import {
   IconChevronsUpDownOutlineRegular, IconClockOutlineRegular, IconCloseFillRegular,
   IconFlatListOutlineRegular, IconFolderCloseRegular, IconProjectAddOutlineRegular,
   IconQueueOutlineRegular, IconSearchOutlineRegular, IconSlidersTwoOutlineRegular,
-  IconWorkspaceTreeOutlineRegular, Menu, Modal, Tooltip,
+  IconWorkspaceTreeOutlineRegular, Menu, Modal, Tooltip, type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   SessionListState, SessionSearchResultItem,
@@ -139,7 +139,7 @@ function useNativeDragAcceptance(active: boolean): void {
 }
 
 /** Grouping, ordering, and archived-filter menu; own open state so it resets with the wide chrome. */
-function ViewOptionsMenu({ groupBy, orderBy, archivedFilter, onGroupPick, onOrderPick, onArchivedFilterPick, t }: {
+function ViewOptionsMenu({ groupBy, orderBy, archivedFilter, onGroupPick, onOrderPick, onArchivedFilterPick, t, hideWorkspaceActions = false }: {
   groupBy: SessionGroupBy
   orderBy: SessionOrderBy
   archivedFilter: ArchivedFilter
@@ -147,27 +147,31 @@ function ViewOptionsMenu({ groupBy, orderBy, archivedFilter, onGroupPick, onOrde
   onOrderPick: (mode: SessionOrderBy) => void
   onArchivedFilterPick: (filter: ArchivedFilter) => void
   t: WorkspaceBrowserProps['t']
+  hideWorkspaceActions?: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const items: MenuEntry[] = [
+    ...(!hideWorkspaceActions ? [
+      { type: 'label' as const, id: 'group-by', text: t('groupBy.label') },
+      { id: 'workspace', label: t('groupBy.workspace'), icon: <IconFolderCloseRegular /> },
+      { id: 'workspace-tree', label: t('groupBy.workspaceTree'), icon: <IconWorkspaceTreeOutlineRegular /> },
+      { id: 'flat', label: t('groupBy.flat'), icon: <IconFlatListOutlineRegular /> },
+      { type: 'separator' as const, id: 'order-by-separator' },
+    ] : []),
+    { type: 'label' as const, id: 'order-by', text: t('orderBy.label') },
+    { id: 'manual', label: t('orderBy.manual'), icon: <IconChevronsUpDownOutlineRegular /> },
+    { id: 'updated', label: t('orderBy.updated'), icon: <IconClockOutlineRegular /> },
+    { type: 'separator' as const, id: 'archived-filter-separator' },
+    { type: 'label' as const, id: 'filter-by', text: t('filterBy.label') },
+    { id: 'hide-archived', label: t('viewOptions.hideArchived'), icon: <IconArchiveOffOutlineRegular /> },
+    { id: 'show-archived', label: t('viewOptions.showArchived'), icon: <IconQueueOutlineRegular /> },
+    { id: 'only-archived', label: t('viewOptions.onlyArchived'), icon: <IconArchiveCheckOutlineRegular /> },
+  ]
   return (
     <Menu
       open={open}
       onClose={() => { setOpen(false) }}
-      items={[
-        { type: 'label' as const, id: 'group-by', text: t('groupBy.label') },
-        { id: 'workspace', label: t('groupBy.workspace'), icon: <IconFolderCloseRegular /> },
-        { id: 'workspace-tree', label: t('groupBy.workspaceTree'), icon: <IconWorkspaceTreeOutlineRegular /> },
-        { id: 'flat', label: t('groupBy.flat'), icon: <IconFlatListOutlineRegular /> },
-        { type: 'separator' as const, id: 'order-by-separator' },
-        { type: 'label' as const, id: 'order-by', text: t('orderBy.label') },
-        { id: 'manual', label: t('orderBy.manual'), icon: <IconChevronsUpDownOutlineRegular /> },
-        { id: 'updated', label: t('orderBy.updated'), icon: <IconClockOutlineRegular /> },
-        { type: 'separator' as const, id: 'archived-filter-separator' },
-        { type: 'label' as const, id: 'filter-by', text: t('filterBy.label') },
-        { id: 'hide-archived', label: t('viewOptions.hideArchived'), icon: <IconArchiveOffOutlineRegular /> },
-        { id: 'show-archived', label: t('viewOptions.showArchived'), icon: <IconQueueOutlineRegular /> },
-        { id: 'only-archived', label: t('viewOptions.onlyArchived'), icon: <IconArchiveCheckOutlineRegular /> },
-      ]}
+      items={items}
       selectedIds={[
         groupBy,
         orderBy,
@@ -923,6 +927,7 @@ export function WorkspaceBrowser({
   setDirectoryBusy,
   renderSlot,
   t,
+  hideWorkspaceActions = false,
 }: WorkspaceBrowserProps) {
   const home = useHostInfo(info => info.home)
   const shortcuts = useShortcuts(rows => rows)
@@ -949,9 +954,9 @@ export function WorkspaceBrowser({
   // Live occupancy of this surface's directory-flow hole (the same source the
   // flow reads): a composition without a picking affordance can add nothing.
   const directoryFlowOccupied = useDirectoryFlow(occupied => occupied)
-  const isDesktop = typeof globalThis !== 'undefined' && 'dshDesktop' in globalThis
-  const directoryFlowAvailable = isDesktop && directoryFlowOccupied
-  const groupBy = useStore(s => s.groupBy)
+  const directoryFlowAvailable = !hideWorkspaceActions && directoryFlowOccupied
+  const rawGroupBy = useStore(s => s.groupBy)
+  const groupBy = hideWorkspaceActions ? 'flat' : rawGroupBy
   const orderBy = useStore(s => s.orderBy)
   // Persisted view blobs written before the archived filter existed rehydrate
   // without the field; they read as the default hide-archived view.
@@ -1340,6 +1345,7 @@ export function WorkspaceBrowser({
               onOrderPick={(mode) => { actions.setOrderBy(mode, activeSessionOrders) }}
               onArchivedFilterPick={actions.setArchivedFilter}
               t={t}
+              hideWorkspaceActions={hideWorkspaceActions}
             />
           )}
           {/* Adding is the button's one action, so a composition with no

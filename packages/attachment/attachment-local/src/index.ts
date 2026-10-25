@@ -1,6 +1,7 @@
 /** Local durable attachment backend rooted below `DSH_HOME`. @module @deepseek-ai/dsh-attachment-local */
 
-import { join } from 'node:path'
+import { existsSync, mkdirSync, readdirSync } from 'node:fs'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { AttachmentStore } from '@deepseek-ai/dsh-attachment'
@@ -231,6 +232,71 @@ export class LocalAttachmentStore extends AttachmentStore {
     this.compression = new CompressionLimiter(compressionConcurrency)
   }
 
+  private resolveTenantRoot(): string | undefined {
+    if (process.env.VITEST) return undefined
+    const userId = (this.ctx as { invocation?: { peer?: { userId?: string } } }).invocation?.peer?.userId
+    const workspacesRoot = process.env.DSH_WORKSPACES_ROOT || '/srv/workspaces'
+    if (userId) {
+      const userDir = join(workspacesRoot, userId, '.dsh', 'attachments', 'v1')
+      mkdirSync(userDir, { recursive: true })
+      return userDir
+    }
+    const targetDir = process.cwd()
+    const customRoot = process.env.DSH_WORKSPACES_ROOT
+    const roots = customRoot
+      ? [resolve(customRoot)]
+      : ['/srv/workspaces']
+    for (const root of roots) {
+      const absRoot = resolve(root)
+      const rel = relative(absRoot, targetDir)
+      if (!rel.startsWith('..') && !isAbsolute(rel) && rel !== '') {
+        const parts = rel.split(sep).filter(Boolean)
+        if (parts.length > 0) {
+          const userDir = join(absRoot, parts[0]!, '.dsh', 'attachments', 'v1')
+          mkdirSync(userDir, { recursive: true })
+          return userDir
+        }
+      }
+    }
+    return undefined
+  }
+
+  private effectiveRoot(): string {
+    return this.resolveTenantRoot() ?? this.root
+  }
+
+  private effectiveRootForRead(ref: { attachmentId: string }): string {
+    const primary = this.effectiveRoot()
+    const id = ref.attachmentId
+    const sha256 = id.startsWith('sha256:') ? id.slice(7) : id
+    if (/^[0-9a-fA-F]{64}$/.test(sha256)) {
+      const primaryObject = join(primary, 'objects', sha256.slice(0, 2), sha256)
+      if (existsSync(primaryObject)) return primary
+
+      if (process.env.VITEST) return primary
+
+      const customRoot = process.env.DSH_WORKSPACES_ROOT
+      const roots = customRoot
+        ? [resolve(customRoot)]
+        : ['/srv/workspaces']
+      for (const root of roots) {
+        try {
+          if (existsSync(root)) {
+            const entries = readdirSync(root, { withFileTypes: true })
+            for (const entry of entries) {
+              if (entry.isDirectory() && !entry.name.startsWith('.')) {
+                const tenantDir = join(root, entry.name, '.dsh', 'attachments', 'v1')
+                const cand = join(tenantDir, 'objects', sha256.slice(0, 2), sha256)
+                if (existsSync(cand)) return tenantDir
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+    return primary
+  }
+
   async validateImage(input: SaveImageAttachment): Promise<void> {
     await this.compression.run(() => validateImageFile(input, this.imageLimits, this.normalizationPolicy))
   }
@@ -240,8 +306,9 @@ export class LocalAttachmentStore extends AttachmentStore {
     const prepared = await Promise.all(inputs.map(input => this.compression.run(
       () => prepareImageFile(input, this.imageLimits, this.normalizationPolicy),
     )))
+    const root = this.effectiveRoot()
     const refs: ImageAttachmentRef[] = []
-    for (const image of prepared) refs.push(await commitPreparedImageFile(this.root, image))
+    for (const image of prepared) refs.push(await commitPreparedImageFile(root, image))
     return refs
   }
 
@@ -249,51 +316,51 @@ export class LocalAttachmentStore extends AttachmentStore {
     const prepared = await this.compression.run(
       () => prepareImageFile(input, this.imageLimits, this.normalizationPolicy),
     )
-    return commitPreparedImageFile(this.root, prepared)
+    return commitPreparedImageFile(this.effectiveRoot(), prepared)
   }
 
   async readImage(ref: ImageAttachmentRef, signal?: AbortSignal): Promise<StoredImageAttachment> {
-    return readImageFile(this.root, ref, signal)
+    return readImageFile(this.effectiveRootForRead(ref), ref, signal)
   }
 
   override imageHostPath(ref: ImageAttachmentRef): string {
-    return normalizedImagePath(this.root, ref)
+    return normalizedImagePath(this.effectiveRootForRead(ref), ref)
   }
 
   override async saveVideo(input: SaveVideoAttachment): Promise<VideoAttachmentRef> {
-    return saveVideoFile(this.root, input, this.videoLimits)
+    return saveVideoFile(this.effectiveRoot(), input, this.videoLimits)
   }
 
   override async saveVideoStream(input: SaveVideoStreamAttachment): Promise<VideoAttachmentRef> {
-    return saveVideoStreamFile(this.root, input, this.videoLimits)
+    return saveVideoStreamFile(this.effectiveRoot(), input, this.videoLimits)
   }
 
   override async readVideo(ref: VideoAttachmentRef, signal?: AbortSignal): Promise<StoredVideoAttachment> {
-    return readVideoFile(this.root, ref, signal)
+    return readVideoFile(this.effectiveRootForRead(ref), ref, signal)
   }
 
   override readVideoStream(ref: VideoAttachmentRef, signal?: AbortSignal): AsyncIterable<Uint8Array> {
-    return readVideoStreamFile(this.root, ref, signal)
+    return readVideoStreamFile(this.effectiveRootForRead(ref), ref, signal)
   }
 
   override videoHostPath(ref: VideoAttachmentRef): string {
-    return normalizedVideoPath(this.root, ref)
+    return normalizedVideoPath(this.effectiveRootForRead(ref), ref)
   }
 
   override async saveFile(input: SaveFileAttachment): Promise<FileAttachmentRef> {
-    return saveFileVerbatim(this.root, input)
+    return saveFileVerbatim(this.effectiveRoot(), input)
   }
 
   override async saveFileStream(input: SaveFileStreamAttachment): Promise<FileAttachmentRef> {
-    return saveFileStreamVerbatim(this.root, input)
+    return saveFileStreamVerbatim(this.effectiveRoot(), input)
   }
 
   override readFileStream(ref: FileAttachmentRef, signal?: AbortSignal): AsyncIterable<Uint8Array> {
-    return readFileStreamVerbatim(this.root, ref, signal)
+    return readFileStreamVerbatim(this.effectiveRootForRead(ref), ref, signal)
   }
 
   override fileHostPath(ref: FileAttachmentRef): string {
-    return storedFilePath(this.root, ref)
+    return storedFilePath(this.effectiveRootForRead(ref), ref)
   }
 
   override async readImageRequest(

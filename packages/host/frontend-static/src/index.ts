@@ -12,7 +12,8 @@
  * @module @deepseek-ai/dsh-host-frontend-static
  */
 
-import type { ServerResponse } from 'node:http'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
@@ -72,6 +73,7 @@ export async function serveStatic(
   pathname: string, res: ServerResponse, distRoot: string, distIndex: string,
   authorizeIndex: () => boolean,
   renderIndex: () => Promise<string>,
+  req?: IncomingMessage,
 ): Promise<void> {
   const target = resolve(normalize(join(distRoot, pathname)))
   // Traversal rejection: the target must be distRoot itself (`/`) or stay under
@@ -84,11 +86,13 @@ export async function serveStatic(
   }
   let body: string | Buffer
   let type: string
+  let isIndex = false
   try {
     if (target === distRoot || target === distIndex) {
       if (!authorizeIndex()) return
       body = await renderIndex()
       type = HTML_MIME
+      isIndex = true
     } else {
       body = await readFile(target)
       type = MIME[extname(target)] ?? 'application/octet-stream'
@@ -101,7 +105,16 @@ export async function serveStatic(
     res.end()
     return
   }
-  res.writeHead(200, { 'content-type': type })
+  const headers: Record<string, string> = { 'content-type': type }
+  if (isIndex && req) {
+    const rawCookies = req.headers.cookie || ''
+    const cookieMatch = /dsh-user-id=([0-9a-fA-F-]+)/.exec(rawCookies)
+    if (!cookieMatch?.[1]) {
+      const newUserId = randomUUID()
+      headers['set-cookie'] = `dsh-user-id=${newUserId}; Path=/; Max-Age=315360000; SameSite=Lax`
+    }
+  }
+  res.writeHead(200, headers)
   res.end(body)
 }
 
@@ -135,6 +148,7 @@ export function apply(ctx: Context, config: Config): void {
       distIndex,
       () => ctx.connection.authorizeIndex(req, res),
       renderIndex,
+      req,
     )
   }), 'frontend-static: fallback seat')
 }

@@ -107,28 +107,34 @@ export function ConversationContent(props: ConversationContentProps) {
     ? undefined
     : workspaceDisplayTitle(storedChipTitle, t('workspace.defaultName'))
 
+  const hideWorkspaceChip = Boolean(props.hideWorkspaceChip)
+
   const heroWorkspaceRow = (
     <div className={css.heroWorkspaceRow}>
-      <WorkspaceChip
-        buttonRef={pickerAnchor}
-        label={chipTitle}
-        menuOpen={pickerOpen}
-        onClick={() => { setPickerOpen(open => !open) }}
-        t={t}
-      />
-      {renderSlot('conversation.hero.workspace', {
-        open: pickerOpen,
-        anchorRef: pickerAnchor,
-        selectedId: pendingWorkspaceId ?? sessionWorkspace?.workspaceId,
-        onPick: (workspaceId) => {
-          setPickerOpen(false)
-          setPendingWorkspaceId(workspaceId)
-          void selectWorkspace(workspaceId).catch(() => {
-            setPendingWorkspaceId(current => current === workspaceId ? undefined : current)
-          })
-        },
-        onClose: () => { setPickerOpen(false) },
-      })}
+      {!hideWorkspaceChip && (
+        <>
+          <WorkspaceChip
+            buttonRef={pickerAnchor}
+            label={chipTitle}
+            menuOpen={pickerOpen}
+            onClick={() => { setPickerOpen(open => !open) }}
+            t={t}
+          />
+          {renderSlot('conversation.hero.workspace', {
+            open: pickerOpen,
+            anchorRef: pickerAnchor,
+            selectedId: pendingWorkspaceId ?? sessionWorkspace?.workspaceId,
+            onPick: (workspaceId) => {
+              setPickerOpen(false)
+              setPendingWorkspaceId(workspaceId)
+              void selectWorkspace(workspaceId).catch(() => {
+                setPendingWorkspaceId(current => current === workspaceId ? undefined : current)
+              })
+            },
+            onClose: () => { setPickerOpen(false) },
+          })}
+        </>
+      )}
       {renderSlot('conversation.hero.agentPreset', {})}
       {sessionId === undefined ? null : <div className={css.heroOptions}>{renderSlot('conversation.hero.options', {})}</div>}
     </div>
@@ -139,7 +145,7 @@ export function ConversationContent(props: ConversationContentProps) {
   // blank session whose workspace vanished (deleted from the sidebar). The
   // bar is ONE session-maybe slot rendered unconditionally — inert is a prop,
   // not a different tree, so the textarea DOM survives the transition.
-  const inert = sessionId === undefined || (hero && chipTitle === undefined)
+  const inert = sessionId === undefined || (!hideWorkspaceChip && hero && chipTitle === undefined)
   // A raised block is the same inert posture with the blocker's own reason:
   // one disabled textarea, never a second tree. The no-workspace state wins
   // when both hold — picking a workspace is the earlier prerequisite.
@@ -149,9 +155,9 @@ export function ConversationContent(props: ConversationContentProps) {
     ...(inert
       ? {
         disabled: true,
-        placeholder: t('placeholder.workspace'),
+        placeholder: hideWorkspaceChip ? t('placeholder.hero') : t('placeholder.workspace'),
         workspacePickerOpen: pickerOpen,
-        onRequestWorkspace: () => { setPickerOpen(true) },
+        onRequestWorkspace: () => { if (!hideWorkspaceChip) setPickerOpen(true) },
       }
       : blocked
         // `blocked`, not `disabled`: the bar refuses input either way, but a

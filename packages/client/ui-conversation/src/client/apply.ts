@@ -64,11 +64,14 @@ export const inject = [
 export interface Config {
   /** Maximum generic-file uploads allowed to run concurrently in browser Workers. */
   maxConcurrentFileUploads?: number
+  /** Suppress workspace selection chip and directory flows (for multi-tenant web). */
+  hideWorkspaceChip?: boolean
 }
 
 /** Validated Conversation runtime configuration. */
 export const Config: z<Config> = z.object({
   maxConcurrentFileUploads: z.natural().min(1).default(2),
+  hideWorkspaceChip: z.boolean().default(false),
 })
 
 // Stable no-session sources keep the renderer's observable-hook cache and
@@ -352,6 +355,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       widthControls: { scope: 'root' },
     },
     inject: (sessionId: SessionId | undefined): ConversationInjected => ({
+      hideWorkspaceChip: Boolean(config.hideWorkspaceChip),
       hooks: {
         composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId),
       },

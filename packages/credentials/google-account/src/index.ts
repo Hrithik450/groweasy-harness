@@ -405,7 +405,10 @@ export class GoogleAccount extends DeepSeekAccount {
              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
            </div>`
 
-      res.writeHead(200, { 'Content-Type': 'text/html' })
+      res.writeHead(200, {
+        'Content-Type': 'text/html',
+        'Set-Cookie': `dsh-user-id=${user.id}; Path=/; Max-Age=315360000; SameSite=Lax`,
+      })
       res.end(`<!DOCTYPE html>
 <html>
 <head>
