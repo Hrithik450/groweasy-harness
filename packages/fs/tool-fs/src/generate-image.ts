@@ -5,14 +5,13 @@
  */
 
 import { mkdir, writeFile } from 'node:fs/promises'
-import { basename, dirname } from 'node:path'
+import { dirname } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
-import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView, ToolExecution } from '@deepseek-ai/dsh-tools'
 import { sessionResolveOptions } from './session-cwd.ts'
-import { persistAttachment } from './cas.ts'
+import { assertTenantTmpPath } from './tenant-tmp.ts'
 import { assertPathWritable } from './sandbox.ts'
 import type { FsSandboxController } from './sandbox.ts'
 
@@ -134,19 +133,6 @@ export function applyGenerateImageTool(ctx: Context, sandbox?: FsSandboxControll
             text: `Image generated and saved to \`${value.path}\` (${value.bytes} bytes).\n\n![${args.prompt}](${value.path})`,
           },
         ]
-        if (value.attachmentId) {
-          blocks.push({
-            type: 'image',
-            attachment: {
-              attachmentId: AttachmentId(value.attachmentId),
-              mediaType: value.mediaType as 'image/png',
-              bytes: value.bytes,
-              width: value.width,
-              height: value.height,
-              name: basename(value.path),
-            },
-          })
-        }
         return blocks
       },
       presentationMeta: (_args, value) => ({ path: value.path }),
@@ -166,11 +152,15 @@ export function applyGenerateImageTool(ctx: Context, sandbox?: FsSandboxControll
       }
       const model = resolveImageModel(process.env.IMAGE_GENERATION_MODEL)
       const size = resolveImageSize(args.aspect_ratio, model)
-      const target = await ctx.fs.resolve(args.file_path, await sessionResolveOptions(ctx, exec))
+      const resolveOpts = await sessionResolveOptions(ctx, exec)
+      const target = await ctx.fs.resolve(args.file_path, resolveOpts)
       const absolutePath = ctx.fs.processPath(target)
+      const activeCwd = resolveOpts.cwd
+        || (ctx.fs ? ctx.fs.processPath(await ctx.fs.resolve('.', resolveOpts)) : process.cwd())
       if (sandboxPolicy) {
         await assertPathWritable(absolutePath, sandboxPolicy, sandbox)
       }
+      assertTenantTmpPath(absolutePath, args.file_path, activeCwd)
 
       const baseUrl = process.env.OPENAI_BASE_URL?.trim().replace(/\/+$/, '') || 'https://api.openai.com/v1'
       const endpoint = `${baseUrl}/images/generations`
@@ -228,18 +218,9 @@ export function applyGenerateImageTool(ctx: Context, sandbox?: FsSandboxControll
       await mkdir(dirname(absolutePath), { recursive: true })
       await writeFile(absolutePath, buffer)
 
-      let attachmentId: string | undefined
-      try {
-        const stored = await persistAttachment(ctx, buffer, 'image', 'image/png', basename(absolutePath))
-        attachmentId = stored.attachmentId
-      } catch {
-        // Fallback if attachment persistence fails
-      }
-
       const [dimWidth, dimHeight] = size.split('x').map(Number)
       const outcome: GenerateImageOutput = {
         path: absolutePath,
-        ...(attachmentId !== undefined ? { attachmentId } : {}),
         prompt: args.prompt,
         model,
         bytes: buffer.byteLength,

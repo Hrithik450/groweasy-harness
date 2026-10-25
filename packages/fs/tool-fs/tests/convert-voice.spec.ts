@@ -142,7 +142,7 @@ describe('convert_voice', () => {
       })
       vi.stubGlobal('fetch', fetchMock)
 
-      const outputPath = join(dir, 'converted_shivraj.mp3')
+      const outputPath = join(dir, 'tmp/converted_shivraj.mp3')
       const result = await ctx.tools.execute({
         callId: ToolCallId('call-1'),
         name: 'convert_voice',
@@ -192,7 +192,7 @@ describe('convert_voice', () => {
       const result = await ctx.tools.execute({
         callId: ToolCallId('call-1'),
         name: 'convert_voice',
-        arguments: { input_path: inputAudioPath, output_path: join(dir, 'out.mp3') },
+        arguments: { input_path: inputAudioPath, output_path: join(dir, 'tmp/out.mp3') },
         signal: new AbortController().signal,
       })
 

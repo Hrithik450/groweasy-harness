@@ -182,7 +182,7 @@ describe('render_captions', () => {
         name: 'render_captions',
         arguments: {
           video_path: 'input.mp4',
-          output_path: 'output/captioned.mp4',
+          output_path: 'tmp/captioned.mp4',
           captions: captionsJson,
           style: 'karaoke',
           highlight_color: 'yellow',
@@ -192,7 +192,7 @@ describe('render_captions', () => {
 
       expect(result.isError).toBe(false)
       expect(ffmpegSpy).toHaveBeenCalled()
-      const diskBytes = await readFile(join(dir, 'output', 'captioned.mp4'))
+      const diskBytes = await readFile(join(dir, 'tmp', 'captioned.mp4'))
       expect(diskBytes).toEqual(MOCK_MP4_BYTES)
     })
   })

@@ -130,7 +130,7 @@ describe('render_video', () => {
       name: 'render_video',
       arguments: {
         clips: ['c1.mp4', 'c2.mp4'],
-        output_path: 'output/reel.mp4',
+        output_path: 'tmp/reel.mp4',
         transition: 'fade',
         transition_duration: 0.3,
       },
@@ -139,7 +139,7 @@ describe('render_video', () => {
 
     expect(result.isError).toBe(false)
     expect(ffmpegSpy).toHaveBeenCalled()
-    const outBytes = await readFile(join(dir, 'output', 'reel.mp4'))
+    const outBytes = await readFile(join(dir, 'tmp', 'reel.mp4'))
     expect(outBytes).toEqual(MOCK_MP4_BYTES)
   })
 })

@@ -36,14 +36,14 @@ render_captions({
 
 ---
 
-## Strict DeepSeek Harness Architecture Rules
+## Strict Architecture Rules
 
 1. **Content-Addressed Storage Only**:
    - All generated captions and video assets are written once into the immutable content-addressed object store (`$DSH_HOME/attachments/v1/objects/<sha256[:2]>/<sha256>`).
    - Intermediate media assets never pollute the workspace root.
 2. **Never Bypass Content-Addressed Attachment Store**:
    - Do NOT use generic file-writing tools to manually craft or overwrite intermediate caption JSON files directly in the workspace.
-   - Always execute the verified `get-stt.mjs` and `render-captions.mjs` tools, which persist immutable content-addressed attachment records in `$DSH_HOME/attachments/v1/objects/` under SHA-256 hashes and register them with session metadata.
+   - Always execute the native `render_captions` tool, which persists immutable content-addressed attachment records in `$DSH_HOME/attachments/v1/objects/` under SHA-256 hashes and registers them with session metadata.
 3. **Model-Visible ⟺ Logged**:
    - Every input reaching a model or video render must be reconstructable from the session log. Ad-hoc manual file edits in the workspace break session provenance and reproducibility.
 4. **Temporary Scratchpad in `/tmp/` and Deliverable Presentation**:

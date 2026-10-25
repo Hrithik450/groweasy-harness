@@ -7,7 +7,7 @@
 
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { basename, dirname, extname, join } from 'node:path'
+import { dirname, extname, join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
@@ -16,8 +16,7 @@ import { sessionResolveOptions } from './session-cwd.ts'
 import { assertPathWritable } from './sandbox.ts'
 import type { FsSandboxController } from './sandbox.ts'
 import { findFfmpegPath } from './ffmpeg.ts'
-import { resolveTenantTmp } from './tenant-tmp.ts'
-import { persistAttachment } from './cas.ts'
+import { resolveTenantTmp, assertTenantTmpPath } from './tenant-tmp.ts'
 
 /** Supported curated voice persona keys. */
 export type VoicePersona = 'shivraj' | 'dr-joshi' | 'shlok' | 'manish' | 'kalyan' | 'surabhi' | 'vanishree'
@@ -140,8 +139,8 @@ export function applyConvertVoiceTool(ctx: Context, sandbox?: FsSandboxControlle
         {
           type: 'text',
           text: value.isRemuxedVideo
-            ? `Voice tone transformed to \`${value.voice}\` and remuxed into video at \`${value.path}\` (${value.bytes} bytes). Timing and mouth synchronization are 100% preserved.`
-            : `Voice tone transformed to \`${value.voice}\` and saved to \`${value.path}\` (${value.bytes} bytes).`,
+            ? `Voice tone transformed to \`${value.voice}\` and remuxed into video in scratchpad at \`${value.path}\` (${value.bytes} bytes). Timing and mouth synchronization are 100% preserved. Use \`save_asset\` when ready to promote to permanent attachments.`
+            : `Voice tone transformed to \`${value.voice}\` and saved to scratchpad at \`${value.path}\` (${value.bytes} bytes). Use \`save_asset\` when ready to promote to permanent attachments.`,
         },
       ],
       presentationMeta: (_args, value) => ({ path: value.path }),
@@ -172,9 +171,12 @@ export function applyConvertVoiceTool(ctx: Context, sandbox?: FsSandboxControlle
 
       const outputTarget = await ctx.fs.resolve(args.output_path, resolveOpts)
       const outputProcessPath = ctx.fs.processPath(outputTarget)
+      const activeCwd = resolveOpts.cwd
+        || (ctx.fs ? ctx.fs.processPath(await ctx.fs.resolve('.', resolveOpts)) : process.cwd())
       if (sandboxPolicy) {
         await assertPathWritable(outputProcessPath, sandboxPolicy, sandbox)
       }
+      assertTenantTmpPath(outputProcessPath, args.output_path, activeCwd)
 
       const voiceId = resolveVoiceId(args.voice)
       const voiceName = args.voice?.trim() || DEFAULT_VOICE
@@ -275,23 +277,8 @@ export function applyConvertVoiceTool(ctx: Context, sandbox?: FsSandboxControlle
         }
 
         const finalOutputBuffer = await readFile(outputProcessPath)
-        let attachmentId: string | undefined
-        try {
-          const stored = await persistAttachment(
-            ctx,
-            finalOutputBuffer,
-            isRemuxed ? 'video' : 'audio',
-            isRemuxed ? 'video/mp4' : 'audio/mpeg',
-            basename(outputProcessPath),
-          )
-          attachmentId = stored.attachmentId
-        } catch {
-          // Fallback
-        }
-
         const outcome: ConvertVoiceOutput = {
           path: outputProcessPath,
-          ...(attachmentId !== undefined ? { attachmentId } : {}),
           voice: voiceName,
           voiceId,
           bytes: finalOutputBuffer.byteLength,

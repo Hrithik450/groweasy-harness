@@ -196,7 +196,7 @@ describe('generate_image', () => {
       const result = await ctx.tools.execute({
         callId: ToolCallId('call-1'),
         name: 'generate_image',
-        arguments: { prompt: 'A cozy campfire at night', file_path: join(dir, 'sub/campfire.png'), aspect_ratio: '16:9' },
+        arguments: { prompt: 'A cozy campfire at night', file_path: join(dir, 'tmp/campfire.png'), aspect_ratio: '16:9' },
         signal: new AbortController().signal,
       })
 
@@ -263,13 +263,13 @@ describe('generate_image', () => {
       const result = await ctx.tools.execute({
         callId: ToolCallId('call-url'),
         name: 'generate_image',
-        arguments: { prompt: 'A sunny beach', file_path: join(dir, 'beach.png') },
+        arguments: { prompt: 'A sunny beach', file_path: join(dir, 'tmp/beach.png') },
         signal: new AbortController().signal,
       })
 
       expect(result.isError).toBe(false)
       expect(fetchMock).toHaveBeenCalledTimes(2)
-      const savedBytes = await readFile(join(dir, 'beach.png'))
+      const savedBytes = await readFile(join(dir, 'tmp/beach.png'))
       expect(savedBytes.byteLength).toBeGreaterThan(0)
     })
 
@@ -287,7 +287,7 @@ describe('generate_image', () => {
       const result = await ctx.tools.execute({
         callId: ToolCallId('call-1'),
         name: 'generate_image',
-        arguments: { prompt: 'test', file_path: 'fail.png' },
+        arguments: { prompt: 'test', file_path: 'tmp/fail.png' },
         signal: new AbortController().signal,
       })
 
@@ -312,7 +312,7 @@ describe('generate_image', () => {
       const result = await ctx.tools.execute({
         callId: ToolCallId('call-1'),
         name: 'generate_image',
-        arguments: { prompt: 'test', file_path: 'empty.png' },
+        arguments: { prompt: 'test', file_path: 'tmp/empty.png' },
         signal: new AbortController().signal,
       })
 
@@ -329,7 +329,7 @@ describe('generate_image', () => {
       const result = await ctx.tools.execute({
         callId: ToolCallId('call-ro'),
         name: 'generate_image',
-        arguments: { prompt: 'A sunny beach', file_path: join(dir, 'beach.png') },
+        arguments: { prompt: 'A sunny beach', file_path: join(dir, 'tmp/beach.png') },
         signal: new AbortController().signal,
       })
       expect(result.isError).toBe(true)

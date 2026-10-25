@@ -20,6 +20,8 @@ import { applyDubAudioTool } from './dub-audio.ts'
 import { applyGenerateVideoTool } from './generate-video.ts'
 import { applyRenderVideoTool } from './render-video.ts'
 import { applyRenderCaptionsTool } from './render-captions.ts'
+import { applySyncLipsTool } from './sync-lips.ts'
+import { applySaveAssetTool } from './save-asset.ts'
 import { READ_MAX_BYTES, READ_MAX_LINE_LENGTH } from './read-render.ts'
 import { FsSandboxController } from './sandbox.ts'
 
@@ -49,6 +51,10 @@ export interface Config {
   renderVideo?: boolean
   /** Register `render_captions` for video caption burning. Defaults to false. */
   renderCaptions?: boolean
+  /** Register `sync_lips` for AI video lip synchronization. Defaults to false. */
+  syncLips?: boolean
+  /** Register `save_asset` to persist verified scratchpad files into attachments. Defaults to true. */
+  saveAsset?: boolean
   /** Register `write` and its guidance. Defaults to true. */
   write?: boolean
   /** Register `edit` and its guidance. Defaults to true. */
@@ -73,6 +79,8 @@ export const Config: z<Config> = z.object({
   generateVideo: z.boolean().default(false),
   renderVideo: z.boolean().default(false),
   renderCaptions: z.boolean().default(false),
+  syncLips: z.boolean().default(false),
+  saveAsset: z.boolean().default(false),
   write: z.boolean().default(true),
   edit: z.boolean().default(true),
   readLimit: z.number().default(READ_LIMIT),
@@ -123,6 +131,16 @@ export function apply(ctx: Context, config: Config): void {
   // One escalation API shared by all mutating tools: advertisement gating,
   // per-call policy resolution, and denial-marker mapping, all keyed off whether
   // the mounted ctx.fs confines (ctx.fs.sandboxMode).
+  const shouldRegisterSaveAsset = Boolean(
+    resolved.saveAsset
+    || resolved.generateImage
+    || resolved.convertVoice
+    || resolved.dubAudio
+    || resolved.generateVideo
+    || resolved.renderVideo
+    || resolved.renderCaptions
+    || resolved.syncLips,
+  )
   const sandbox = (
     resolved.write
     || resolved.edit
@@ -132,9 +150,14 @@ export function apply(ctx: Context, config: Config): void {
     || resolved.generateVideo
     || resolved.renderVideo
     || resolved.renderCaptions
+    || resolved.syncLips
+    || shouldRegisterSaveAsset
   )
     ? new FsSandboxController(ctx)
     : undefined
+  if (shouldRegisterSaveAsset) {
+    applySaveAssetTool(ctx, sandbox)
+  }
   if (resolved.generateImage) {
     ctx.inject(['llm'], (imageCtx) => {
       applyGenerateImageTool(imageCtx, sandbox)
@@ -154,6 +177,9 @@ export function apply(ctx: Context, config: Config): void {
   }
   if (resolved.renderCaptions) {
     applyRenderCaptionsTool(ctx, sandbox)
+  }
+  if (resolved.syncLips) {
+    applySyncLipsTool(ctx, sandbox)
   }
   if (resolved.write && sandbox) applyWriteTool(ctx, sandbox)
   if (resolved.edit && sandbox) applyEditTool(ctx, sandbox)

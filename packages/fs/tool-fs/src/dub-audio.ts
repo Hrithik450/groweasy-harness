@@ -8,7 +8,7 @@
 
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import type { Context } from "@deepseek-ai/cordis";
 import { defineTool } from "@deepseek-ai/dsh-tools";
@@ -17,8 +17,7 @@ import { sessionResolveOptions } from "./session-cwd.ts";
 import { findFfmpegPath } from "./ffmpeg.ts";
 import { assertPathWritable } from "./sandbox.ts";
 import type { FsSandboxController } from "./sandbox.ts";
-import { resolveTenantTmp } from "./tenant-tmp.ts";
-import { persistAttachment } from "./cas.ts";
+import { resolveTenantTmp, assertTenantTmpPath } from "./tenant-tmp.ts";
 
 /** Supported curated dubbing voice persona keys. */
 export type DubVoicePersona =
@@ -172,8 +171,8 @@ export function applyDubAudioTool(
           {
             type: "text",
             text: value.conformedToTargetDuration
-              ? `Audio dubbed with voice \`${value.voice}\` at \`${value.path}\` (${value.bytes} bytes, duration: ${value.durationSeconds?.toFixed(2)}s conformed to target duration). Ready for lip-sync.`
-              : `Audio dubbed with voice \`${value.voice}\` at \`${value.path}\` (${value.bytes} bytes, duration: ${value.durationSeconds?.toFixed(2)}s). Ready for lip-sync.`,
+              ? `Audio dubbed with voice \`${value.voice}\` in scratchpad at \`${value.path}\` (${value.bytes} bytes, duration: ${value.durationSeconds?.toFixed(2)}s conformed to target duration). Ready for lip-sync. Use \`save_asset\` when ready to promote to permanent attachments.`
+              : `Audio dubbed with voice \`${value.voice}\` in scratchpad at \`${value.path}\` (${value.bytes} bytes, duration: ${value.durationSeconds?.toFixed(2)}s). Ready for lip-sync. Use \`save_asset\` when ready to promote to permanent attachments.`,
           },
         ],
         presentationMeta: (_args, value) => ({ path: value.path }),
@@ -212,9 +211,12 @@ export function applyDubAudioTool(
           resolveOpts,
         );
         const outputProcessPath = ctx.fs.processPath(outputTarget);
+        const activeCwd = resolveOpts.cwd
+          || (ctx.fs ? ctx.fs.processPath(await ctx.fs.resolve('.', resolveOpts)) : process.cwd());
         if (sandboxPolicy) {
           await assertPathWritable(outputProcessPath, sandboxPolicy, sandbox);
         }
+        assertTenantTmpPath(outputProcessPath, args.output_path, activeCwd);
 
         const voiceId = resolveDubbingVoiceId(args.voice);
         const voiceName = args.voice?.trim() || DEFAULT_DUB_VOICE;
@@ -314,23 +316,8 @@ export function applyDubAudioTool(
           await mkdir(dirname(outputProcessPath), { recursive: true });
           await writeFile(outputProcessPath, audioBuffer);
 
-          let attachmentId: string | undefined;
-          try {
-            const stored = await persistAttachment(
-              ctx,
-              audioBuffer,
-              "audio",
-              "audio/mpeg",
-              basename(outputProcessPath),
-            );
-            attachmentId = stored.attachmentId;
-          } catch {
-            // Fallback
-          }
-
           const outcome: DubAudioOutput = {
             path: outputProcessPath,
-            ...(attachmentId !== undefined ? { attachmentId } : {}),
             voice: voiceName,
             voiceId,
             bytes: audioBuffer.byteLength,

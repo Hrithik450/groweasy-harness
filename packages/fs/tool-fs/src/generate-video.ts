@@ -8,20 +8,17 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { basename, dirname, extname, join, resolve } from 'node:path'
+import { dirname, extname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
-import { AttachmentId } from '@deepseek-ai/dsh-attachment'
-import type { VideoAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView, ToolExecution } from '@deepseek-ai/dsh-tools'
 import { sessionResolveOptions } from './session-cwd.ts'
 import { assertPathWritable } from './sandbox.ts'
 import type { FsSandboxController } from './sandbox.ts'
 import { findFfmpegPath, probeMedia } from './ffmpeg.ts'
-import { persistAttachment } from './cas.ts'
-import { resolveTenantDshHome, resolveTenantTmp } from './tenant-tmp.ts'
+import { resolveTenantDshHome, resolveTenantTmp, assertTenantTmpPath } from './tenant-tmp.ts'
 
 /** Default model used for video generation. */
 export const DEFAULT_BYTEPLUS_MODEL = 'seedance-1-5-pro-251215'
@@ -29,7 +26,7 @@ export const DEFAULT_BYTEPLUS_MODEL = 'seedance-1-5-pro-251215'
 /** Output schema for the generate_video tool. */
 export interface GenerateVideoOutput {
   path: string
-  attachmentId: string
+  attachmentId?: string
   duration: number
   width: number
   height: number
@@ -142,7 +139,7 @@ export function applyGenerateVideoTool(ctx: Context, sandbox?: FsSandboxControll
         additionalProperties: false,
         properties: {
           path: { type: 'string', required: true, description: 'Canonical path on disk where the video was written.' },
-          attachmentId: { type: 'string', required: true },
+          attachmentId: { type: 'string' },
           duration: { type: 'number', required: true },
           width: { type: 'integer', required: true },
           height: { type: 'integer', required: true },
@@ -151,23 +148,10 @@ export function applyGenerateVideoTool(ctx: Context, sandbox?: FsSandboxControll
         },
       },
       render: (_args, value) => {
-        const attachmentRef: VideoAttachmentRef = {
-          attachmentId: AttachmentId(value.attachmentId),
-          mediaType: value.mediaType as 'video/mp4',
-          bytes: value.bytes,
-          duration: value.duration,
-          width: value.width,
-          height: value.height,
-          name: basename(value.path),
-        }
         return [
           {
             type: 'text',
-            text: `Generated video clip saved to \`${value.path}\` (${value.duration.toFixed(1)}s, ${value.width}x${value.height}, ${value.bytes} bytes).`,
-          },
-          {
-            type: 'video',
-            attachment: attachmentRef,
+            text: `Generated video clip saved to temporary scratchpad at \`${value.path}\` (${value.duration.toFixed(1)}s, ${value.width}x${value.height}, ${value.bytes} bytes). Use \`save_asset\` when ready to promote to permanent attachments.`,
           },
         ]
       },
@@ -334,27 +318,31 @@ export function applyGenerateVideoTool(ctx: Context, sandbox?: FsSandboxControll
         videoBuffer = trimVideo(videoBuffer, validDuration - trimIn, trimIn, ffmpeg)
       }
 
-      // 7. Persist to CAS attachment store
-      const filename = args.output_path ? basename(args.output_path) : `shot-${randomUUID().slice(0, 8)}.mp4`
-      const stored = await persistAttachment(ctx, videoBuffer, 'video', 'video/mp4', filename)
-
-      // 8. Write to output destination if requested
-      let finalPath = stored.objectPath
+      let finalPath: string
       if (args.output_path) {
         const resolveOpts = await sessionResolveOptions(ctx, exec)
         const target = await ctx.fs.resolve(args.output_path, resolveOpts)
         finalPath = ctx.fs.processPath(target)
+        const activeCwd = resolveOpts.cwd
+          || (ctx.fs ? ctx.fs.processPath(await ctx.fs.resolve('.', resolveOpts)) : process.cwd())
         if (sandboxPolicy) {
           await assertPathWritable(finalPath, sandboxPolicy, sandbox)
         }
-        await mkdir(dirname(finalPath), { recursive: true })
-        await writeFile(finalPath, videoBuffer)
+        assertTenantTmpPath(finalPath, args.output_path, activeCwd)
+      } else {
+        const resolveOpts = await sessionResolveOptions(ctx, exec)
+        const activeCwd = resolveOpts.cwd
+          || (ctx.fs ? ctx.fs.processPath(await ctx.fs.resolve('.', resolveOpts)) : process.cwd())
+        const tenantTmp = resolveTenantTmp(activeCwd)
+        finalPath = join(tenantTmp, `shot-${randomUUID().slice(0, 8)}.mp4`)
       }
+
+      await mkdir(dirname(finalPath), { recursive: true })
+      await writeFile(finalPath, videoBuffer)
 
       const probe = probeMedia(finalPath)
       const outcome: GenerateVideoOutput = {
         path: finalPath,
-        attachmentId: stored.attachmentId,
         duration: probe.duration || validDuration - trimIn,
         width: probe.width || (validAspect === '9:16' ? 1080 : 1920),
         height: probe.height || (validAspect === '9:16' ? 1920 : 1080),

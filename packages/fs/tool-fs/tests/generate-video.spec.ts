@@ -149,7 +149,7 @@ describe('generate_video', () => {
         return new Response('Not found', { status: 404 })
       })
 
-      const outVideoPath = join(dir, 'output', 'shot1.mp4')
+      const outVideoPath = join(dir, 'tmp', 'shot1.mp4')
       const result = await ctx.tools.execute({
         callId: ToolCallId('call-exec'),
         name: 'generate_video',
@@ -157,7 +157,7 @@ describe('generate_video', () => {
           prompt: 'Presenter speaks directly to camera',
           image_path: 'anchor.png',
           script: 'Welcome to the platform',
-          output_path: 'output/shot1.mp4',
+          output_path: 'tmp/shot1.mp4',
           duration: 4,
           aspect_ratio: '9:16',
         },

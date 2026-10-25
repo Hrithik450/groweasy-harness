@@ -67,37 +67,12 @@ function marketingRuntime(skillName: string, assetRoot: string): string {
   const scriptsDir = join(assetRoot, 'scripts').split(sep).join('/')
   const relevantTools: string[] = []
 
-  if (['marketing-poster', 'video-generation', 'creative-brief-generator', 'marketing-strategist'].includes(skillName)) {
-    relevantTools.push(`- **AI Image & Creative Generator** (Content-Addressed Storage):
-  \`node "${scriptsDir}/generate-images.mjs" --prompt "<detailed visual prompt>" [--aspect "1:1"|"9:16"|"16:9"|"4:5"] [--format "png"|"webp"]\``)
-  }
-
-  if (['video-generation'].includes(skillName)) {
-    relevantTools.push(`- **Image to Video Tool (I2V)** (AI Motion & Native Speech Synthesis):
-  \`node "${scriptsDir}/generate-video.mjs" --image "<anchor_still_path>" --prompt "<motion_prompt>" [--script "<spoken_dialogue>"] [--duration 4] [--aspect "9:16"]\`
-  *Batch Mode for Full Plan:*
-  \`node "${scriptsDir}/generate-video.mjs" --plan "<path_to_plan.json>"\``)
-
-    relevantTools.push(`- **Voice Tone Conversion (Process 1: Speech-to-Speech)**:
-  \`node "${scriptsDir}/convert-voice.mjs" --input "<source_audio_or_video>" [--voice "shivraj"|"dr-joshi"|"shlok"|"manish"|"kalyan"|"surabhi"|"vanishree"]\`
-  *Transforms persona, accent, or energy level while preserving 100% of cadence, timing, and lip alignment. Automatically remuxes into video if input is video. Zero subsequent lip-sync required.*`)
-
-    relevantTools.push(`- **Multi-lingual Audio Dubbing (Process 2: Translation & Dubbing)**:
-  \`node "${scriptsDir}/dub-audio.mjs" --text "<translated_dialogue>" [--input "<reference_audio_or_video>"] [--voice "aarav"|"rushi"|"lovinder"|"mohit"|"shivraj"] [--language "hi"] [--target-duration <seconds>]\`
-  *Generates localized commercial dialogue (e.g. Hindi) with phonetic brand normalization and duration conformance. Subsequent visual lip-syncing (Modal LatentSync) is required for video because syllable counts change.*`)
-
-    relevantTools.push(`- **Reel Video Stitching & Transition Engine** (Minimalistic Transitions & Native Audio Chaining):
-  \`node "${scriptsDir}/render-video.mjs" --clips "<path1,path2,...>" [--transition "fade"|"slideleft"|"smoothleft"]\`
-  *Batch Mode with Plan:*
-  \`node "${scriptsDir}/render-video.mjs" [--plan "<path_to_plan.json>"]\``)
-  }
-
-  if (['competitor-research', 'ad-copywriter', 'marketing-strategist', 'creative-brief-generator'].includes(skillName)) {
+  if (['video-generation', 'competitor-research', 'ad-copywriter', 'marketing-strategist', 'creative-brief-generator'].includes(skillName)) {
     relevantTools.push(`- **Meta Ad Library Scraper** (Apify):
-  \`node "${scriptsDir}/meta-ads.mjs" --query "<brand_or_domain>" [--country US] [--limit 10] [--raw]\``)
+  \`node "${scriptsDir}/meta-ads.mjs" --query "<brand_or_domain>" [--country IN|US] [--limit 10] [--raw]\``)
   }
 
-  if (['competitor-research', 'keyword-suggestions', 'facebook-audience-builder', 'marketing-strategist', 'creative-brief-generator'].includes(skillName)) {
+  if (['video-generation', 'competitor-research', 'keyword-suggestions', 'facebook-audience-builder', 'marketing-strategist', 'creative-brief-generator'].includes(skillName)) {
     relevantTools.push(`- **Firecrawl Landing Page Scraper**:
   \`node "${scriptsDir}/firecrawl-scrape.mjs" --url "<website_url>"\``)
   }
@@ -112,21 +87,39 @@ function marketingRuntime(skillName: string, assetRoot: string): string {
   \`node "${scriptsDir}/search-volume.mjs" --keywords "<kw1, kw2>" [--location "United States"]\``)
   }
 
-  if (relevantTools.length === 0) return ''
+  const mediaGuidance = skillName === 'video-generation'
+    ? `\n\n## Media Generation Architecture & Pipeline
 
-  return `\n\n## Available CLI Scripts & Execution Runtime
+Use the native typed tools directly (never call shell wrappers or loose node scripts):
+- **Image Generation (\`generate_image\`)**: Generates presenter anchor still in scratchpad (\`tmp/\`) from confirmed prompt and aspect ratio.
+- **Motion & Native Speech (\`generate_video\`)**: Produces shot video clips in scratchpad (\`tmp/\`) with synchronous speech and mouth movements from approved script dialogue. Note: the synthesized speech has an intermediate default voice.
+- **Speech-to-Speech Indian Voice Conversion (\`convert_voice\`)**: Ideal for Indian localized ads. Pass the video clip directly as \`input_path\` and destination in \`tmp/\` as \`output_path\`. It extracts the audio, converts to the selected Indian voice persona (default \`shivraj\`), and remuxes into video with 100% mouth/lip sync preserved.
+- **Multi-lingual Dubbing (\`dub_audio\`)**: Synthesizes localized dialogue in a new language into \`tmp/\`.
+- **A100 Cloud Lip-Sync (\`sync_lips\`)**: Synchronizes presenter mouth movements and facial animation to match new audio tracks using ByteDance LatentSync on an NVIDIA A100 GPU into \`tmp/\`. Video duration is strictly guarded up to 45 seconds to protect cloud compute.
+- **Captions (\`render_captions\`)**: Burns dynamic karaoke/highlight captions onto video clips in \`tmp/\`.
+- **Video Assembly (\`render_video\`)**: Stitches the converted and captioned clips into the final video reel in \`tmp/\`.
+- **Deliverable Persistence (\`save_asset\`)**: When the final video is approved, call \`save_asset\` to promote it from \`tmp/\` into permanent Content-Addressed Attachment Storage (\`.dsh/attachments/\`).`
+    : ''
 
-You have access to pre-packaged Node.js scripts in \`tool-bash\` to gather intelligence and generate media. Run them directly in terminal:
+  if (relevantTools.length === 0 && !mediaGuidance) return ''
+
+  const scriptSection = relevantTools.length > 0
+    ? `\n\n## Available CLI Scripts for Intelligence & Research
+
+You have access to pre-packaged Node.js scripts in \`tool-bash\` to gather market intelligence and competitor research. Run them directly in terminal:
 
 ${relevantTools.join('\n\n')}
 
 *Execution Guidance:*
-1. Run these CLI commands directly via \`tool-bash\`. All authentication, API keys, duration preservation, model calling, and media processing are handled automatically by the backend scripts.
+1. Run these CLI commands directly via \`tool-bash\` for intelligence gathering. For all media generation (images, video, voice conversion, captions, assembly), call the native typed tools directly. All authentication, API keys, duration preservation, model calling, and media processing are handled automatically.
 2. Never attempt to query, inspect, or check environment variables, API keys, or .env files via shell commands. All required credentials are authenticated directly by the backend tools.
 3. A new session starts with no campaign, uploaded images, approved script, or production plan. Use only assets uploaded, generated, or explicitly imported in this conversation. Never search sibling sessions or pick the latest database asset. If the user says not to use earlier images, do not use them, even within this session.
-4. Treat \`DSH_SESSION_ID\` as the current session identity supplied by the runtime. Never substitute another identity. Keep plans and intermediates in the current working directory. Reuse a plan only when its \`session_id\` matches.
+4. User filesystem architecture: Users have direct sessions (\`srv/workspaces/<user_id>/.dsh/sessions/\`) and direct attachments (\`srv/workspaces/<user_id>/.dsh/attachments/\`). Intermediate generation files must strictly reside in the user temporary scratchpad (\`srv/workspaces/<user_id>/tmp/\`). Treat \`DSH_SESSION_ID\` as the current session identity supplied by the runtime. Never substitute another identity or access sibling user directories. Keep plans and intermediates in the current session scratchpad. Reuse a plan only when its \`session_id\` matches.
 5. Resolve the current brief before spending generation credits: distinguish uploaded-footage editing, image animation, and new AI footage. If required inputs are missing or ambiguous, ask a concise question. Do not invent product facts, URLs, approvals, completed shots, or QA results. Honor explicit exclusions and obtain script approval before generating media.
 6. A failed generation, save, or render is not a finished deliverable. Report the actual error; retry from this session’s checkpoints rather than borrowing another session’s media.`
+    : ''
+
+  return `${mediaGuidance}${scriptSection}`
 }
 
 /**

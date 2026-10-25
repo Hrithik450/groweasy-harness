@@ -149,7 +149,7 @@ describe('dub_audio', () => {
       })
       vi.stubGlobal('fetch', fetchMock)
 
-      const outputPath = join(dir, 'dubbed_hindi.mp3')
+      const outputPath = join(dir, 'tmp/dubbed_hindi.mp3')
       const result = await ctx.tools.execute({
         callId: ToolCallId('call-1'),
         name: 'dub_audio',
@@ -200,7 +200,7 @@ describe('dub_audio', () => {
       const result = await ctx.tools.execute({
         callId: ToolCallId('call-1'),
         name: 'dub_audio',
-        arguments: { script: 'test', output_path: join(dir, 'out.mp3') },
+        arguments: { script: 'test', output_path: join(dir, 'tmp/out.mp3') },
         signal: new AbortController().signal,
       })
 

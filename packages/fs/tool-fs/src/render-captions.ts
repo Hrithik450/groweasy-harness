@@ -8,25 +8,22 @@
 
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { basename, dirname, join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
-import { AttachmentId } from '@deepseek-ai/dsh-attachment'
-import type { VideoAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView, ToolExecution } from '@deepseek-ai/dsh-tools'
 import { sessionResolveOptions } from './session-cwd.ts'
 import { assertPathWritable } from './sandbox.ts'
 import type { FsSandboxController } from './sandbox.ts'
 import { detectVideoEncoder, executeFfmpeg, findFfmpegPath, probeMedia } from './ffmpeg.ts'
-import { persistAttachment } from './cas.ts'
-import { resolveTenantDshHome, resolveTenantTmp } from './tenant-tmp.ts'
+import { resolveTenantDshHome, resolveTenantTmp, assertTenantTmpPath } from './tenant-tmp.ts'
 
 /** Output schema for the render_captions tool. */
 export interface RenderCaptionsOutput {
   path: string
-  attachmentId: string
+  attachmentId?: string
   duration: number
   width: number
   height: number
@@ -408,7 +405,7 @@ export function applyRenderCaptionsTool(ctx: Context, sandbox?: FsSandboxControl
         additionalProperties: false,
         properties: {
           path: { type: 'string', required: true, description: 'Canonical path on disk where the captioned video was written.' },
-          attachmentId: { type: 'string', required: true },
+          attachmentId: { type: 'string' },
           duration: { type: 'number', required: true },
           width: { type: 'integer', required: true },
           height: { type: 'integer', required: true },
@@ -418,23 +415,10 @@ export function applyRenderCaptionsTool(ctx: Context, sandbox?: FsSandboxControl
         },
       },
       render: (_args, value) => {
-        const attachmentRef: VideoAttachmentRef = {
-          attachmentId: AttachmentId(value.attachmentId),
-          mediaType: value.mediaType as 'video/mp4',
-          bytes: value.bytes,
-          duration: value.duration,
-          width: value.width,
-          height: value.height,
-          name: basename(value.path),
-        }
         return [
           {
             type: 'text',
-            text: `Captions burned onto video and saved to \`${value.path}\` (${value.cueCount} cues, ${value.duration.toFixed(1)}s, ${value.bytes} bytes).`,
-          },
-          {
-            type: 'video',
-            attachment: attachmentRef,
+            text: `Captions burned onto video and saved to temporary scratchpad at \`${value.path}\` (${value.cueCount} cues, ${value.duration.toFixed(1)}s, ${value.bytes} bytes). Use \`save_asset\` when ready to promote to permanent attachments.`,
           },
         ]
       },
@@ -556,9 +540,12 @@ export function applyRenderCaptionsTool(ctx: Context, sandbox?: FsSandboxControl
       const resolveOpts = await sessionResolveOptions(ctx, exec)
       const outputTarget = await ctx.fs.resolve(args.output_path, resolveOpts)
       const outputProcessPath = ctx.fs.processPath(outputTarget)
+      const activeCwd = resolveOpts.cwd
+        || (ctx.fs ? ctx.fs.processPath(await ctx.fs.resolve('.', resolveOpts)) : process.cwd())
       if (sandboxPolicy) {
         await assertPathWritable(outputProcessPath, sandboxPolicy, sandbox)
       }
+      assertTenantTmpPath(outputProcessPath, args.output_path, activeCwd)
       await mkdir(dirname(outputProcessPath), { recursive: true })
 
       const encoder = detectVideoEncoder(ffmpeg)
@@ -583,12 +570,8 @@ export function applyRenderCaptionsTool(ctx: Context, sandbox?: FsSandboxControl
       const outputBuffer = await readFile(outputProcessPath)
       const outProbe = probeMedia(outputProcessPath, ffmpeg)
 
-      // 6. Persist to CAS attachment store
-      const stored = await persistAttachment(ctx, outputBuffer, 'video', 'video/mp4', basename(outputProcessPath))
-
       const outcome: RenderCaptionsOutput = {
         path: outputProcessPath,
-        attachmentId: stored.attachmentId,
         duration: outProbe.duration || probe.duration,
         width: outProbe.width || width,
         height: outProbe.height || height,
