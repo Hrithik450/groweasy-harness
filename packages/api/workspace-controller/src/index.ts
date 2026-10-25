@@ -1,5 +1,9 @@
 /** Host Workspace Remote owner: explicit commands and reconnect-safe state. */
 
+import { randomUUID } from 'node:crypto'
+import { mkdirSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
@@ -88,8 +92,21 @@ export class WorkspaceController extends TypertRemoteService {
    * @returns the Workspace and whether this call created it.
    */
   @Remote('create')
-  create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
-    return this.commands.create(request)
+  async create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
+    const peer = this.ctx.invocation?.peer as (Record<string, unknown> | undefined)
+    const userId = peer?.userId as string | undefined
+    if (userId && !request.path.includes(userId)) {
+      const root = process.env.DSH_WORKSPACES_ROOT || (process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv/workspaces'))
+      const userDir = join(root, userId)
+      const wsId = randomUUID()
+      const wsPath = join(userDir, wsId)
+      const tmpDir = join(userDir, 'tmp')
+      const dshPath = join(wsPath, '.dsh', 'sessions')
+      mkdirSync(tmpDir, { recursive: true })
+      mkdirSync(dshPath, { recursive: true })
+      return await this.commands.create({ path: wsPath })
+    }
+    return await this.commands.create(request)
   }
 
   /**
@@ -102,6 +119,22 @@ export class WorkspaceController extends TypertRemoteService {
    */
   @Remote('initializeDefault')
   async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue | undefined> {
+    const peer = this.ctx.invocation?.peer as (Record<string, unknown> | undefined)
+    const userId = peer?.userId as string | undefined
+    if (userId) {
+      const existing = this.ctx.workspaceRegistry.list().find(w => w.path.includes(userId))
+      if (existing) return { workspace: workspaceView(existing) }
+      const root = process.env.DSH_WORKSPACES_ROOT || (process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv/workspaces'))
+      const userDir = join(root, userId)
+      const wsId = randomUUID()
+      const wsPath = join(userDir, wsId)
+      const tmpDir = join(userDir, 'tmp')
+      const dshPath = join(wsPath, '.dsh', 'sessions')
+      mkdirSync(tmpDir, { recursive: true })
+      mkdirSync(dshPath, { recursive: true })
+      const ws = await this.ctx.workspaceRegistry.create(wsPath, wsId)
+      return { workspace: workspaceView(ws) }
+    }
     const workspace = await this.ctx.workspaceRegistry.initializeDefault(async () => {
       const timeout = AbortSignal.timeout(this.config.documentsLookupTimeoutMs)
       return await defaultWorkspaceDirectory(
@@ -204,8 +237,31 @@ export class WorkspaceController extends TypertRemoteService {
    */
   @Remote({ mode: 'stream' })
   async *follow(signal: AbortSignal): AsyncIterable<WorkspaceFollowFrame> {
+    const peer = this.ctx.invocation?.peer as (Record<string, unknown> | undefined)
+    const userId = peer?.userId as string | undefined
+    if (userId) {
+      const allWorkspaces = this.ctx.workspaceRegistry.list()
+      const userWorkspaces = allWorkspaces.filter(w => w.path.includes(userId))
+      if (userWorkspaces.length === 0) {
+        const root = process.env.DSH_WORKSPACES_ROOT || (process.platform === 'linux' ? '/srv/workspaces' : join(homedir(), 'srv/workspaces'))
+        const userDir = join(root, userId)
+        const wsId = randomUUID()
+        const wsPath = join(userDir, wsId)
+        const tmpDir = join(userDir, 'tmp')
+        const dshPath = join(wsPath, '.dsh', 'sessions')
+        mkdirSync(tmpDir, { recursive: true })
+        mkdirSync(dshPath, { recursive: true })
+        await this.ctx.workspaceRegistry.create(wsPath, wsId)
+      }
+    }
     const access = this.ctx.remoteAccess
-    const visible = (workspaceId: WorkspaceId): boolean => access.allows({ kind: 'workspace', id: workspaceId })
+    const visible = (workspaceId: WorkspaceId): boolean => {
+      const ws = this.ctx.workspaceRegistry.get(workspaceId)
+      if (userId && ws && ws.path.includes('/srv/workspaces/')) {
+        return ws.path.includes('/srv/workspaces/' + userId)
+      }
+      return access.allows({ kind: 'workspace', id: workspaceId })
+    }
     const sessions = (sessionIds: readonly SessionId[]): SessionId[] =>
       sessionIds.filter(sessionId => access.allows({ kind: 'session', id: sessionId }))
     /** Workspaces this generation has delivered and not yet removed. */

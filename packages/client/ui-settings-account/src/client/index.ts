@@ -50,7 +50,7 @@ import {
 import { readOnboardingApiKeyPresence } from "./onboarding-credentials.ts";
 import { refreshAfterReturn } from "./account-refresh.ts";
 import { AccountAvatarLoader } from "./account-avatar.ts";
-import { persistClientUserId } from "./user-identity.ts";
+import { getClientUserId, persistClientUserId } from "./user-identity.ts";
 export type {
   AccountSectionInjected,
   AccountSectionProps,
@@ -77,6 +77,7 @@ export const inject = [
 ];
 /** Register account UI in Desktop and plain Web clients. @param ctx - client plugin context. */
 export function apply(ctx: Context): void {
+  const currentUserId = getClientUserId();
   const desktop = "dshDesktop" in globalThis;
   ctx.effect(
     () => ctx.locale.register("settings.account", { en, zh }),

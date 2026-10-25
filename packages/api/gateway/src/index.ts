@@ -269,6 +269,11 @@ export class TypertGatewayService extends Service implements TypertGateway {
                 rejectRemoteStreamUpgrade(socket, admission.rejection)
                 return
               }
+              const rawCookies = req.headers.cookie || ''
+              const cookieMatch = /dsh-user-id=([0-9a-fA-F-]+)/.exec(rawCookies)
+              if (cookieMatch?.[1]) {
+                (admission.peer as Record<string, unknown>).userId = cookieMatch[1]
+              }
               const release = (): void => {
                 // release removes the API Peer synchronously, before awaiting
                 // scope cleanup or any logical-stream iterator's return.
