@@ -722,7 +722,10 @@ async function main(): Promise<void> {
     if (requested.host !== target.host || requested.protocol !== (target.protocol === 'https:' ? 'wss:' : 'ws:')) { callback({}); return }
     const headers = Object.fromEntries(Object.entries(details.requestHeaders).map(([name, value]) => [name.toLowerCase(), value]))
     if (headers.origin !== 'dsh-app://app') { callback({ cancel: true }); return }
-    callback({ requestHeaders: { ...headers, origin: target.origin, cookie: hostCookie, 'sec-fetch-site': 'same-origin' } })
+    const rawIncomingCookie = details.requestHeaders['Cookie'] ?? details.requestHeaders['cookie'] ?? ''
+    const userMatch = /dsh-user-id=([0-9a-fA-F-]+)/.exec(rawIncomingCookie)
+    const effectiveCookie = userMatch ? `${hostCookie}; ${userMatch[0]}` : hostCookie
+    callback({ requestHeaders: { ...headers, origin: target.origin, cookie: effectiveCookie, 'sec-fetch-site': 'same-origin' } })
   })
 
   const assertMainApplication = (event: IpcMainInvokeEvent): BrowserWindow => {

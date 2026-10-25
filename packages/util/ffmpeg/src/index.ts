@@ -279,7 +279,7 @@ export async function executeFfmpeg(args: string[], signal?: AbortSignal, ffmpeg
   await new Promise<void>((resolvePromise, rejectPromise) => {
     const proc = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] })
     let stderr = ''
-    proc.stderr?.on('data', d => { stderr += d.toString() })
+    proc.stderr?.on('data', (d) => { stderr += d.toString() })
 
     const onAbort = () => {
       proc.kill('SIGKILL')
@@ -293,7 +293,7 @@ export async function executeFfmpeg(args: string[], signal?: AbortSignal, ffmpeg
 
     signal?.addEventListener('abort', onAbort)
 
-    proc.on('close', code => {
+    proc.on('close', (code) => {
       signal?.removeEventListener('abort', onAbort)
       if (code === 0) resolvePromise()
       else rejectPromise(new Error(`FFmpeg failed (code ${code}): ${stderr.slice(-500)}`))
@@ -479,8 +479,15 @@ export async function ensureFfmpegOnPath(options: ResolveFfmpegOptions = {}): Pr
   const probeName = process.platform === 'win32' ? 'ffprobe.cmd' : 'ffprobe'
   const probeCandidate = join(binDir, probeName)
   const probeLinkTarget = join(dshBin, probeName)
+  const systemProbe = existsSync('/usr/bin/ffprobe') ? '/usr/bin/ffprobe'
+    : existsSync('/usr/local/bin/ffprobe') ? '/usr/local/bin/ffprobe'
+      : existsSync('/opt/homebrew/bin/ffprobe') ? '/opt/homebrew/bin/ffprobe'
+        : undefined
+
   try {
-    if (!existsSync(probeCandidate)) {
+    if (systemProbe && (!existsSync(probeCandidate) || probeCandidate === probeLinkTarget)) {
+      symlinkSync(systemProbe, probeCandidate)
+    } else if (!existsSync(probeCandidate)) {
       if (process.platform === 'win32') {
         writeFileSync(probeCandidate, '@echo off\r\n"%~dp0ffmpeg.exe" -hide_banner %*\r\n')
       } else {
@@ -494,13 +501,15 @@ export async function ensureFfmpegOnPath(options: ResolveFfmpegOptions = {}): Pr
     if (!existsSync(linkTarget) && linkTarget !== resolution.ffmpegPath) {
       symlinkSync(resolution.ffmpegPath, linkTarget)
     }
-    if (existsSync(probeCandidate) && !existsSync(probeLinkTarget)) {
+    if (systemProbe && !existsSync(probeLinkTarget)) {
+      symlinkSync(systemProbe, probeLinkTarget)
+    } else if (existsSync(probeCandidate) && !existsSync(probeLinkTarget)) {
       symlinkSync(probeCandidate, probeLinkTarget)
     }
   } catch {}
 
   const currentPathEntries = (process.env.PATH ?? '').split(delimiter).filter(Boolean)
-  const remaining = currentPathEntries.filter((p) => p !== binDir && p !== dshBin)
+  const remaining = currentPathEntries.filter(p => p !== binDir && p !== dshBin)
   process.env.PATH = [binDir, dshBin, ...remaining].join(delimiter)
 
   process.env.FFMPEG_PATH = resolution.ffmpegPath

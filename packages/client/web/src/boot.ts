@@ -48,9 +48,7 @@ export class AppWebEntry {
    */
   async run(onFailure?: (reason: unknown) => void): Promise<void> {
     try {
-      if ((globalThis as { dshDesktopBoot?: unknown }).dshDesktopBoot === undefined) {
-        ;(globalThis as { __DSH_WEB__?: boolean }).__DSH_WEB__ = true
-      }
+      ;(globalThis as { __DSH_WEB__?: boolean }).__DSH_WEB__ = true
       // Boot-readiness gate: whichever bootstrap applies the injection table
       // settles this deferred once every row has taken effect — the served
       // index resolves it in the rendered tail, so the await returns on the

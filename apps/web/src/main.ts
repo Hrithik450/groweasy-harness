@@ -12,9 +12,7 @@ interface DesktopBootGlobal {
   }
 }
 const desktop = (globalThis as DesktopBootGlobal).dshDesktopBoot
-if (desktop === undefined) {
-  (globalThis as { __DSH_WEB__?: boolean }).__DSH_WEB__ = true
-}
+;(globalThis as { __DSH_WEB__?: boolean }).__DSH_WEB__ = true
 const reportFailure = (reason: unknown): void => {
   if (desktop === undefined) throw reason
   void desktop

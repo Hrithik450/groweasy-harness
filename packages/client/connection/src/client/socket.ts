@@ -46,6 +46,20 @@ export interface ConnectionWebSocket {
  */
 export type ConnectionWebSocketFactory = (url: string) => ConnectionWebSocket
 
+function resolveStoredUserId(): string | undefined {
+  if (typeof document !== 'undefined' && typeof document.cookie === 'string') {
+    const match = /(?:^|;\s*)dsh-user-id=([0-9a-fA-F-]+)/.exec(document.cookie)
+    if (match?.[1]) return match[1]
+  }
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('dsh.user.id.v7')
+      if (stored && /^[0-9a-fA-F-]+$/.test(stored)) return stored
+    } catch {}
+  }
+  return undefined
+}
+
 /**
  * Resolve a logical channel against the explicit Host or the page's document base.
  * @param path - absolute logical channel path.
@@ -62,5 +76,9 @@ export function openConnectionWebSocket(
   if (base === undefined) throw new Error('connection: WebSocket carrier requires streamBaseUrl outside a document')
   const url = new URL(path.slice(1), base)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  if (!url.searchParams.has('userId')) {
+    const userId = resolveStoredUserId()
+    if (userId) url.searchParams.set('userId', userId)
+  }
   return factory(url.href)
 }

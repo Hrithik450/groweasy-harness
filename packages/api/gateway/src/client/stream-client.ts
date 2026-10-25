@@ -499,6 +499,20 @@ export class ClientUplinkQueue implements AsyncIterable<unknown>, AsyncIterator<
   }
 }
 
+function resolveStoredUserId(): string | undefined {
+  if (typeof document !== 'undefined' && typeof document.cookie === 'string') {
+    const match = /(?:^|;\s*)dsh-user-id=([0-9a-fA-F-]+)/.exec(document.cookie)
+    if (match?.[1]) return match[1]
+  }
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('dsh.user.id.v7')
+      if (stored && /^[0-9a-fA-F-]+$/.test(stored)) return stored
+    } catch {}
+  }
+  return undefined
+}
+
 function remoteStreamUrl(): string {
   // The mux route is registered absolute; a page resolves its document-relative
   // form against its own document base. A shell-owned Host on another origin
@@ -506,5 +520,9 @@ function remoteStreamUrl(): string {
   const globals = globalThis as { __DSH_TRANSPORT__?: { streamBaseUrl?: string } }
   const url = new URL(REMOTE_STREAM_MUX_PATH.slice(1), globals.__DSH_TRANSPORT__?.streamBaseUrl ?? document.baseURI)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  if (!url.searchParams.has('userId')) {
+    const userId = resolveStoredUserId()
+    if (userId) url.searchParams.set('userId', userId)
+  }
   return url.href
 }

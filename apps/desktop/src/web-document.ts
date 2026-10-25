@@ -82,8 +82,11 @@ export async function forwardWebRequest(request: Request, host: string, cookie: 
   target.pathname = source.pathname
   target.search = source.search
   const headers = new Headers(request.headers)
+  const incomingCookie = request.headers.get('cookie')
+  const userMatch = incomingCookie ? /dsh-user-id=([0-9a-fA-F-]+)/.exec(incomingCookie) : null
   for (const name of ['host', 'origin', 'cookie', 'sec-fetch-site']) headers.delete(name)
-  headers.set('cookie', cookie)
+  const effectiveCookie = userMatch ? `${cookie}; ${userMatch[0]}` : cookie
+  headers.set('cookie', effectiveCookie)
   const init = { method: request.method, headers, body: request.body, signal: request.signal, duplex: 'half', redirect: 'manual' as const }
   const response = await fetch(target, init)
   const outgoing = new Headers(response.headers)
