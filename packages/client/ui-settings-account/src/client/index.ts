@@ -77,7 +77,7 @@ export const inject = [
 ];
 /** Register account UI in Desktop and plain Web clients. @param ctx - client plugin context. */
 export function apply(ctx: Context): void {
-  const currentUserId = getClientUserId();
+  void getClientUserId();
   const desktop = "dshDesktop" in globalThis;
   ctx.effect(
     () => ctx.locale.register("settings.account", { en, zh }),
