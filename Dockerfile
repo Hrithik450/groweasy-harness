@@ -25,6 +25,9 @@ WORKDIR /app
 # ---- Builder: Install dependencies and compile artifacts -------------------
 FROM base AS builder
 
+ARG DSH_CLIENT_COMMIT_HASH=0000000
+ENV DSH_CLIENT_COMMIT_HASH=$DSH_CLIENT_COMMIT_HASH
+
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY patches ./patches
 COPY packages ./packages
