@@ -1,0 +1,8 @@
+packages:
+  - vendor/*
+  - packages/*/*
+  - apps/*
+
+overrides:
+  "@deepseek-ai/cosmokit": "link:vendor/cosmokit"
+  "@deepseek-ai/schemastery": "link:vendor/schemastery"
