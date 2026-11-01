@@ -1,0 +1,603 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "strict": true,
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "@/*": [
+        "./apps/gateway/src/*"
+      ],
+      "@openai-harness/agent": [
+        "./packages/core/agent/src/index.ts"
+      ],
+      "@openai-harness/agent-loop": [
+        "./packages/core/agent-loop/src/index.ts"
+      ],
+      "@openai-harness/agent-loop/src/*": [
+        "./packages/core/agent-loop/src/*"
+      ],
+      "@openai-harness/agent-preset": [
+        "./packages/agent/agent-preset/src/index.ts"
+      ],
+      "@openai-harness/agent-preset/src/*": [
+        "./packages/agent/agent-preset/src/*"
+      ],
+      "@openai-harness/agent/src/*": [
+        "./packages/core/agent/src/*"
+      ],
+      "@openai-harness/api-gateway": [
+        "./packages/api/gateway/src/index.ts"
+      ],
+      "@openai-harness/api-gateway/client": [
+        "./packages/api/gateway/src/client/index.ts"
+      ],
+      "@openai-harness/api-gateway/src/*": [
+        "./packages/api/gateway/src/*"
+      ],
+      "@openai-harness/attachment": [
+        "./packages/attachment/attachment/src/index.ts"
+      ],
+      "@openai-harness/attachment-r2": [
+        "./packages/attachment/attachment-r2/src/index.ts"
+      ],
+      "@openai-harness/attachment-r2/src/*": [
+        "./packages/attachment/attachment-r2/src/*"
+      ],
+      "@openai-harness/attachment/client": [
+        "./packages/attachment/attachment/src/client/index.ts"
+      ],
+      "@openai-harness/attachment/src/*": [
+        "./packages/attachment/attachment/src/*"
+      ],
+      "@openai-harness/brand": [
+        "./packages/util/brand/src/index.ts"
+      ],
+      "@openai-harness/brand/src/*": [
+        "./packages/util/brand/src/*"
+      ],
+      "@openai-harness/client-connection": [
+        "./packages/client/connection/src/index.ts"
+      ],
+      "@openai-harness/client-connection/client": [
+        "./packages/client/connection/src/client/index.ts"
+      ],
+      "@openai-harness/client-connection/src/*": [
+        "./packages/client/connection/src/*"
+      ],
+      "@openai-harness/client-rpc": [
+        "./packages/client/rpc/src/index.ts"
+      ],
+      "@openai-harness/client-rpc/src/*": [
+        "./packages/client/rpc/src/*"
+      ],
+      "@openai-harness/client-ui-attachment-viewers": [
+        "./packages/client/ui-attachment-viewers/src/index.ts"
+      ],
+      "@openai-harness/client-ui-attachment-viewers/client": [
+        "./packages/client/ui-attachment-viewers/src/client/index.ts"
+      ],
+      "@openai-harness/client-ui-attachment-viewers/src/*": [
+        "./packages/client/ui-attachment-viewers/src/*"
+      ],
+      "@openai-harness/client-ui-chat": [
+        "./packages/client/ui-chat/src/index.ts"
+      ],
+      "@openai-harness/client-ui-chat/client": [
+        "./packages/client/ui-chat/src/client/index.tsx"
+      ],
+      "@openai-harness/client-ui-chat/src/*": [
+        "./packages/client/ui-chat/src/*"
+      ],
+      "@openai-harness/client-ui-connectors": [
+        "./packages/client/ui-connectors/src/index.ts"
+      ],
+      "@openai-harness/client-ui-connectors/client": [
+        "./packages/client/ui-connectors/src/client/index.tsx"
+      ],
+      "@openai-harness/client-ui-connectors/src/*": [
+        "./packages/client/ui-connectors/src/*"
+      ],
+      "@openai-harness/client-ui-detail-bar": [
+        "./packages/client/ui-detail-bar/src/index.ts"
+      ],
+      "@openai-harness/client-ui-detail-bar/client": [
+        "./packages/client/ui-detail-bar/src/client/index.tsx"
+      ],
+      "@openai-harness/client-ui-detail-bar/src/*": [
+        "./packages/client/ui-detail-bar/src/*"
+      ],
+      "@openai-harness/client-ui-generative": [
+        "./packages/client/ui-generative/src/index.ts"
+      ],
+      "@openai-harness/client-ui-generative/client": [
+        "./packages/client/ui-generative/src/client/index.ts"
+      ],
+      "@openai-harness/client-ui-generative/src/*": [
+        "./packages/client/ui-generative/src/*"
+      ],
+      "@openai-harness/client-ui-landing": [
+        "./packages/client/ui-landing/src/index.ts"
+      ],
+      "@openai-harness/client-ui-landing/client": [
+        "./packages/client/ui-landing/src/client/index.tsx"
+      ],
+      "@openai-harness/client-ui-landing/src/*": [
+        "./packages/client/ui-landing/src/*"
+      ],
+      "@openai-harness/client-ui-layout": [
+        "./packages/client/ui-layout/src/index.ts"
+      ],
+      "@openai-harness/client-ui-layout/client": [
+        "./packages/client/ui-layout/src/client/index.tsx"
+      ],
+      "@openai-harness/client-ui-layout/src/*": [
+        "./packages/client/ui-layout/src/*"
+      ],
+      "@openai-harness/client-ui-modals": [
+        "./packages/client/ui-modals/src/index.ts"
+      ],
+      "@openai-harness/client-ui-modals/client": [
+        "./packages/client/ui-modals/src/client/index.tsx"
+      ],
+      "@openai-harness/client-ui-modals/src/*": [
+        "./packages/client/ui-modals/src/*"
+      ],
+      "@openai-harness/client-ui-primitives": [
+        "./packages/client/ui-primitives/src/index.ts"
+      ],
+      "@openai-harness/client-ui-primitives/src/*": [
+        "./packages/client/ui-primitives/src/*"
+      ],
+      "@openai-harness/client-ui-profile": [
+        "./packages/client/ui-profile/src/index.ts"
+      ],
+      "@openai-harness/client-ui-profile/client": [
+        "./packages/client/ui-profile/src/client/index.tsx"
+      ],
+      "@openai-harness/client-ui-profile/src/*": [
+        "./packages/client/ui-profile/src/*"
+      ],
+      "@openai-harness/client-ui-report": [
+        "./packages/client/ui-report/src/index.ts"
+      ],
+      "@openai-harness/client-ui-report/client": [
+        "./packages/client/ui-report/src/client/index.tsx"
+      ],
+      "@openai-harness/client-ui-report/src/*": [
+        "./packages/client/ui-report/src/*"
+      ],
+      "@openai-harness/client-ui-renderer": [
+        "./packages/client/ui-renderer/src/index.ts"
+      ],
+      "@openai-harness/client-ui-renderer/client": [
+        "./packages/client/ui-renderer/src/client/index.tsx"
+      ],
+      "@openai-harness/client-ui-renderer/src/*": [
+        "./packages/client/ui-renderer/src/*"
+      ],
+      "@openai-harness/client-ui-session": [
+        "./packages/client/ui-session/src/index.ts"
+      ],
+      "@openai-harness/client-ui-session/src/*": [
+        "./packages/client/ui-session/src/*"
+      ],
+      "@openai-harness/client-ui-sidebar": [
+        "./packages/client/ui-sidebar/src/index.ts"
+      ],
+      "@openai-harness/client-ui-sidebar/client": [
+        "./packages/client/ui-sidebar/src/client/index.tsx"
+      ],
+      "@openai-harness/client-ui-sidebar/src/*": [
+        "./packages/client/ui-sidebar/src/*"
+      ],
+      "@openai-harness/client-ui-slots": [
+        "./packages/client/ui-slots/src/index.ts"
+      ],
+      "@openai-harness/client-ui-slots/src/*": [
+        "./packages/client/ui-slots/src/*"
+      ],
+      "@openai-harness/client-ui-theme": [
+        "./packages/client/ui-theme/src/index.ts"
+      ],
+      "@openai-harness/client-ui-theme/src/*": [
+        "./packages/client/ui-theme/src/*"
+      ],
+      "@openai-harness/client-web": [
+        "./packages/client/web/src/index.ts"
+      ],
+      "@openai-harness/client-web/src/*": [
+        "./packages/client/web/src/*"
+      ],
+      "@openai-harness/compaction": [
+        "./packages/compaction/compaction/src/index.ts"
+      ],
+      "@openai-harness/compaction-basic": [
+        "./packages/compaction/compaction-basic/src/index.ts"
+      ],
+      "@openai-harness/compaction-basic/src/*": [
+        "./packages/compaction/compaction-basic/src/*"
+      ],
+      "@openai-harness/compaction/src/*": [
+        "./packages/compaction/compaction/src/*"
+      ],
+      "@openai-harness/connector": [
+        "./packages/connector/connector/src/index.ts"
+      ],
+      "@openai-harness/connector-business-profile": [
+        "./packages/connector/connector-business-profile/src/index.ts"
+      ],
+      "@openai-harness/connector-business-profile/src/*": [
+        "./packages/connector/connector-business-profile/src/*"
+      ],
+      "@openai-harness/connector-meta": [
+        "./packages/connector/connector-meta/src/index.ts"
+      ],
+      "@openai-harness/connector-meta/src/*": [
+        "./packages/connector/connector-meta/src/*"
+      ],
+      "@openai-harness/connector-shopify": [
+        "./packages/connector/connector-shopify/src/index.ts"
+      ],
+      "@openai-harness/connector-shopify/src/*": [
+        "./packages/connector/connector-shopify/src/*"
+      ],
+      "@openai-harness/connector/src/*": [
+        "./packages/connector/connector/src/*"
+      ],
+      "@openai-harness/credentials": [
+        "./packages/credentials/credentials/src/index.ts"
+      ],
+      "@openai-harness/credentials/src/*": [
+        "./packages/credentials/credentials/src/*"
+      ],
+      "@openai-harness/crypto": [
+        "./packages/util/crypto/src/index.ts"
+      ],
+      "@openai-harness/crypto/src/*": [
+        "./packages/util/crypto/src/*"
+      ],
+      "@openai-harness/date": [
+        "./packages/util/date/src/index.ts"
+      ],
+      "@openai-harness/date/src/*": [
+        "./packages/util/date/src/*"
+      ],
+      "@openai-harness/generative-ui": [
+        "./packages/core/generative-ui/src/index.ts"
+      ],
+      "@openai-harness/generative-ui/src/*": [
+        "./packages/core/generative-ui/src/*"
+      ],
+      "@openai-harness/google-account": [
+        "./packages/credentials/google-account/src/index.ts"
+      ],
+      "@openai-harness/google-account/src/*": [
+        "./packages/credentials/google-account/src/*"
+      ],
+      "@openai-harness/guardrails": [
+        "./packages/guard/guardrails/src/index.ts"
+      ],
+      "@openai-harness/guardrails/src/*": [
+        "./packages/guard/guardrails/src/*"
+      ],
+      "@openai-harness/host-webserver": [
+        "./packages/host/webserver/src/index.ts"
+      ],
+      "@openai-harness/host-webserver/src/*": [
+        "./packages/host/webserver/src/*"
+      ],
+      "@openai-harness/llm": [
+        "./packages/llm/llm/src/index.ts"
+      ],
+      "@openai-harness/llm-deepseek": [
+        "./packages/llm/llm-deepseek/src/index.ts"
+      ],
+      "@openai-harness/llm-deepseek/src/*": [
+        "./packages/llm/llm-deepseek/src/*"
+      ],
+      "@openai-harness/llm-openai": [
+        "./packages/llm/llm-openai/src/index.ts"
+      ],
+      "@openai-harness/llm-openai/src/*": [
+        "./packages/llm/llm-openai/src/*"
+      ],
+      "@openai-harness/llm/src/*": [
+        "./packages/llm/llm/src/*"
+      ],
+      "@openai-harness/paths": [
+        "./packages/util/paths/src/index.ts"
+      ],
+      "@openai-harness/paths/src/*": [
+        "./packages/util/paths/src/*"
+      ],
+      "@openai-harness/schedule": [
+        "./packages/schedule/schedule/src/index.ts"
+      ],
+      "@openai-harness/schedule/src/*": [
+        "./packages/schedule/schedule/src/*"
+      ],
+      "@openai-harness/scraper": [
+        "./packages/scraper/scraper/src/index.ts"
+      ],
+      "@openai-harness/scraper/src/*": [
+        "./packages/scraper/scraper/src/*"
+      ],
+      "@openai-harness/sdk-jsonrpc-server": [
+        "./packages/sdk/server/src/index.ts"
+      ],
+      "@openai-harness/sdk-jsonrpc-server/src/*": [
+        "./packages/sdk/server/src/*"
+      ],
+      "@openai-harness/sdk-protocol": [
+        "./packages/sdk/protocol/src/index.ts"
+      ],
+      "@openai-harness/sdk-protocol/src/*": [
+        "./packages/sdk/protocol/src/*"
+      ],
+      "@openai-harness/session": [
+        "./packages/core/session/src/index.ts"
+      ],
+      "@openai-harness/session-controller": [
+        "./packages/api/session-controller/src/index.ts"
+      ],
+      "@openai-harness/session-controller/client": [
+        "./packages/api/session-controller/src/client/index.ts"
+      ],
+      "@openai-harness/session-controller/src/*": [
+        "./packages/api/session-controller/src/*"
+      ],
+      "@openai-harness/session-lock": [
+        "./packages/util/session-lock/src/index.ts"
+      ],
+      "@openai-harness/session-lock/src/*": [
+        "./packages/util/session-lock/src/*"
+      ],
+      "@openai-harness/session-persistence": [
+        "./packages/session/session-persistence/src/index.ts"
+      ],
+      "@openai-harness/session-persistence-jsonl": [
+        "./packages/session/session-persistence-jsonl/src/index.ts"
+      ],
+      "@openai-harness/session-persistence-jsonl/src/*": [
+        "./packages/session/session-persistence-jsonl/src/*"
+      ],
+      "@openai-harness/session-persistence/src/*": [
+        "./packages/session/session-persistence/src/*"
+      ],
+      "@openai-harness/session-projection": [
+        "./packages/session/session-projection/src/index.ts"
+      ],
+      "@openai-harness/session-projection/src/*": [
+        "./packages/session/session-projection/src/*"
+      ],
+      "@openai-harness/session/src/*": [
+        "./packages/core/session/src/*"
+      ],
+      "@openai-harness/skill": [
+        "./packages/skill/skill/src/index.ts"
+      ],
+      "@openai-harness/skill-alerts": [
+        "./packages/skill/skill-alerts/src/index.ts"
+      ],
+      "@openai-harness/skill-alerts/src/*": [
+        "./packages/skill/skill-alerts/src/*"
+      ],
+      "@openai-harness/skill-business-profile": [
+        "./packages/skill/skill-business-profile/src/index.ts"
+      ],
+      "@openai-harness/skill-business-profile/src/*": [
+        "./packages/skill/skill-business-profile/src/*"
+      ],
+      "@openai-harness/skill-campaigns": [
+        "./packages/skill/skill-campaigns/src/index.ts"
+      ],
+      "@openai-harness/skill-campaigns/src/*": [
+        "./packages/skill/skill-campaigns/src/*"
+      ],
+      "@openai-harness/skill-campaign-builder": [
+        "./packages/skill/skill-campaign-builder/src/index.ts"
+      ],
+      "@openai-harness/skill-campaign-builder/src/*": [
+        "./packages/skill/skill-campaign-builder/src/*"
+      ],
+      "@openai-harness/skill-competitor-research": [
+        "./packages/skill/skill-competitor-research/src/index.ts"
+      ],
+      "@openai-harness/skill-competitor-research/src/*": [
+        "./packages/skill/skill-competitor-research/src/*"
+      ],
+      "@openai-harness/skill-ffmpeg": [
+        "./packages/skill/skill-ffmpeg/src/index.ts"
+      ],
+      "@openai-harness/skill-ffmpeg/src/*": [
+        "./packages/skill/skill-ffmpeg/src/*"
+      ],
+      "@openai-harness/skill-filesystem": [
+        "./packages/skill/skill-filesystem/src/index.ts"
+      ],
+      "@openai-harness/skill-filesystem/src/*": [
+        "./packages/skill/skill-filesystem/src/*"
+      ],
+      "@openai-harness/skill-render-template": [
+        "./packages/skill/skill-render-template/src/index.ts"
+      ],
+      "@openai-harness/skill-render-template/src/*": [
+        "./packages/skill/skill-render-template/src/*"
+      ],
+      "@openai-harness/skill-reports": [
+        "./packages/skill/skill-reports/src/index.ts"
+      ],
+      "@openai-harness/skill-reports/src/*": [
+        "./packages/skill/skill-reports/src/*"
+      ],
+      "@openai-harness/skill-static-ad": [
+        "./packages/skill/skill-static-ad/src/index.ts"
+      ],
+      "@openai-harness/skill-static-ad/src/*": [
+        "./packages/skill/skill-static-ad/src/*"
+      ],
+      "@openai-harness/skill-suggestions": [
+        "./packages/skill/skill-suggestions/src/index.ts"
+      ],
+      "@openai-harness/skill-suggestions/src/*": [
+        "./packages/skill/skill-suggestions/src/*"
+      ],
+      "@openai-harness/skill-video-ad": [
+        "./packages/skill/skill-video-ad/src/index.ts"
+      ],
+      "@openai-harness/skill-video-ad/src/*": [
+        "./packages/skill/skill-video-ad/src/*"
+      ],
+      "@openai-harness/skill-video-captions": [
+        "./packages/skill/skill-video-captions/src/index.ts"
+      ],
+      "@openai-harness/skill-video-captions/src/*": [
+        "./packages/skill/skill-video-captions/src/*"
+      ],
+      "@openai-harness/skill/src/*": [
+        "./packages/skill/skill/src/*"
+      ],
+      "@openai-harness/storage": [
+        "./packages/storage/storage/src/index.ts"
+      ],
+      "@openai-harness/storage-domain": [
+        "./packages/storage/storage-domain/src/index.ts"
+      ],
+      "@openai-harness/storage-domain/src/*": [
+        "./packages/storage/storage-domain/src/*"
+      ],
+      "@openai-harness/storage-json": [
+        "./packages/storage/storage-json/src/index.ts"
+      ],
+      "@openai-harness/storage-json/src/*": [
+        "./packages/storage/storage-json/src/*"
+      ],
+      "@openai-harness/storage-sqlite": [
+        "./packages/storage/storage-sqlite/src/index.ts"
+      ],
+      "@openai-harness/storage-sqlite/src/*": [
+        "./packages/storage/storage-sqlite/src/*"
+      ],
+      "@openai-harness/storage/src/*": [
+        "./packages/storage/storage/src/*"
+      ],
+      "@openai-harness/system-prompt": [
+        "./packages/core/system-prompt/src/index.ts"
+      ],
+      "@openai-harness/system-prompt/src/*": [
+        "./packages/core/system-prompt/src/*"
+      ],
+      "@openai-harness/tool-account": [
+        "./packages/tool/tool-account/src/index.ts"
+      ],
+      "@openai-harness/tool-account/src/*": [
+        "./packages/tool/tool-account/src/*"
+      ],
+      "@openai-harness/tool-audio": [
+        "./packages/tool/tool-audio/src/index.ts"
+      ],
+      "@openai-harness/tool-audio/src/*": [
+        "./packages/tool/tool-audio/src/*"
+      ],
+      "@openai-harness/tool-composition": [
+        "./packages/tool/tool-composition/src/index.ts"
+      ],
+      "@openai-harness/tool-composition/src/*": [
+        "./packages/tool/tool-composition/src/*"
+      ],
+      "@openai-harness/tool-generative-ui": [
+        "./packages/tool/tool-generative-ui/src/index.ts"
+      ],
+      "@openai-harness/tool-generative-ui/src/*": [
+        "./packages/tool/tool-generative-ui/src/*"
+      ],
+      "@openai-harness/tool-image": [
+        "./packages/tool/tool-image/src/index.ts"
+      ],
+      "@openai-harness/tool-image/src/*": [
+        "./packages/tool/tool-image/src/*"
+      ],
+      "@openai-harness/tool-meta": [
+        "./packages/tool/tool-meta/src/index.ts"
+      ],
+      "@openai-harness/tool-meta/src/*": [
+        "./packages/tool/tool-meta/src/*"
+      ],
+      "@openai-harness/tool-session": [
+        "./packages/tool/tool-session/src/index.ts"
+      ],
+      "@openai-harness/tool-session/src/*": [
+        "./packages/tool/tool-session/src/*"
+      ],
+      "@openai-harness/tool-shopify": [
+        "./packages/tool/tool-shopify/src/index.ts"
+      ],
+      "@openai-harness/tool-shopify/src/*": [
+        "./packages/tool/tool-shopify/src/*"
+      ],
+      "@openai-harness/tool-skill": [
+        "./packages/skill/tool-skill/src/index.ts"
+      ],
+      "@openai-harness/tool-skill/src/*": [
+        "./packages/skill/tool-skill/src/*"
+      ],
+      "@openai-harness/tool-video": [
+        "./packages/tool/tool-video/src/index.ts"
+      ],
+      "@openai-harness/tool-video/src/*": [
+        "./packages/tool/tool-video/src/*"
+      ],
+      "@openai-harness/tool-web": [
+        "./packages/tool/tool-web/src/index.ts"
+      ],
+      "@openai-harness/tool-web/src/*": [
+        "./packages/tool/tool-web/src/*"
+      ],
+      "@openai-harness/tools": [
+        "./packages/core/tools/src/index.ts"
+      ],
+      "@openai-harness/tools/src/*": [
+        "./packages/core/tools/src/*"
+      ],
+      "@openai-harness/util-deque": [
+        "./packages/util/deque/src/index.ts"
+      ],
+      "@openai-harness/util-deque/src/*": [
+        "./packages/util/deque/src/*"
+      ],
+      "@openai-harness/util-values": [
+        "./packages/util/values/src/index.ts"
+      ],
+      "@openai-harness/util-values/src/*": [
+        "./packages/util/values/src/*"
+      ],
+      "@openai-harness/uuid": [
+        "./packages/util/uuid/src/index.ts"
+      ],
+      "@openai-harness/uuid/src/*": [
+        "./packages/util/uuid/src/*"
+      ],
+      "@openai-harness/workflows": [
+        "./packages/agent/workflows/src/index.ts"
+      ],
+      "@openai-harness/workflows/src/*": [
+        "./packages/agent/workflows/src/*"
+      ]
+    }
+  }
+}
