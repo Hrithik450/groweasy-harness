@@ -1,0 +1,27 @@
+{
+  "name": "@openai-harness/sdk-protocol",
+  "description": "Shared wire protocol: session RPC contracts, Remote stream frames, and the Remote failure vocabulary",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/index.d.ts"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@openai-harness/generative-ui": "workspace:*",
+    "@openai-harness/session": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}
