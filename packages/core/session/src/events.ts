@@ -1,0 +1,226 @@
+/**
+ * Durable session event map: every event an agent run can append to the log,
+ * with its typed payload.
+ *
+ * @module @openai-harness/session
+ */
+
+import type { AttachmentRef } from "@openai-harness/attachment";
+import type { UIBlockSpec } from "@openai-harness/generative-ui";
+import type { ToolCallId } from "@openai-harness/llm";
+import type {
+  AssistantMessage,
+  SystemMessage,
+  TokenUsage,
+  ToolResultMessage,
+  UserMessage,
+} from "@openai-harness/llm";
+import type {
+  CompactionCheckpointEventData,
+  CompactionPruneEventData,
+} from "./compaction-events";
+import type { SessionSeq } from "./types";
+
+export type SessionMessageRole = "user" | "assistant" | "system" | "tool";
+
+export type TurnEndReason =
+  | { kind: "completed" }
+  | { kind: "aborted"; reason?: string }
+  | { kind: "blocked" }
+  | { kind: "error"; error: string | { message: string; code?: string } }
+  | { kind: "max-tokens" }
+  | { kind: "interrupted" };
+
+export interface EpochHeader {
+  config: {
+    provider: string;
+    model: string;
+    temperature?: number;
+    maxTokens?: number;
+    reasoningEffort?: "low" | "medium" | "high";
+    stop?: string[];
+    [key: string]: unknown;
+  };
+  tools?: {
+    name: string;
+    description?: string;
+    parameters?: Record<string, unknown>;
+  }[];
+}
+
+export type RequestHeaderReason = "initial" | "resume" | "change" | "series";
+
+/** Registration-bound metadata for one resolved model route. */
+export interface RequestContext {
+  provider: string;
+  model: string;
+  contextWindow?: number;
+}
+
+/** Timed chunks captured during an in-flight or retried assistant stream attempt. */
+export type AssistantStreamRecord =
+  | { type: "text-chunks"; texts: string[] }
+  | { type: "reasoning-chunks"; texts: string[] }
+  | {
+      type: "tool-call-chunks";
+      id?: ToolCallId | string;
+      name?: string;
+      args: string[];
+    };
+
+/** A declared deliverable file presented to the user. */
+export interface PresentedFile {
+  title?: string;
+  path?: string;
+  ref?: AttachmentRef;
+  description?: string;
+  mimeType?: string;
+}
+
+export interface SessionEventMap {
+  /** Opens turn `turn` before input is processed or steps run. */
+  "turn/start": {
+    turn: number;
+  };
+
+  /** Closes turn `turn` with its final completion/abortion reason. */
+  "turn/end": {
+    turn: number;
+    reason: TurnEndReason;
+  };
+
+  /** Opens step `step` of turn `turn` (a model call + its requested tool calls). */
+  "step/start": {
+    turn: number;
+    step: number;
+  };
+
+  /** Closes step `step` of turn `turn`. */
+  "step/end": {
+    turn: number;
+    step: number;
+  };
+
+  /** User-role message on the model-visible surface (prompt, files, attachments). */
+  "user/message": UserMessage;
+
+  /** Assistant-role message emitted by the model for one step. */
+  "assistant/message": {
+    turn: number;
+    step: number;
+    message: AssistantMessage;
+    stream?: AssistantStreamRecord[];
+    usage?: TokenUsage;
+    interrupted?: boolean;
+  };
+
+  /** System-role instructions rendered on the model-visible surface. */
+  "system/message": SystemMessage;
+
+  /** Model requested a tool execution (callId pairs with tool/result). */
+  "tool/call": {
+    turn: number;
+    step: number;
+    callId: ToolCallId | string;
+    name: string;
+    arguments: string;
+  };
+
+  /** Completed tool execution output. */
+  "tool/result": {
+    turn: number;
+    step: number;
+    message: ToolResultMessage;
+    error?: { name: string; code: string; reason?: string };
+    meta?: unknown;
+  };
+
+  /** Model call attempt that committed no surface message (retry/cancelled stream). */
+  "assistant/attempt": {
+    turn: number;
+    step: number;
+    stream?: AssistantStreamRecord[];
+    error?: string | { message: string; code?: string };
+  };
+
+  /** Full header for the next request, appended inside its step before dispatch. */
+  "request/header": {
+    header: EpochHeader;
+    reason: RequestHeaderReason;
+    startsSeries?: boolean;
+  };
+
+  /**
+   * Resolved route and capacity metadata for the model request.
+   * Feeds the context-pressure and compaction projections.
+   */
+  "request/context": RequestContext;
+
+  /** Declared filesystem or attachment deliverables presented to the user. */
+  "deliverables/presented": {
+    turn?: number;
+    callId?: ToolCallId | string;
+    files: PresentedFile[];
+  };
+
+  /**
+   * Durable summary checkpoint. The marker is log-only; the summary itself is
+   * carried by the adjacent `user/message` whose source kind is
+   * `compact-checkpoint`.
+   */
+  "compaction/checkpoint": CompactionCheckpointEventData;
+
+  /**
+   * Model-free replacement of one over-budget tool result's visible content.
+   * Derivation applies the replacement without rewriting history.
+   */
+  "compaction/prune": CompactionPruneEventData;
+
+  /** Separates restored or seed history from live session work. */
+  "session/end-seed": {
+    inherited?: boolean;
+  };
+
+  /** Durable title generated by LLM or updated by user. */
+  "session/title": {
+    title: string;
+    source?: { kind: "user" | "llm" | "fallback" };
+  };
+
+  /** Replacement DetailBar projection payload for the owning surface. */
+  "detailBar/update": {
+    detailBar: unknown;
+  };
+
+  /** One assistant-authored Generative UI block on the chat surface. */
+  "ui/block": {
+    id: string;
+    spec: UIBlockSpec;
+  };
+
+  /** One normalized mutation of an agent's durable pending-message lists. */
+  "agent/inbox/spliced": {
+    target: "next-turn" | "next-step";
+    start: number;
+    removedCount?: number;
+    inserted: UserMessage[];
+    outcome?: "canceled";
+  };
+}
+
+export type SessionEventType = keyof SessionEventMap;
+
+/**
+ * Single immutable event entry in the session log.
+ * Mapped discriminated union over `type`: enables automatic TypeScript narrowing on `event.type`.
+ */
+export type SessionEvent<T extends SessionEventType = SessionEventType> = {
+  [K in SessionEventType]: {
+    type: K;
+    seq: SessionSeq;
+    time: number;
+    data: SessionEventMap[K];
+    surfaceOp?: "append" | "replace";
+    sourceEventSeqs?: SessionSeq[];
+  };
+}[T];
