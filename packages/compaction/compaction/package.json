@@ -1,0 +1,33 @@
+{
+  "name": "@openai-harness/compaction",
+  "description": "Abstract compaction service seam (ctx.compaction), checkpoint source, and tool-pairing balance",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/index.d.ts"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@openai-harness/brand": "workspace:*",
+    "@openai-harness/llm": "workspace:*",
+    "@openai-harness/session": "workspace:*"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "workspace:~"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:~"
+  }
+}
