@@ -1,0 +1,30 @@
+{
+  "name": "@openai-harness/connector-meta",
+  "description": "Meta Ads connector: Graph API operations, OAuth flow, constants, and provider descriptor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/index.d.ts"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@openai-harness/connector": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@openai-harness/connector": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}
