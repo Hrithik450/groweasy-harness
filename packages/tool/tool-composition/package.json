@@ -1,0 +1,37 @@
+{
+  "name": "@openai-harness/tool-composition",
+  "description": "Model-facing FFmpeg, SVG rendering, overlay-template, and asset-save tools registered as a Cordis plugin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/index.d.ts"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "workspace:~",
+    "@openai-harness/tools": "workspace:*"
+  },
+  "dependencies": {
+    "sharp": "^0.35.5",
+    "@openai-harness/tools": "workspace:*",
+    "@openai-harness/uuid": "workspace:*",
+    "@openai-harness/paths": "workspace:*",
+    "@openai-harness/attachment-r2": "workspace:*"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:~",
+    "@openai-harness/tools": "workspace:*"
+  }
+}
