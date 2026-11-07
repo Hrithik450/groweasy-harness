@@ -1,0 +1,39 @@
+{
+  "name": "@openai-harness/tool-video",
+  "description": "Model-facing subtitle, image-to-video, lip-sync, and video inspection tools registered as a Cordis plugin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/index.d.ts"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "workspace:~",
+    "@openai-harness/tools": "workspace:*"
+  },
+  "dependencies": {
+    "@openai-harness/tool-composition": "workspace:*",
+    "@openai-harness/llm": "workspace:*",
+    "@openai-harness/llm-openai": "workspace:*",
+    "@openai-harness/attachment-r2": "workspace:*",
+    "@openai-harness/tools": "workspace:*",
+    "@openai-harness/uuid": "workspace:*"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:~",
+    "@openai-harness/tools": "workspace:*",
+    "@openai-harness/tool-composition": "workspace:*"
+  }
+}
