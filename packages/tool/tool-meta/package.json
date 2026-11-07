@@ -1,0 +1,40 @@
+{
+  "name": "@openai-harness/tool-meta",
+  "description": "Model-facing Meta Ads tools registered as a Cordis plugin on the tools service",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/index.d.ts"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@openai-harness/tool-web": "workspace:*",
+    "@openai-harness/connector-meta": "workspace:*",
+    "@openai-harness/tools": "workspace:*",
+    "@openai-harness/connector": "workspace:*",
+    "@openai-harness/client-ui-detail-bar": "workspace:*",
+    "@openai-harness/session-persistence": "workspace:*",
+    "@openai-harness/scraper": "workspace:*",
+    "@openai-harness/session": "workspace:*"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "workspace:~",
+    "@openai-harness/tools": "workspace:*"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:~",
+    "@openai-harness/tools": "workspace:*"
+  }
+}
