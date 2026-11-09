@@ -1,0 +1,48 @@
+{
+  "typography": {
+    "--font-sans": "\"XVF_Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif",
+    "--font-display": "\"CursorGothic\", sans-serif",
+    "--font-gothic": "\"CursorGothic\", sans-serif",
+    "--font-mono": "\"GeistMono\", monospace",
+    "--font-heading": "\"CursorGothic\", sans-serif"
+  },
+  "brand": {
+    "--color-brand": "#1c3831",
+    "--color-brand-primary": "#1c3831",
+    "--color-brand-hover": "#152a25",
+    "--color-brand-dark": "#103e33",
+    "--color-brand-surface": "#0b1f1a",
+    "--color-brand-border": "#234537",
+    "--color-brand-border-subtle": "#2d5645",
+    "--color-brand-muted": "#8ca398",
+    "--color-brand-tint": "#f8faf9",
+    "--color-brand-tint-hover": "#e8f3ee",
+    "--color-brand-ring": "rgba(28, 56, 49, 0.2)"
+  },
+  "accent": {
+    "--color-brand-accent": "#e5a93b",
+    "--color-brand-accent-hover": "#d4972a",
+    "--color-brand-accent-dark": "#8f5e0a",
+    "--color-brand-accent-tint": "#fef7ec",
+    "--color-brand-accent-border": "rgba(229, 169, 59, 0.3)"
+  },
+  "semantic": {
+    "--color-card": "#ffffff",
+    "--color-card-foreground": "#171717",
+    "--color-popover": "#ffffff",
+    "--color-popover-foreground": "#171717",
+    "--color-primary": "#1c3831",
+    "--color-primary-foreground": "#ffffff",
+    "--color-secondary": "#f8faf9",
+    "--color-secondary-foreground": "#1c3831",
+    "--color-muted": "#f8faf9",
+    "--color-muted-foreground": "#6b7280",
+    "--color-accent": "#e5a93b",
+    "--color-accent-foreground": "#12251e",
+    "--color-destructive": "#dc2626",
+    "--color-destructive-foreground": "#ffffff",
+    "--color-border": "#e5e7eb",
+    "--color-input": "#e5e7eb",
+    "--color-ring": "#1c3831"
+  }
+}
