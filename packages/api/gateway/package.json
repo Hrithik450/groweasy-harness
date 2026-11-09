@@ -1,0 +1,42 @@
+{
+  "name": "@openai-harness/api-gateway",
+  "description": "Remote stream mux and unary endpoint dispatch over Cordis services",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./src/client/index.ts",
+      "browser": "./src/client/index.ts",
+      "default": "./src/client/index.ts"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/index.d.ts"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "workspace:~"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "workspace:~",
+    "@openai-harness/client-connection": "workspace:*",
+    "@openai-harness/host-webserver": "workspace:*",
+    "@openai-harness/sdk-protocol": "workspace:*",
+    "@openai-harness/util-deque": "workspace:*",
+    "ws": "^8.22.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:~",
+    "@types/ws": "^8.18.2"
+  }
+}
