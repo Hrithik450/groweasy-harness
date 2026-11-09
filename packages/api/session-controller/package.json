@@ -1,0 +1,50 @@
+{
+  "name": "@openai-harness/session-controller",
+  "description": "Session Remote commands, cold reads, and live follow stream over Cordis services",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./src/client/index.ts",
+      "browser": "./src/client/index.ts",
+      "default": "./src/client/index.ts"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/types/**/*.d.ts"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "workspace:~",
+    "react": "19.3.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@openai-harness/client-rpc": "workspace:*",
+    "@openai-harness/generative-ui": "workspace:*",
+    "@openai-harness/llm": "workspace:*",
+    "@openai-harness/sdk-protocol": "workspace:*",
+    "@openai-harness/session": "workspace:*",
+    "@openai-harness/session-persistence": "workspace:*",
+    "@openai-harness/util-deque": "workspace:*"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:~",
+    "@types/react": "^19",
+    "react": "19.3.0"
+  }
+}
