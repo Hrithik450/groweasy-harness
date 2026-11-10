@@ -1,0 +1,50 @@
+/*
+ * Font faces for the browser client. These are the app's own faces from
+ * public/fonts (copied into apps/web/public/fonts for the Vite shell); no
+ * reference-harness brand font is involved.
+ */
+
+@font-face {
+  font-family: 'CursorGothic';
+  src: url('/fonts/CursorGothic_Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'xVf';
+  src: url('/fonts/XVF_Variable.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GeistMono';
+  src: url('/fonts/GeistMono_Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'CursorIcons16';
+  src: url('/fonts/cursor-icons-16.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+/*
+ * Text faces the app used to receive from `next/font/google`. Defining the
+ * same custom properties here keeps `--font-space-grotesk`, `--font-syne`,
+ * and `--font-jetbrains-mono` resolvable for the generated token sheet in
+ * any shell, not only the Next build.
+ */
+
+:root {
+  --font-space-grotesk: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-syne: 'Syne', ui-sans-serif, system-ui, sans-serif;
+  --font-jetbrains-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}

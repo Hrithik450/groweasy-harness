@@ -1,0 +1,12 @@
+/*
+ * Browser theme entry.
+ *
+ * `theme.generated.css` is the single source of truth for the palette, type,
+ * radius, and shadow tokens; it lives in this package so the browser never
+ * reaches into application source. This file adds the font faces and the bot
+ * motion classes so a consumer gets tokens, faces, and animation from one
+ * import.
+ */
+@import "./theme.generated.css";
+@import "./fonts.css";
+@import "./animations.css";

@@ -1,0 +1,26 @@
+{
+  "name": "@openai-harness/client-ui-theme",
+  "description": "Theme tokens, font faces, and host-side boot palette injection for the browser client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./theme.css": "./src/styles/theme.css",
+    "./fonts.css": "./src/styles/fonts.css",
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/index.d.ts",
+    "src/styles",
+    "src"
+  ],
+  "license": "MIT"
+}

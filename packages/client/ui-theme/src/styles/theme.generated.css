@@ -1,0 +1,264 @@
+/**
+ * Uno v1 theme — the single source of truth for the chat surface.
+ *
+ * Theme-swap checklist (edit only this file for palette/spacing/type/radius):
+ *   background        paper-cream workspace        #F3EFE4
+ *   foreground        ink                          #0E0E0E
+ *   card              paper panel                  #FBF9F3
+ *   muted / secondary subtle cream surfaces        #EDE8DB / #E4DED0
+ *   muted-foreground  readable secondary text      #6B6657
+ *   accent            Uno orange                   #FF4D1C
+ *   success           #1E6B3A (+ tint #DDF2E3)
+ *   warning           #6E4A0E (+ strong #C9771A, tint #FDEDE6)
+ *   destructive       #7A2617 (+ strong #B4402E, tint #FBEDEA)
+ *   border / input    hairlines                    #D9D3C3 / #C9C3B3
+ *   fonts             Syne (display), Space Grotesk (body), JetBrains Mono (labels)
+ *   radius            every --radius-* token is 0 (strictly square)
+ *   shadows           every shadow token is transparent (no box shadows)
+ *
+ * Legacy token migration:
+ *   --color-brand              #1c3831  -> ink (#0E0E0E)
+ *   --color-brand-primary      #1c3831  -> ink
+ *   --color-brand-hover        #152a25  -> #2A2722 (dark raised hover)
+ *   --color-brand-dark         #103e33  -> ink
+ *   --color-brand-surface      #0b1f1a  -> #1A1917 (dark raised surface)
+ *   --color-brand-border       #234537  -> #2A2722 (dark hairline)
+ *   --color-brand-border-subtle #2d5645 -> #3A372F
+ *   --color-brand-muted        #8ca398  -> #8A8578
+ *   --color-brand-tint         #f8faf9  -> cream (#F3EFE4)
+ *   --color-brand-tint-hover   #e8f3ee  -> #EDE8DB
+ *   --color-brand-accent       #e5a93b  -> orange (#FF4D1C)
+ *   --color-brand-accent-hover #d4972a  -> #E3410F
+ *   --color-brand-accent-dark  #8f5e0a  -> warning ink (#6E4A0E)
+ *   --color-brand-accent-tint  #fef7ec  -> #FDEDE6
+ *
+ * Tailwind v4 resolves arbitrary opacity modifiers (e.g. bg-brand/12) against
+ * every --color-* token, so this file no longer needs the old blanket
+ * utilities layer. A tiny compatibility layer at the bottom keeps the
+ * non-standard opacity steps that appear in existing components.
+ */
+
+@theme inline {
+  /* ── typography (variables are provided by next/font in app/layout.tsx) ── */
+  --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
+  --font-gothic: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+
+  /* ── square corners everywhere ── */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+
+  /* ── no box shadows (the reference uses flat, ruled surfaces) ── */
+  --shadow-2xs: 0 0 #0000;
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
+  --shadow-md: 0 0 #0000;
+  --shadow-lg: 0 0 #0000;
+  --shadow-xl: 0 0 #0000;
+  --shadow-2xl: 0 0 #0000;
+  --inset-shadow-2xs: 0 0 #0000;
+  --inset-shadow-xs: 0 0 #0000;
+  --inset-shadow-sm: 0 0 #0000;
+  --drop-shadow-2xs: 0 0 #0000;
+  --drop-shadow-xs: 0 0 #0000;
+  --drop-shadow-sm: 0 0 #0000;
+  --drop-shadow-md: 0 0 #0000;
+  --drop-shadow-lg: 0 0 #0000;
+  --drop-shadow-xl: 0 0 #0000;
+  --drop-shadow-2xl: 0 0 #0000;
+
+  /* ── semantic (shadcn-compatible) ── */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted-2: var(--muted-2);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-tint: var(--accent-tint);
+  --color-destructive: var(--destructive);
+  --color-destructive-strong: var(--destructive-strong);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-tint: var(--destructive-tint);
+  --color-destructive-border: var(--destructive-border);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-tint: var(--success-tint);
+  --color-success-border: var(--success-border);
+  --color-warning: var(--warning);
+  --color-warning-strong: var(--warning-strong);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-tint: var(--warning-tint);
+  --color-warning-border: var(--warning-border);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-tint: var(--info-tint);
+
+  /* ── brand scale (remapped onto the Uno palette; old call sites keep working) ── */
+  --color-brand: var(--brand);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-border: var(--brand-border);
+  --color-brand-border-subtle: var(--brand-border-subtle);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-tint: var(--brand-tint);
+  --color-brand-tint-hover: var(--brand-tint-hover);
+  --color-brand-ring: var(--brand-ring);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-hover: var(--brand-accent-hover);
+  --color-brand-accent-dark: var(--brand-accent-dark);
+  --color-brand-accent-tint: var(--brand-accent-tint);
+  --color-brand-accent-border: var(--brand-accent-border);
+
+  /* ── categorical chart palette (orange, ink, success, warning, muted) ── */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* ── data-driven marks (agent avatars / provider logos) ── */
+  --color-agent-green: var(--agent-green);
+  --color-agent-amber: var(--agent-amber);
+  --color-agent-coral: var(--agent-coral);
+  --color-agent-violet: var(--agent-violet);
+  --color-agent-indigo: var(--agent-indigo);
+  --color-agent-blue: var(--agent-blue);
+  --color-agent-ink: var(--agent-ink);
+  --color-agent-paper: var(--agent-paper);
+  --color-provider-google-blue: var(--provider-google-blue);
+  --color-provider-google-green: var(--provider-google-green);
+  --color-provider-google-yellow: var(--provider-google-yellow);
+  --color-provider-google-red: var(--provider-google-red);
+  --color-provider-meta-blue: var(--provider-meta-blue);
+  --color-provider-meta-blue-dark: var(--provider-meta-blue-dark);
+}
+
+:root {
+  /* ── semantic ── */
+  --background: #f3efe4;
+  --foreground: #0e0e0e;
+  --card: #fbf9f3;
+  --card-foreground: #0e0e0e;
+  --popover: #fbf9f3;
+  --popover-foreground: #0e0e0e;
+  --primary: #0e0e0e;
+  --primary-foreground: #fbf9f3;
+  --secondary: #e4ded0;
+  --secondary-foreground: #0e0e0e;
+  --muted: #ede8db;
+  --muted-foreground: #6b6657;
+  --muted-2: #8a8578;
+  --accent: #ff4d1c;
+  --accent-foreground: #0e0e0e;
+  --accent-hover: #e3410f;
+  --accent-tint: #fdede6;
+  --destructive: #7a2617;
+  --destructive-strong: #b4402e;
+  --destructive-foreground: #fbf9f3;
+  --destructive-tint: #fbedea;
+  --destructive-border: #ebc3ba;
+  --border: #d9d3c3;
+  --border-subtle: #e4ded0;
+  --border-strong: #c9c3b3;
+  --input: #c9c3b3;
+  --ring: #0e0e0e;
+  --success: #1e6b3a;
+  --success-foreground: #fbf9f3;
+  --success-tint: #ddf2e3;
+  --success-border: #cde3d8;
+  --warning: #6e4a0e;
+  --warning-strong: #c9771a;
+  --warning-foreground: #fbf9f3;
+  --warning-tint: #fdede6;
+  --warning-border: #f6b8a3;
+  --info: #3a372f;
+  --info-foreground: #fbf9f3;
+  --info-tint: #e4ded0;
+
+  /* ── brand scale ── */
+  --brand: #0e0e0e;
+  --brand-primary: #0e0e0e;
+  --brand-hover: #2a2722;
+  --brand-dark: #0e0e0e;
+  --brand-surface: #1a1917;
+  --brand-border: #2a2722;
+  --brand-border-subtle: #3a372f;
+  --brand-muted: #8a8578;
+  --brand-soft: #d9d3c3;
+  --brand-tint: #f3efe4;
+  --brand-tint-hover: #ede8db;
+  --brand-ring: color-mix(in srgb, #0e0e0e 20%, transparent);
+  --brand-accent: #ff4d1c;
+  --brand-accent-hover: #e3410f;
+  --brand-accent-dark: #6e4a0e;
+  --brand-accent-tint: #fdede6;
+  --brand-accent-border: color-mix(in srgb, #ff4d1c 30%, transparent);
+
+  /* ── charts ── */
+  --chart-1: #ff4d1c;
+  --chart-2: #0e0e0e;
+  --chart-3: #1e6b3a;
+  --chart-4: #c9771a;
+  --chart-5: #8a8578;
+
+  /* ── data-driven marks ── */
+  --agent-green: #2e9e57;
+  --agent-amber: #e08a1e;
+  --agent-coral: #f06a45;
+  --agent-violet: #8a5a2b;
+  --agent-indigo: #5c63d9;
+  --agent-blue: #4a7fe0;
+  --agent-ink: #3a372f;
+  --agent-paper: #fbf9f3;
+  --provider-google-blue: #4285f4;
+  --provider-google-green: #34a853;
+  --provider-google-yellow: #fbbc05;
+  --provider-google-red: #ea4335;
+  --provider-meta-blue: #1877f2;
+  --provider-meta-blue-dark: #166fe5;
+}
+
+/* Tailwind v4 supports arbitrary opacity modifiers for every theme color. This
+ * small fallback keeps the historical non-standard steps explicit so a future
+ * Tailwind upgrade cannot silently drop the classes used across the chat tree
+ * (notably /2, /8, /12 and /15, which are outside the stock opacity scale). */
+@layer utilities {
+  .bg-brand\/2 { background-color: color-mix(in srgb, var(--brand) 2%, transparent); }
+  .bg-brand\/8 { background-color: color-mix(in srgb, var(--brand) 8%, transparent); }
+  .bg-brand\/12 { background-color: color-mix(in srgb, var(--brand) 12%, transparent); }
+  .bg-brand\/15 { background-color: color-mix(in srgb, var(--brand) 15%, transparent); }
+  .bg-brand-accent\/2 { background-color: color-mix(in srgb, var(--brand-accent) 2%, transparent); }
+  .bg-brand-accent\/8 { background-color: color-mix(in srgb, var(--brand-accent) 8%, transparent); }
+  .bg-brand-accent\/12 { background-color: color-mix(in srgb, var(--brand-accent) 12%, transparent); }
+  .bg-brand-accent\/15 { background-color: color-mix(in srgb, var(--brand-accent) 15%, transparent); }
+  .border-brand\/15 { border-color: color-mix(in srgb, var(--brand) 15%, transparent); }
+  .border-brand-accent\/15 { border-color: color-mix(in srgb, var(--brand-accent) 15%, transparent); }
+  .text-brand\/70 { color: color-mix(in srgb, var(--brand) 70%, transparent); }
+}

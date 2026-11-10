@@ -1,0 +1,204 @@
+/*
+ * Bot character motion. Moved out of the app stylesheet so the Vite shell and
+ * the UI packages animate identically; the Next stylesheet keeps its copy
+ * until the Next app is removed.
+ */
+
+/* Doll bobble/wobble and shadow animations for AI bot character */
+@keyframes dollBobble {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1, 1);
+  }
+  15% {
+    transform: translateY(-5px) rotate(-7deg) scale(0.96, 1.05);
+  }
+  30% {
+    transform: translateY(1px) rotate(5deg) scale(1.04, 0.96);
+  }
+  45% {
+    transform: translateY(-3px) rotate(-4deg) scale(0.98, 1.02);
+  }
+  60% {
+    transform: translateY(1px) rotate(2deg) scale(1.02, 0.98);
+  }
+  75% {
+    transform: translateY(-1px) rotate(-1deg) scale(0.99, 1.01);
+  }
+}
+
+@keyframes dollShadow {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+  15% {
+    transform: scale(0.72);
+    opacity: 0.15;
+  }
+  30% {
+    transform: scale(1.15);
+    opacity: 0.45;
+  }
+  45% {
+    transform: scale(0.85);
+    opacity: 0.22;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 0.38;
+  }
+  75% {
+    transform: scale(0.96);
+    opacity: 0.3;
+  }
+}
+
+@keyframes dollShakeFast {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  20% {
+    transform: translate(-1.5px, -1px) rotate(-4deg);
+  }
+  40% {
+    transform: translate(1.5px, 0.5px) rotate(3deg);
+  }
+  60% {
+    transform: translate(-1px, 1px) rotate(-2deg);
+  }
+  80% {
+    transform: translate(1px, -0.5px) rotate(2deg);
+  }
+}
+
+.animate-doll {
+  animation: dollBobble 2.4s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+  transform-origin: bottom center;
+}
+
+.animate-doll-shadow {
+  animation: dollShadow 2.4s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+  transform-origin: center;
+}
+
+.animate-doll-shake-fast {
+  animation: dollShakeFast 0.8s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+/* Sidebar Bot Autonomous Motions */
+.animate-sidebar-inquisitive {
+  animation: botEyesInquisitive 6.6s ease-in-out infinite;
+}
+
+.animate-sidebar-scanning {
+  animation: botEyesScanning 5.6s ease-in-out infinite;
+}
+
+.animate-sidebar-playful {
+  animation: botEyesPlayful 4.8s ease-in-out infinite;
+}
+
+.animate-sidebar-orbit {
+  animation: botEyesOrbit 7.2s ease-in-out infinite;
+}
+
+.animate-sidebar-blink {
+  animation: sidebarEyeBlink 4.2s ease-in-out infinite;
+}
+
+@keyframes botEyesInquisitive {
+  0%,
+  100% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  12%,
+  32% {
+    transform: translate(-14px, -11px) rotate(-16deg);
+  }
+  42%,
+  48% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  60%,
+  80% {
+    transform: translate(14px, -10px) rotate(16deg);
+  }
+  88%,
+  95% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+}
+
+@keyframes botEyesScanning {
+  0%,
+  100% {
+    transform: translate(-16px, 0px) rotate(-14deg);
+  }
+  35%,
+  48% {
+    transform: translate(16px, 0px) rotate(14deg);
+  }
+  62%,
+  75% {
+    transform: translate(0px, 6px) rotate(0deg);
+  }
+  85%,
+  94% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+}
+
+@keyframes botEyesPlayful {
+  0%,
+  100% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  18%,
+  35% {
+    transform: translate(13px, -9px) rotate(18deg);
+  }
+  45%,
+  52% {
+    transform: translate(-2px, 8px) rotate(-4deg);
+  }
+  64%,
+  82% {
+    transform: translate(-14px, -7px) rotate(-16deg);
+  }
+  90%,
+  96% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+}
+
+@keyframes botEyesOrbit {
+  0%,
+  100% {
+    transform: translate(0px, -10px) rotate(0deg);
+  }
+  25% {
+    transform: translate(12px, 2px) rotate(14deg);
+  }
+  50% {
+    transform: translate(0px, 9px) rotate(0deg);
+  }
+  75% {
+    transform: translate(-12px, 0px) rotate(-14deg);
+  }
+}
+
+@keyframes sidebarEyeBlink {
+  0%,
+  90%,
+  97%,
+  100% {
+    transform: scaleY(1);
+  }
+  93% {
+    transform: scaleY(0.06);
+  }
+}
