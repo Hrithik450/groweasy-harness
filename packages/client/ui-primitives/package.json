@@ -1,0 +1,37 @@
+{
+  "name": "@openai-harness/client-ui-primitives",
+  "description": "Pure React atoms for the browser UI: Button, Avatar, Modal, Toast (zero cordis)",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/index.d.ts",
+    "src"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "dependencies": {
+    "lucide-react": "^1.61.0",
+    "sonner": "^2.0.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  }
+}
