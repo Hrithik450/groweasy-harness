@@ -1,0 +1,61 @@
+{
+  "name": "@openai-harness/client-ui-detail-bar",
+  "description": "Right-hand detail bar: session-bound campaign, creative, and strategist panels registered into the rightbar slot",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/client.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "bundle": "tsdown",
+    "watch": "tsdown --watch"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "lib/*.d.ts",
+    "src"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "workspace:*",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "dependencies": {
+    "@openai-harness/client-rpc": "workspace:*",
+    "@openai-harness/client-ui-session": "workspace:*",
+    "@openai-harness/client-ui-slots": "workspace:*",
+    "@openai-harness/session": "workspace:*",
+    "lucide-react": "^1.61.0",
+    "sonner": "^2.0.8",
+    "@openai-harness/client-ui-renderer": "workspace:*",
+    "@openai-harness/client-ui-generative": "workspace:*",
+    "@openai-harness/client-ui-layout": "workspace:*"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:*",
+    "@openai-harness/client-ui-layout": "workspace:*",
+    "@openai-harness/client-ui-renderer": "workspace:*",
+    "@openai-harness/client-ui-slots": "workspace:*",
+    "@openai-harness/session": "workspace:*",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "lucide-react": "^1.61.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tsdown": "^0.22.14"
+  }
+}
