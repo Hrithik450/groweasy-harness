@@ -1,0 +1,55 @@
+{
+  "name": "@openai-harness/client-ui-generative",
+  "description": "Generative UI block renderer and component registry, registered into the chat message-node slot",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/client.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "lib/*.d.ts",
+    "src"
+  ],
+  "scripts": {
+    "bundle": "tsdown",
+    "watch": "tsdown --watch"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "workspace:*",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "dependencies": {
+    "@json-render/react": "^0.22.0",
+    "@openai-harness/client-ui-attachment-viewers": "workspace:*",
+    "@openai-harness/client-ui-slots": "workspace:*",
+    "@openai-harness/generative-ui": "workspace:*",
+    "lucide-react": "^1.61.0",
+    "recharts": "^3.10.1",
+    "@openai-harness/client-ui-renderer": "workspace:*"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:*",
+    "@openai-harness/client-ui-renderer": "workspace:*",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tsdown": "^0.22.14"
+  }
+}
