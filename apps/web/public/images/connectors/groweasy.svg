@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" fill="none">
+  <defs>
+    <clipPath id="groweasy_clip">
+      <rect width="43" height="43" x="0.5" y="0.5" rx="9.6" fill="#fff"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#groweasy_clip)">
+    <rect width="43" height="43" x="0.5" y="0.5" fill="#0F0F0F" rx="9.6"/>
+    <path fill="#FBFBFB" d="m28.282 22.731-21.5 21.501-6.795-6.794 21.5-21.501z"/>
+    <path fill="#FBFBFB" d="M8.877 15.938H28.28v6.795H8.877z"/>
+    <path fill="#FBFBFB" d="M28.28 15.938V35.34h-6.794V15.938z"/>
+    <path fill="#FBFBFB" d="M28.28 15.938V35.34h-6.793V15.938z"/>
+  </g>
+</svg>
