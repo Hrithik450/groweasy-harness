@@ -1,0 +1,46 @@
+{
+  "name": "@openai-harness/web",
+  "description": "Vite shell: mounts the browser client packages into #root",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "watch": "vite build --watch --no-emptyOutDir",
+    "preview": "vite preview"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@deepseek-ai/cordis": "workspace:*",
+    "@openai-harness/client-connection": "workspace:*",
+    "@openai-harness/client-rpc": "workspace:*",
+    "@openai-harness/client-ui-attachment-viewers": "workspace:*",
+    "@openai-harness/client-ui-chat": "workspace:*",
+    "@openai-harness/client-ui-connectors": "workspace:*",
+    "@openai-harness/client-ui-detail-bar": "workspace:*",
+    "@openai-harness/client-ui-generative": "workspace:*",
+    "@openai-harness/client-ui-landing": "workspace:*",
+    "@openai-harness/client-ui-layout": "workspace:*",
+    "@openai-harness/client-ui-modals": "workspace:*",
+    "@openai-harness/client-ui-primitives": "workspace:*",
+    "@openai-harness/client-ui-profile": "workspace:*",
+    "@openai-harness/client-ui-renderer": "workspace:*",
+    "@openai-harness/client-ui-session": "workspace:*",
+    "@openai-harness/client-ui-sidebar": "workspace:*",
+    "@openai-harness/client-ui-slots": "workspace:*",
+    "@openai-harness/client-ui-theme": "workspace:*",
+    "@openai-harness/client-web": "workspace:*",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "@openai-harness/session-controller": "workspace:*"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5",
+    "vite": "^6.4.3"
+  }
+}
