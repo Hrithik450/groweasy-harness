@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grok Bot Logos & Fonts Showcase</title>
+  <link rel="stylesheet" href="/fonts/fonts.css">
+  <style>
+    :root {
+      --bg: #0a0a0c;
+      --card: #141418;
+      --border: #23232a;
+      --text: #f4f4f6;
+      --muted: #8e8e99;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'xVf', -apple-system, sans-serif;
+      padding: 40px 24px;
+      line-height: 1.5;
+    }
+    h1, h2, h3 {
+      font-family: 'CursorGothic', sans-serif;
+      font-weight: normal;
+      letter-spacing: -0.02em;
+    }
+    h1 { font-size: 2.5rem; margin-bottom: 8px; }
+    p.subtitle { color: var(--muted); margin-bottom: 36px; font-size: 1.1rem; }
+    .section-title { font-size: 1.4rem; margin: 40px 0 16px 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: #3b3b47;
+    }
+    .avatar-wrapper {
+      width: 72px;
+      height: 72px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .avatar-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .card .name {
+      font-family: 'CursorGothic', sans-serif;
+      font-size: 1rem;
+      margin-bottom: 4px;
+    }
+    .card .desc {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .badge {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 0.75rem;
+      font-family: 'GeistMono', monospace;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #1f1f26;
+      color: #999;
+    }
+    .font-sample {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .font-sample-item { border-bottom: 1px solid #1a1a20; padding-bottom: 12px; }
+    .font-sample-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .font-sample-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; font-family: 'GeistMono', monospace; }
+  </style>
+</head>
+<body>
+  <h1>Grok Bot Logos &amp; Fonts</h1>
+  <p class="subtitle">Extracted directly from <a href="https://x.ai/bot" style="color:#38bdf8;text-decoration:none">x.ai/bot</a> into <code>/public/bot</code> and <code>/public/fonts</code></p>
+
+  <h2 class="section-title">AI Teammates (From Screenshot)</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="avatar-wrapper">
+        <img src="/bot/chief-animated.svg" alt="Chief">
+      </div>
+      <div class="name">Chief</div>
+      <div class="desc">Chief of Staff</div>
+      <span class="badge">chief-animated.svg</span>
+    </div>
+
+    <div class="card">
+      <div class="avatar-wrapper">
+        <img src="/bot/sales-outbound-animated.svg" alt="Sales Outbound">
+      </div>
+      <div class="name">Sales Outbound</div>
+      <div class="desc">Overnight pipeline</div>
+      <span class="badge">sales-outbound-animated.svg</span>
+    </div>
+
+    <div class="card">
+      <div class="avatar-wrapper">
+        <img src="/bot/inbox-manager-animated.svg" alt="Inbox Manager">
+      </div>
+      <div class="name">Inbox Manager</div>
+      <div class="desc">Email triage (Wedge)</div>
+      <span class="badge">inbox-manager-animated.svg</span>
+    </div>
+
+    <div class="card">
+      <div class="avatar-wrapper">
+        <img src="/bot/account-manager-animated.svg" alt="Account Manager">
+      </div>
+      <div class="name">Account Manager</div>
+      <div class="desc">Named accounts (Gem)</div>
+      <span class="badge">account-manager-animated.svg</span>
+    </div>
+
+    <div class="card">
+      <div class="avatar-wrapper">
+        <img src="/bot/talent-scout-animated.svg" alt="Talent Scout">
+      </div>
+      <div class="name">Talent Scout</div>
+      <div class="desc">Sourcing (Capsule)</div>
+      <span class="badge">talent-scout-animated.svg</span>
+    </div>
+
+    <div class="card">
+      <div class="avatar-wrapper">
+        <img src="/bot/expense-manager-animated.svg" alt="Expense Manager">
+      </div>
+      <div class="name">Expense Manager</div>
+      <div class="desc">Receipts &amp; reports</div>
+      <span class="badge">expense-manager-animated.svg</span>
+    </div>
+
+    <div class="card">
+      <div class="avatar-wrapper">
+        <img src="/bot/offsite-crew-animated.svg" alt="Offsite crew">
+      </div>
+      <div class="name">Offsite crew</div>
+      <div class="desc">Group room (3 spheres)</div>
+      <span class="badge">offsite-crew-animated.svg</span>
+    </div>
+
+    <div class="card">
+      <div class="avatar-wrapper">
+        <img src="/bot/grok-bot-animated.svg" alt="Grok Bot">
+      </div>
+      <div class="name">Grok Bot Mark</div>
+      <div class="desc">Official signature mark</div>
+      <span class="badge">grok-bot-animated.svg</span>
+    </div>
+  </div>
+
+  <h2 class="section-title">Shape Variations (Animated)</h2>
+  <div class="grid">
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/blob-animated.svg"></div><div class="name">Blob</div><span class="badge">blob.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/wedge-animated.svg"></div><div class="name">Wedge</div><span class="badge">wedge.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/gem-animated.svg"></div><div class="name">Gem</div><span class="badge">gem.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/capsule-animated.svg"></div><div class="name">Capsule</div><span class="badge">capsule.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/hex-animated.svg"></div><div class="name">Hex</div><span class="badge">hex.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/crystal-animated.svg"></div><div class="name">Crystal</div><span class="badge">crystal.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/shield-animated.svg"></div><div class="name">Shield</div><span class="badge">shield.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/dome-animated.svg"></div><div class="name">Dome</div><span class="badge">dome.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/arch-animated.svg"></div><div class="name">Arch</div><span class="badge">arch.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/cloud-animated.svg"></div><div class="name">Cloud</div><span class="badge">cloud.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/teardrop-animated.svg"></div><div class="name">Teardrop</div><span class="badge">teardrop.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/leaf-animated.svg"></div><div class="name">Leaf</div><span class="badge">leaf.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/pebble-animated.svg"></div><div class="name">Pebble</div><span class="badge">pebble.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/bean-animated.svg"></div><div class="name">Bean</div><span class="badge">bean.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/egg-animated.svg"></div><div class="name">Egg</div><span class="badge">egg.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/squircle-animated.svg"></div><div class="name">Squircle</div><span class="badge">squircle.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/tablet-animated.svg"></div><div class="name">Tablet</div><span class="badge">tablet.svg</span></div>
+    <div class="card"><div class="avatar-wrapper"><img src="/bot/cylinder-animated.svg"></div><div class="name">Cylinder</div><span class="badge">cylinder.svg</span></div>
+  </div>
+
+  <h2 class="section-title">Downloaded Fonts</h2>
+  <div class="font-sample">
+    <div class="font-sample-item">
+      <div class="font-sample-label">CursorGothic (Display / Headers font)</div>
+      <div style="font-family:'CursorGothic',sans-serif;font-size:28px;">AI teammates that finish the work. Meet Grok Bot.</div>
+    </div>
+    <div class="font-sample-item">
+      <div class="font-sample-label">xVf (Brand Sans font)</div>
+      <div style="font-family:'xVf',sans-serif;font-size:20px;">Bots can sign in to your tools, use them just like you do, and come back with finished work.</div>
+    </div>
+    <div class="font-sample-item">
+      <div class="font-sample-label">GeistMono (Monospace font)</div>
+      <div style="font-family:'GeistMono',monospace;font-size:16px;">✓ Venue → marina house booked · deposit paid</div>
+    </div>
+  </div>
+</body>
+</html>
