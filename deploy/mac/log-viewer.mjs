@@ -192,6 +192,93 @@ function classify(line) {
 }
 
 /**
+ * Fold the deploy log into one item per deploy attempt.
+ *
+ * The log is a flat event stream: `deploying <sha>` opens an attempt and
+ * `deploy succeeded at <sha>` / `deploy FAILED at <sha>` closes it, with
+ * warnings and fast-forward notices in between. An attempt with no closing
+ * event is still running. Items come back newest first.
+ */
+function parseDeploys(lines) {
+  const stampOf = (line) => {
+    const match = line.match(/^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\]/);
+    // The deploy log writes local time already (no trailing Z), and the host
+    // is IST, so parse it as IST rather than shifting it again.
+    return match ? Date.parse(`${match[1]}+05:30`) : Number.NaN;
+  };
+
+  const items = [];
+  let open = null;
+  let stray = null;
+
+  for (const line of lines) {
+    const at = stampOf(line);
+
+    const started = line.match(/deploying ([0-9a-f]{7,40})/);
+    if (started !== null) {
+      const buildMatch = line.match(/\(build: builds\/([\w.-]+\.log)\)/);
+      // Seven characters: the same short SHA GitHub shows.
+      open = {
+        sha: started[1].slice(0, 7),
+        build: buildMatch === null ? "" : buildMatch[1],
+        start: at,
+        end: null,
+        status: "running",
+        detail: [],
+      };
+      items.push(open);
+      continue;
+    }
+
+    const succeeded = line.match(/deploy succeeded at ([0-9a-f]{7,40})/);
+    if (succeeded !== null && open !== null) {
+      open.status = "success";
+      open.end = at;
+      open.detail.push(line);
+      open = null;
+      continue;
+    }
+
+    const failed = line.match(/deploy FAILED at ([0-9a-f]{7,40}).*?\((\d+)\/(\d+)\)/);
+    if (failed !== null && open !== null) {
+      open.status = "failed";
+      open.end = at;
+      open.attempts = `${failed[2]}/${failed[3]}`;
+      open.detail.push(line);
+      open = null;
+      continue;
+    }
+
+    if (open !== null) {
+      open.detail.push(line);
+      continue;
+    }
+
+    // Anything outside an attempt (poller start, fast-forwards, diverged
+    // branches) becomes its own informational item.
+    if (stray === null) {
+      stray = { sha: "", start: at, end: null, status: "info", detail: [] };
+      items.push(stray);
+    }
+    stray.detail.push(line);
+  }
+
+  return items.reverse().map((item) => ({
+    sha: item.sha,
+    build: item.build ?? "",
+    t: stamp(item.start),
+    age: ageOf(item.start),
+    status: item.status,
+    duration:
+      item.end !== null && Number.isFinite(item.end) && Number.isFinite(item.start)
+        ? `${String(Math.floor((item.end - item.start) / 60000))}m ${String(Math.round(((item.end - item.start) % 60000) / 1000))}s`
+        : "",
+    attempts: item.attempts ?? "",
+    detail: item.detail.slice(-40),
+  }));
+}
+
+/**
  * Pick one presentation for the whole window: a mixed file would otherwise
  * need a different column set per row.
  */
@@ -284,6 +371,33 @@ const PAGE = `<!doctype html>
   .lv-error,.lv-fatal{color:var(--bad)} .lv-warn,.lv-warning{color:var(--warn)}
   .lv-info,.lv-debug{color:var(--ink)}
 
+  /* ── deploy history ── */
+  .deploys{display:flex;flex-direction:column}
+  .deploy{border-bottom:1px solid var(--hair)}
+  .deploy > .row{display:grid;grid-template-columns:26px 84px 1fr 84px 20px;align-items:center;gap:12px;
+      width:100%;background:none;border:0;padding:12px 16px;cursor:pointer;text-align:left;font:12px/1.3 var(--mono);color:var(--ink)}
+  .deploy > .row:hover{background:var(--muted)}
+  /* The deploy in flight owns the whole row, not just its icon. */
+  .deploy[data-status="running"] > .row{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+  .deploy[data-status="running"] > .row:hover{background:var(--accent-soft)}
+  .deploy .sha{font-weight:600;letter-spacing:.02em}
+  .deploy .sha.dim{color:var(--dim);font-weight:400}
+  .deploy .when{color:var(--dim);white-space:nowrap}
+  .deploy .when .ago{color:var(--hair-2)}
+  .deploy .dur{color:var(--hair-2);text-align:right;white-space:nowrap}
+  .deploy .caret{color:var(--hair-2);justify-self:end;transition:transform .15s ease}
+  .deploy[data-open="true"] .caret{transform:rotate(180deg)}
+  .spinner{width:12px;height:12px;border:2px solid var(--hair-2);border-top-color:var(--accent);border-radius:50%;
+      display:inline-block;animation:spin .8s linear infinite}
+  .ico-ok{color:var(--ok)} .ico-bad{color:var(--bad)} .ico-info{color:var(--hair-2)}
+  .deploy .detail{display:none;margin:0;padding:0 16px 12px 54px;list-style:none}
+  .deploy[data-open="true"] .detail{display:block}
+  .deploy .detail li{font:11px/1.65 var(--mono);color:var(--dim);white-space:pre-wrap;word-break:break-word;
+      border-left:2px solid var(--hair);padding:1px 0 1px 10px}
+  .deploy .detail li.sub{margin-top:10px;border-left-color:var(--bad);color:var(--bad);
+      font:10px/1.6 var(--mono);letter-spacing:.09em;text-transform:uppercase}
+  .deploy .detail li.buildline{color:var(--dim);border-left-color:var(--hair-2);max-height:none}
+
   /* ── plain text ── */
   ol.log{margin:0;padding:8px 0;list-style:none}
   ol.log li{display:grid;grid-template-columns:56px 1fr;align-items:start}
@@ -325,7 +439,22 @@ const PAGE = `<!doctype html>
 </main>
 <script>
 const GROUPS = ${JSON.stringify(GROUPS.map((g) => ({ label: g.label, entries: g.entries.map((e) => ({ name: e.name, hint: e.hint })) })))};
-let current = GROUPS[0].entries[0].name;
+// Reader preferences survive a reload: which log was open and which sidebar
+// groups were collapsed. localStorage can throw (private windows, cleared
+// storage), so every access is guarded and the page works without it.
+function readPref(key, fallback){
+  try {
+    const value = localStorage.getItem('lv:' + key);
+    return value === null ? fallback : value;
+  } catch { return fallback; }
+}
+function writePref(key, value){
+  try { localStorage.setItem('lv:' + key, value); } catch { /* ignore */ }
+}
+
+const allNames = GROUPS.flatMap((g) => g.entries.map((e) => e.name));
+const restored = readPref('file', '');
+let current = allNames.includes(restored) ? restored : GROUPS[0].entries[0].name;
 
 const nav = document.getElementById('nav');
 const scrollEl = document.getElementById('scroll');
@@ -338,10 +467,14 @@ const buttons = new Map();
 for (const group of GROUPS) {
   const wrap = document.createElement('div');
   wrap.className = 'group';
-  wrap.dataset.open = 'true';
+  wrap.dataset.group = group.label;
+  wrap.dataset.open = readPref('group:' + group.label, 'true') === 'false' ? 'false' : 'true';
   const head = document.createElement('button');
   head.innerHTML = '<span class="chev">▼</span>' + group.label;
-  head.onclick = () => { wrap.dataset.open = wrap.dataset.open === 'true' ? 'false' : 'true'; };
+  head.onclick = () => {
+    wrap.dataset.open = wrap.dataset.open === 'true' ? 'false' : 'true';
+    writePref('group:' + group.label, wrap.dataset.open);
+  };
   wrap.appendChild(head);
   const list = document.createElement('ul');
   list.className = 'items';
@@ -427,6 +560,101 @@ function renderLogs(rows){
   );
 }
 
+// Which deploys the reader has expanded, keyed by a stable identity: the list
+// is rebuilt on every refresh, so open state has to survive outside the DOM.
+const openDeploys = new Set();
+const seenDeploys = new Set();
+function deployKey(r){ return (r.sha || 'poller') + '@' + r.t; }
+
+// Build blocks currently on screen, by build-log name, so each poll can stream
+// more of them without rebuilding the list.
+const buildHolders = new Map();
+
+// Load one build log into its block, keeping the reader's position unless they
+// were already at the end.
+async function loadBuild(name, holder){
+  try {
+    const res = await fetch(BASE + 'api/tail?file=build&name=' + encodeURIComponent(name), { cache: 'no-store' });
+    const body = await res.json();
+    const text = (body.rows || []).join('\\n');
+    if (holder.dataset.text === text) return;
+    const atEnd = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 80;
+    holder.dataset.text = text;
+    holder.textContent = text || '(no output yet)';
+    if (atEnd) scrollEl.scrollTop = scrollEl.scrollHeight;
+  } catch {
+    holder.textContent = 'build log unavailable';
+  }
+}
+
+function renderDeploys(rows, build){
+  buildHolders.clear();
+  const wrap = document.createElement('div');
+  wrap.className = 'deploys';
+  if (rows.length === 0){
+    wrap.innerHTML = '<div class="empty">no deploys yet</div>';
+    return wrap;
+  }
+  for (const r of rows){
+    // A running deploy opens itself so the live lines are visible.
+    const key = deployKey(r);
+    // A deploy that is still building opens itself the first time it appears,
+    // then obeys the reader.
+    if (r.status === 'running' && !seenDeploys.has(key)){
+      seenDeploys.add(key);
+      openDeploys.add(key);
+    }
+    const item = document.createElement('div');
+    item.className = 'deploy';
+    item.dataset.status = r.status;
+    item.dataset.open = openDeploys.has(key) ? 'true' : 'false';
+
+    const row = document.createElement('button');
+    row.className = 'row';
+    const icon = r.status === 'running' ? '<span class="spinner"></span>'
+      : r.status === 'success' ? '<span class="ico-ok">✓</span>'
+      : r.status === 'failed' ? '<span class="ico-bad">✕</span>'
+      : '<span class="ico-info">•</span>';
+    row.innerHTML = icon
+      + '<span class="sha' + (r.sha ? '' : ' dim') + '">' + esc(r.sha || 'poller') + '</span>'
+      + '<span class="when">' + esc(r.t) + ' IST <span class="ago">· ' + esc(r.age) + ' ago</span></span>'
+      + '<span class="dur">' + esc(r.duration || '—') + '</span>'
+      + '<span class="caret">▾</span>';
+    row.onclick = () => {
+      if (openDeploys.has(key)) openDeploys.delete(key);
+      else openDeploys.add(key);
+      item.dataset.open = openDeploys.has(key) ? 'true' : 'false';
+    };
+    item.appendChild(row);
+
+    const detail = document.createElement('ol');
+    detail.className = 'detail';
+    for (const line of r.detail){
+      const li = document.createElement('li');
+      li.textContent = line;
+      detail.appendChild(li);
+    }
+    // The build output for THIS deploy, loaded lazily so the list stays cheap.
+    // A running deploy keeps refreshing it; a finished one loads once.
+    if (r.build){
+      const heading = document.createElement('li');
+      heading.className = 'sub';
+      heading.textContent = 'build — ' + r.build;
+      detail.appendChild(heading);
+      const holder = document.createElement('li');
+      holder.className = 'buildline';
+      holder.textContent = 'loading…';
+      detail.appendChild(holder);
+      // Registered so later polls can stream more of it without a rebuild.
+      buildHolders.set(r.build, holder);
+      loadBuild(r.build, holder);
+    }
+    item.appendChild(detail);
+    wrap.appendChild(item);
+  }
+  return wrap;
+}
+
 function renderText(lines){
   const ol = document.createElement('ol');
   ol.className = 'log';
@@ -443,12 +671,14 @@ function renderText(lines){
 function render(data){
   if (data.kind === 'access') return renderAccess(data.rows);
   if (data.kind === 'log') return renderLogs(data.rows);
+  if (data.kind === 'deploys') return renderDeploys(data.rows, data.build ?? []);
   if (data.kind === 'text') return renderText(data.rows);
   return renderText([]);
 }
 
 function select(name){
   current = name;
+  writePref('file', name);
   titleEl.textContent = name;
   for (const [key, btn] of buttons) btn.setAttribute('aria-current', String(key === name));
   scrollEl.replaceChildren();
@@ -458,6 +688,7 @@ function select(name){
 
 const BASE = location.pathname.endsWith('/') ? location.pathname : location.pathname + '/';
 let busy = false;
+let lastSignature = '';
 async function load(manual){
   if (busy) return;
   busy = true;
@@ -472,9 +703,32 @@ async function load(manual){
       metaEl.textContent = '';
       return;
     }
-    scrollEl.replaceChildren(render(data));
-    metaEl.textContent = data.rows.length + ' rows · ' + new Date().toLocaleTimeString();
-    if (atBottom) scrollEl.scrollTop = scrollEl.scrollHeight;
+    const noun = data.kind === 'deploys' ? ' deploys' : ' rows';
+
+    // The age field ("3m ago") is recomputed on every request, so including it made
+    // every tick look like a change and forced a rebuild — the jumping. It is
+    // excluded: only real changes rebuild the list.
+    const stable = JSON.stringify({
+      kind: data.kind,
+      rows: data.rows.map((row) => {
+        const copy = { ...row };
+        delete copy.age;
+        return copy;
+      }),
+    });
+
+    if (manual || stable !== lastSignature){
+      lastSignature = stable;
+      const scrollBefore = scrollEl.scrollTop;
+      scrollEl.replaceChildren(render(data));
+      metaEl.textContent = data.rows.length + noun + ' · ' + new Date().toLocaleTimeString();
+      scrollEl.scrollTop = atBottom ? scrollEl.scrollHeight : scrollBefore;
+    } else {
+      metaEl.textContent = data.rows.length + noun + ' · ' + new Date().toLocaleTimeString();
+    }
+
+    // Stream every build block on screen, whether or not the list rebuilt.
+    for (const [name, holder] of buildHolders) loadBuild(name, holder);
   } catch {
     metaEl.textContent = 'fetch failed';
   } finally {
@@ -489,13 +743,77 @@ document.addEventListener('keydown', (e) => {
 });
 
 select(current);
-// The window refreshes itself; the button forces an immediate read.
-setInterval(() => load(), 5000);
+
+// Live updates: the server pushes "change" when a log file moves. A slow
+// fallback timer covers a dropped stream (tunnel restart, laptop wake) until
+// EventSource reconnects on its own.
+const stream = new EventSource(BASE + 'api/stream');
+stream.addEventListener('change', () => load());
+setInterval(() => { if (stream.readyState !== 1) load(); }, 30000);
 </script>
 </body></html>`;
 
+/** Open `text/event-stream` responses waiting to be told something changed. */
+const streamClients = new Set();
+let broadcastTimer = null;
+
+/**
+ * Tell every open stream that the logs moved.
+ *
+ * Debounced: a build writes hundreds of files in a burst, and each one fires a
+ * watcher event. One notification per 250 ms is plenty for a human reader.
+ */
+function broadcastChange() {
+  if (broadcastTimer !== null) return;
+  broadcastTimer = setTimeout(() => {
+    broadcastTimer = null;
+    for (const client of streamClients) {
+      client.write("event: change\ndata: {}\n\n");
+    }
+  }, 250);
+}
+
+/** Watch a directory, ignoring anything that makes `fs.watch` unhappy. */
+function watchForChanges(dir) {
+  try {
+    const watcher = fs.watch(dir, { persistent: true }, () => broadcastChange());
+    watcher.on("error", () => {});
+  } catch {
+    // Missing directory: the viewer still works, it just polls instead.
+  }
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
+
+  // Server-sent events: the browser holds this open and re-reads on demand,
+  // so there is no polling timer and the log appears as it is written.
+  if (url.pathname === "/api/stream") {
+    res.writeHead(200, {
+      "content-type": "text/event-stream",
+      "cache-control": "no-store",
+      connection: "keep-alive",
+      "x-accel-buffering": "no",
+    });
+    res.write("retry: 3000\n\n");
+    streamClients.add(res);
+    req.on("close", () => streamClients.delete(res));
+    return;
+  }
+
+  // One deploy's build output, addressed by the name the deploy log recorded.
+  if (url.pathname === "/api/tail" && url.searchParams.get("file") === "build") {
+    const buildName = url.searchParams.get("name") ?? "";
+    if (!/^[0-9a-f]{7}-\d+\.log$/.test(buildName)) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "bad build name" }));
+      return;
+    }
+    const buildLines = tailLines(path.join(LOG_DIR, "builds", buildName), 300);
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify({ kind: "text", rows: buildLines ?? [], missing: buildLines === null }));
+    return;
+  }
 
   if (url.pathname === "/api/tail") {
     const name = url.searchParams.get("file") ?? "";
@@ -519,6 +837,21 @@ const server = http.createServer((req, res) => {
       return;
     }
 
+    // The deploy log is an event stream, not a list of lines: one row per
+    // attempt reads far better than the raw text. Read a wide window so a
+    // deploy that started before the visible tail is still folded correctly.
+    if (file === "autodeploy.log") {
+      const history = tailLines(path.join(LOG_DIR, file), MAX_LINES) ?? [];
+      // The build's own output is only interesting when a deploy failed, so it
+      // rides along with the failed item instead of owning a sidebar entry.
+      const build = tailLines(path.join(LOG_DIR, "deploy-build.log"), 120) ?? [];
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(
+        JSON.stringify({ kind: "deploys", rows: parseDeploys(history), build }),
+      );
+      return;
+    }
+
     const classified = lines.map(classify);
     const kind = shapeOf(classified);
     const rows =
@@ -535,4 +868,11 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`[log-viewer] http://127.0.0.1:${String(PORT)} (logs: ${LOG_DIR})`);
+  watchForChanges(LOG_DIR);
+  watchForChanges(path.join(LOG_DIR, "builds"));
+  // Cloudflare drops an idle HTTP connection after ~100 s, so keep the stream
+  // warm with a comment line the browser ignores.
+  setInterval(() => {
+    for (const client of streamClients) client.write(": ping\n\n");
+  }, 15_000).unref();
 });
