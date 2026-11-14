@@ -1,0 +1,43 @@
+# uno.mhrithik.com — local origin for the Cloudflare Tunnel.
+#
+# Cloudflare terminates TLS at the edge and forwards plain HTTP to :8080, so
+# this server runs without certificates. The tunnel is the only way in; the
+# port is bound to localhost.
+{
+	auto_https off
+	admin off
+}
+
+:8080 {
+	log {
+		output file /Users/hruthikm/Programming/servers/harness/logs/caddy.log {
+			roll_size 20mb
+			roll_keep 5
+		}
+		format console
+	}
+
+	encode zstd gzip
+
+	# Unary RPC (POST /api/<ns>/<method>), the /api/remote.mux WebSocket, and
+	# authenticated attachment delivery all live on the Gateway.
+	handle /api/* {
+		reverse_proxy 127.0.0.1:4000 {
+			# Long-lived mux sockets: no proxy-side read deadline, and no
+			# response buffering.
+			flush_interval -1
+			transport http {
+				read_timeout 0
+				write_timeout 0
+			}
+		}
+	}
+
+	# Built bundle. `try_files` sends client routes such as /c/<threadId> to
+	# the SPA shell instead of 404ing.
+	handle {
+		root * /Users/hruthikm/Programming/servers/harness/release/web
+		try_files {path} /index.html
+		file_server
+	}
+}
