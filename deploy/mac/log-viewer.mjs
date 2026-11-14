@@ -27,6 +27,10 @@ const LOG_DIR = process.env.LOG_DIR ?? path.join(import.meta.dirname, "..", "log
 const PORT = Number(process.env.LOG_VIEWER_PORT ?? 7890);
 const DEFAULT_LINES = 400;
 const MAX_LINES = 2000;
+/** Bytes read from the end of a log file per request. */
+const TAIL_WINDOW = 128 * 1024;
+/** Reuse a tail read this recently instead of hitting the disk again. */
+const TAIL_CACHE_MS = 250;
 
 /**
  * Sidebar contents: log name → file, grouped the way an operator reaches for
@@ -71,7 +75,9 @@ function tailLines(file, count) {
   }
   try {
     const { size } = fs.fstatSync(handle);
-    const window = Math.min(size, 512 * 1024);
+    // 128 KB holds well over the 400 lines the page shows; reading more on
+    // every change would burn memory and CPU for data that is never displayed.
+    const window = Math.min(size, TAIL_WINDOW);
     const buffer = Buffer.alloc(window);
     fs.readSync(handle, buffer, 0, window, size - window);
     const text = buffer.toString("utf8");
@@ -94,6 +100,26 @@ function tailLines(file, count) {
  */
 const IST_OFFSET_MS = 330 * 60 * 1000;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+const tailCache = new Map();
+
+/**
+ * `tailLines`, memoised for a quarter second.
+ *
+ * A build writes hundreds of files in a burst and each watcher event asks for
+ * the same tail again; without this the disk is read dozens of times a second
+ * for identical content.
+ */
+function tailLinesCached(file, count) {
+  const now = Date.now();
+  const hit = tailCache.get(file);
+  if (hit !== undefined && hit.count === count && now - hit.at < TAIL_CACHE_MS) {
+    return hit.lines;
+  }
+  const lines = tailLines(file, count);
+  tailCache.set(file, { at: now, lines, count });
+  return lines;
+}
 
 /** `HH:MM:SS` in IST. */
 function istTime(ms) {
@@ -573,6 +599,9 @@ const buildHolders = new Map();
 // Load one build log into its block, keeping the reader's position unless they
 // were already at the end.
 async function loadBuild(name, holder){
+  const now = Date.now();
+  if (holder.dataset.at && now - Number(holder.dataset.at) < 1000) return;
+  holder.dataset.at = String(now);
   try {
     const res = await fetch(BASE + 'api/tail?file=build&name=' + encodeURIComponent(name), { cache: 'no-store' });
     const body = await res.json();
@@ -691,6 +720,7 @@ let busy = false;
 let lastSignature = '';
 async function load(manual){
   if (busy) return;
+  if (document.hidden && !manual) return;
   busy = true;
   if (manual) glyph.classList.add('spin');
   try {
@@ -747,9 +777,27 @@ select(current);
 // Live updates: the server pushes "change" when a log file moves. A slow
 // fallback timer covers a dropped stream (tunnel restart, laptop wake) until
 // EventSource reconnects on its own.
+// Which physical file each tab reads, so events for other tabs are ignored.
+const FILE_OF = {};
+for (const group of GROUPS) for (const entry of group.entries) FILE_OF[entry.name] = entry.file;
+
+let scheduled = null;
+function scheduleLoad(){
+  if (scheduled !== null) return;
+  scheduled = setTimeout(() => { scheduled = null; load(); }, 300);
+}
+
 const stream = new EventSource(BASE + 'api/stream');
-stream.addEventListener('change', () => load());
+stream.addEventListener('change', (event) => {
+  let files = [];
+  try { files = JSON.parse(event.data).files || []; } catch { /* ignore */ }
+  // A build log is always relevant: it feeds the expanded deploy block.
+  if (files.some((f) => f === FILE_OF[current] || f.startsWith('builds/'))) scheduleLoad();
+});
+// Slow fallback only while the stream is down.
 setInterval(() => { if (stream.readyState !== 1) load(); }, 30000);
+// Catch up immediately when the tab becomes visible again.
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
 </script>
 </body></html>`;
 
@@ -763,20 +811,27 @@ let broadcastTimer = null;
  * Debounced: a build writes hundreds of files in a burst, and each one fires a
  * watcher event. One notification per 250 ms is plenty for a human reader.
  */
-function broadcastChange() {
+let pendingFiles = new Set();
+
+function broadcastChange(file) {
+  if (file) pendingFiles.add(file);
   if (broadcastTimer !== null) return;
   broadcastTimer = setTimeout(() => {
     broadcastTimer = null;
+    const payload = JSON.stringify({ files: [...pendingFiles] });
+    pendingFiles = new Set();
     for (const client of streamClients) {
-      client.write("event: change\ndata: {}\n\n");
+      client.write("event: change\ndata: " + payload + "\n\n");
     }
   }, 250);
 }
 
 /** Watch a directory, ignoring anything that makes `fs.watch` unhappy. */
-function watchForChanges(dir) {
+function watchForChanges(dir, prefix = "") {
   try {
-    const watcher = fs.watch(dir, { persistent: true }, () => broadcastChange());
+    const watcher = fs.watch(dir, { persistent: true }, (_event, name) =>
+      broadcastChange(prefix + (name ?? "")),
+    );
     watcher.on("error", () => {});
   } catch {
     // Missing directory: the viewer still works, it just polls instead.
@@ -829,7 +884,7 @@ const server = http.createServer((req, res) => {
       Math.max(Number.isFinite(requested) ? requested : DEFAULT_LINES, 1),
       MAX_LINES,
     );
-    const lines = tailLines(path.join(LOG_DIR, file), count);
+    const lines = tailLinesCached(path.join(LOG_DIR, file), count);
 
     if (lines === null) {
       res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
@@ -869,7 +924,7 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`[log-viewer] http://127.0.0.1:${String(PORT)} (logs: ${LOG_DIR})`);
   watchForChanges(LOG_DIR);
-  watchForChanges(path.join(LOG_DIR, "builds"));
+  watchForChanges(path.join(LOG_DIR, "builds"), "builds/");
   // Cloudflare drops an idle HTTP connection after ~100 s, so keep the stream
   // warm with a comment line the browser ignores.
   setInterval(() => {

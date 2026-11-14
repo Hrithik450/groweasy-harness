@@ -23,8 +23,15 @@ import {
 } from "@openai-harness/tool-skill";
 import { toolRegistry } from "@openai-harness/tools";
 
-/** Each skill package contributes its `assets/<skill>/SKILL.md` subtree. */
-const bundledSkillRoot = path.join(PROJECT_ROOT, "packages", "skill");
+/**
+ * Each skill package contributes its `assets/<skill>/SKILL.md` subtree.
+ *
+ * A release snapshot ships this tree beside its bundle and points
+ * `SKILL_ROOT` at it; the checkout is only the default so local development
+ * keeps reading the packages in place.
+ */
+const bundledSkillRoot =
+  process.env.SKILL_ROOT?.trim() || path.join(PROJECT_ROOT, "packages", "skill");
 
 /** The deployment's layered skill registry. */
 export const skillRegistry = new SkillRegistry();

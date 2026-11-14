@@ -6,6 +6,11 @@
 {
 	auto_https off
 	admin off
+	# Caddy's default shutdown waits for every open connection, which means a
+	# live log stream (/_logs/api/stream) keeps it alive forever and a restart
+	# never finishes. Five seconds is the ceiling: in-flight requests finish,
+	# idle streams are dropped and reconnect on their own.
+	grace_period 5s
 }
 
 :8080 {
@@ -48,7 +53,7 @@
 	# Built bundle. `try_files` sends client routes such as /c/<threadId> to
 	# the SPA shell instead of 404ing.
 	handle {
-		root * __HARNESS_ROOT__/release/web
+		root * __HARNESS_ROOT__/release/current/web
 		try_files {path} /index.html
 		file_server
 	}
