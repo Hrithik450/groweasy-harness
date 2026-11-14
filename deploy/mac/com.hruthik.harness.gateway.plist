@@ -7,10 +7,10 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/bin/zsh</string>
-		<string>/Users/hruthikm/Programming/servers/harness/config/run-gateway.sh</string>
+		<string>__HARNESS_ROOT__/config/run-gateway.sh</string>
 	</array>
 	<key>WorkingDirectory</key>
-	<string>/Users/hruthikm/Programming/openai-harness</string>
+	<string>__REPO_ROOT__</string>
 	<key>RunAtLoad</key>
 	<true/>
 	<key>KeepAlive</key>
@@ -18,9 +18,9 @@
 	<key>ThrottleInterval</key>
 	<integer>5</integer>
 	<key>StandardOutPath</key>
-	<string>/Users/hruthikm/Programming/servers/harness/logs/gateway.log</string>
+	<string>__HARNESS_ROOT__/logs/gateway.log</string>
 	<key>StandardErrorPath</key>
-	<string>/Users/hruthikm/Programming/servers/harness/logs/gateway.err.log</string>
+	<string>__HARNESS_ROOT__/logs/gateway.err.log</string>
 	<key>EnvironmentVariables</key>
 	<dict>
 		<key>PATH</key>

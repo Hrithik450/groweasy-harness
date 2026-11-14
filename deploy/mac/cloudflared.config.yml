@@ -1,5 +1,5 @@
 tunnel: 963a5e0d-fcb5-46cb-b54c-fa79dec9a654
-credentials-file: /Users/hruthikm/.cloudflared/963a5e0d-fcb5-46cb-b54c-fa79dec9a654.json
+credentials-file: __HOME__/.cloudflared/963a5e0d-fcb5-46cb-b54c-fa79dec9a654.json
 
 ingress:
   - hostname: uno.mhrithik.com

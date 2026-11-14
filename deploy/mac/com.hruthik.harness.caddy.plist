@@ -9,7 +9,7 @@
 		<string>/opt/homebrew/bin/caddy</string>
 		<string>run</string>
 		<string>--config</string>
-		<string>/Users/hruthikm/Programming/servers/harness/config/Caddyfile</string>
+		<string>__HARNESS_ROOT__/config/Caddyfile</string>
 		<string>--adapter</string>
 		<string>caddyfile</string>
 	</array>
@@ -20,9 +20,9 @@
 	<key>ThrottleInterval</key>
 	<integer>5</integer>
 	<key>StandardOutPath</key>
-	<string>/Users/hruthikm/Programming/servers/harness/logs/caddy.out.log</string>
+	<string>__HARNESS_ROOT__/logs/caddy.out.log</string>
 	<key>StandardErrorPath</key>
-	<string>/Users/hruthikm/Programming/servers/harness/logs/caddy.err.log</string>
+	<string>__HARNESS_ROOT__/logs/caddy.err.log</string>
 	<key>EnvironmentVariables</key>
 	<dict>
 		<key>PATH</key>

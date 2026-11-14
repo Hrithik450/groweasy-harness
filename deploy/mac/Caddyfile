@@ -10,14 +10,26 @@
 
 :8080 {
 	log {
-		output file /Users/hruthikm/Programming/servers/harness/logs/caddy.log {
+		output file __HARNESS_ROOT__/logs/caddy.log {
 			roll_size 20mb
 			roll_keep 5
 		}
-		format console
+		# JSON: the shape GoAccess's CADDY format parses, and it keeps every
+		# field Caddy records (the client IP is request.headers.Cf-Connecting-Ip,
+		# since {remote_host} is always the tunnel process itself).
+		format json
 	}
 
 	encode zstd gzip
+
+	# Log viewer at /_logs/ (basic auth). Caddy is the only authentication
+	# here; the viewer binds 127.0.0.1 and must never be exposed directly.
+	handle_path /_logs* {
+		basic_auth {
+			admin $2a$14$E8Kffmge4CwTjqaigCi2o.92pN7BMzTHRKh1KP3D9YeE3Vzz9Pw7G
+		}
+		reverse_proxy 127.0.0.1:7890
+	}
 
 	# Unary RPC (POST /api/<ns>/<method>), the /api/remote.mux WebSocket, and
 	# authenticated attachment delivery all live on the Gateway.
@@ -36,7 +48,7 @@
 	# Built bundle. `try_files` sends client routes such as /c/<threadId> to
 	# the SPA shell instead of 404ing.
 	handle {
-		root * /Users/hruthikm/Programming/servers/harness/release/web
+		root * __HARNESS_ROOT__/release/web
 		try_files {path} /index.html
 		file_server
 	}

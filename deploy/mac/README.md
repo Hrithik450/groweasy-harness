@@ -36,7 +36,56 @@ launchctl list | grep hruthik
 com.hruthik.harness.gateway
 com.hruthik.harness.caddy
 com.hruthik.harness.tunnel
+com.hruthik.harness.autodeploy
 ```
+
+## Log viewer
+
+```
+https://uno.mhrithik.com/_logs/     (basic auth: admin / see .env LOG_VIEWER_PASSWORD)
+```
+
+One page, six tabs: `gateway`, `gateway-errors`, `caddy`, `caddy-errors`,
+`tunnel`, `autodeploy`. Refreshes every 5 s while "follow" is checked; errors
+are coloured red, warnings amber.
+
+`log-viewer.mjs` binds `127.0.0.1:7890` and does **no** authentication of its
+own — Caddy's `basic_auth` on `handle_path /_logs*` is the only gate. Never
+expose port 7890 directly. It serves only the six names in its `FILES` map, so
+a crafted `?file=` cannot read anything else.
+
+To change the password:
+
+```
+caddy hash-password --plaintext 'new-password'
+```
+
+paste the hash into `basic_auth` in the Caddyfile, then
+`launchctl kickstart -k gui/$(id -u)/com.hruthik.harness.caddy`.
+
+## Push to deploy
+
+`auto-deploy.sh` polls `origin/main` every 60 seconds. When the remote moves
+ahead of the checkout it fast-forwards, installs dependencies if
+`pnpm-lock.yaml` changed, and runs `install.sh`.
+
+```
+git push                →  up to 60 s  →  build, publish, reload, health check
+logs: ~/Programming/servers/harness/logs/autodeploy.log
+```
+
+It fast-forwards only. A diverged branch, a dirty checkout, or a failed build
+is logged and **nothing is deployed** — the running build stays up, so a bad
+push cannot take the site down. To deploy something it refused, fix the
+checkout and stop/start the agent:
+
+```
+launchctl kickstart -k gui/$(id -u)/com.hruthik.harness.autodeploy
+```
+
+Set `AUTODEPLOY_INTERVAL` (seconds) in the plist to change the poll rate. The
+agent is deliberately **not** in `install.sh`'s reload list: restarting it from
+inside a deploy would kill the deploy that is running.
 
 They run in the GUI session, so the Mac must stay **logged in**. `disablesleep`
 keeps it awake with the lid closed:
@@ -52,7 +101,26 @@ sudo pmset -a disablesleep 1
 ```
 
 Builds with `VITE_GATEWAY_URL=https://uno.mhrithik.com` baked in, republishes
-the bundle, reloads every service, prints three health codes.
+the bundle, renders the config templates, reloads every service, prints three
+health codes.
+
+**No machine path is committed.** The repo is the source of truth:
+
+- `install.sh` finds the checkout from its own location (`deploy/mac/` → three
+  levels up), so a clone works anywhere.
+- The plists and `Caddyfile` carry `__HARNESS_ROOT__` / `__REPO_ROOT__` /
+  `__HOME__` placeholders, substituted into `~/Library/LaunchAgents` and
+  `$HARNESS_ROOT/config` at install time.
+- `install.sh` writes `$HARNESS_ROOT/config/paths.env` with the resolved
+  `REPO_ROOT` and `HARNESS_ROOT`. Everything that runs *outside* the checkout
+  (`run-gateway.sh`, `auto-deploy.sh`) reads that file, then falls back to its
+  own location.
+
+Overrides, for a second deployment on the same machine:
+
+```
+HARNESS_ROOT=~/Programming/servers/other PUBLIC_URL=https://other.example ./deploy/mac/install.sh
+```
 
 ## Environment
 

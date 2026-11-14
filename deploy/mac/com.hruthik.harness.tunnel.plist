@@ -8,7 +8,7 @@
 	<array>
 		<string>/opt/homebrew/bin/cloudflared</string>
 		<string>--config</string>
-		<string>/Users/hruthikm/.cloudflared/config.yml</string>
+		<string>__HOME__/.cloudflared/config.yml</string>
 		<string>tunnel</string>
 		<string>run</string>
 	</array>
@@ -19,9 +19,9 @@
 	<key>ThrottleInterval</key>
 	<integer>5</integer>
 	<key>StandardOutPath</key>
-	<string>/Users/hruthikm/Programming/servers/harness/logs/tunnel.log</string>
+	<string>__HARNESS_ROOT__/logs/tunnel.log</string>
 	<key>StandardErrorPath</key>
-	<string>/Users/hruthikm/Programming/servers/harness/logs/tunnel.err.log</string>
+	<string>__HARNESS_ROOT__/logs/tunnel.err.log</string>
 	<key>EnvironmentVariables</key>
 	<dict>
 		<key>PATH</key>
