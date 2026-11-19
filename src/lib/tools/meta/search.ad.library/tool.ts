@@ -1,0 +1,400 @@
+import type { ToolInput, ToolOutput } from "@/lib/tools/types";
+import type { InputContentParam } from "openai/resources/beta/agents/agents";
+import { executeAlternateWebSearchTool } from "@/lib/tools/web/alternate.scrape/tool";
+import { getCompetitorResearches } from "@/lib/services/sessions.service";
+import {
+  extractAdIdFromReference,
+  resolveDateRange,
+} from "@/lib/services/utils";
+import {
+  getAdsByQuery,
+  ingestScrapedAds,
+  buildMetaAdLibraryUrl,
+  type ProcessedAdItem,
+} from "@/lib/services/scraper";
+
+export const searchAdLibraryToolDefinition = {
+  type: "function" as const,
+  name: "searchAdLibrary",
+  description:
+    "Searches the Meta Ad Library for fresh competitor creatives, winning hooks, and active campaigns.",
+  parameters: {
+    type: "object",
+    properties: {
+      query: {
+        type: "string",
+        description:
+          "Broad keyword phrase, product/service phrase, category or competitor brand name to search for (e.g. 'WhatsApp automation', 'Pabbly').",
+      },
+      targetCount: {
+        type: "number",
+        description: "Number of fresh winning ads needed (default: 10).",
+      },
+      startDate: {
+        type: "string",
+        description:
+          "Start date filter for ad launch window in 'YYYY-MM-DD' format (e.g. '2026-03-01'). Defaults to 30 days prior to endDate if omitted.",
+      },
+      endDate: {
+        type: "string",
+        description:
+          "End date filter for ad launch window in 'YYYY-MM-DD' format (e.g. '2026-04-15'). Defaults to today if omitted.",
+      },
+      country: {
+        type: "string",
+        description:
+          "2-letter ISO country code (e.g. 'IN', 'US', 'GB') or 'ALL' (default: 'IN').",
+      },
+      mediaType: {
+        type: "string",
+        enum: ["all", "image", "video"],
+        description: "Creative format: 'all' (default), 'image', or 'video'.",
+      },
+    },
+    required: ["query"],
+  },
+};
+
+export interface SearchAdLibraryArgs {
+  query: string;
+  country?: string;
+  targetCount?: number;
+  startDate?: string;
+  endDate?: string;
+  mediaType?: "all" | "image" | "video";
+}
+
+/**
+ * In-memory map of ad IDs already returned to the AI in the current turn.
+ * Automatically evicts old turns to keep memory footprint minimal.
+ */
+const turnSeenAdIds = new Map<string, Set<string>>();
+
+function getTurnSeenAdIds(turnKey?: string): Set<string> {
+  if (!turnKey) return new Set();
+  let set = turnSeenAdIds.get(turnKey);
+  if (!set) {
+    if (turnSeenAdIds.size > 50) {
+      const oldestKey = turnSeenAdIds.keys().next().value;
+      if (oldestKey) turnSeenAdIds.delete(oldestKey);
+    }
+    set = new Set();
+    turnSeenAdIds.set(turnKey, set);
+    setTimeout(() => turnSeenAdIds.delete(turnKey), 10 * 60 * 1000).unref?.();
+  }
+  return set;
+}
+
+/**
+ * Builds a uniform, clean telemetry report for the AI agent.
+ */
+function buildAdLibraryTelemetry(params: {
+  query: string;
+  country: string;
+  dateRange: { startDate: string; endDate: string };
+  ads: Array<{
+    libraryId: string;
+    adUrl: string;
+    content: string;
+    startDate?: string | null;
+  }>;
+  excludeCount?: number;
+  notice?: string;
+}): string {
+  const { query, country, dateRange, ads, excludeCount = 0, notice } = params;
+
+  const lines = [
+    `### Meta Ad Library Results:`,
+    `- **Search Query**: "${query}"`,
+    `- **Country**: ${country}`,
+    `- **Date Range**: ${dateRange.startDate} to ${dateRange.endDate}`,
+    `- **Total Ads Delivered**: ${ads.length}`,
+  ];
+
+  if (excludeCount > 0) {
+    lines.push(
+      `- **Already Analyzed Ads in previous competitor researches (Excluded)**: ${excludeCount}`,
+      `- **Context Retrieval**: If you don't have access to or lost context of previously analyzed ads, read them with \`fetchDetailBar\` (field \`competitorResearches\`).`,
+    );
+  }
+
+  if (notice) {
+    lines.push(`\n> [!NOTE]\n> ${notice}`);
+  }
+
+  if (ads.length > 0) {
+    lines.push(`\n**Top Curated & Verified Ads (Ranked by Relevance)**:\n`);
+    ads.forEach((a, idx) => {
+      lines.push(
+        `#### Ad ${idx + 1} · Library ID ${a.libraryId}\nLink: ${a.adUrl}\n\n${a.content}\n`,
+      );
+    });
+  }
+
+  return lines.join("\n");
+}
+
+/** One sentence for "the library had nothing for this window". */
+function emptyResult(
+  query: string,
+  dateRange: { startDate: string; endDate: string },
+): ToolOutput<{ contentParts: Array<InputContentParam> }> {
+  return {
+    success: true,
+    data: {
+      contentParts: [
+        {
+          type: "input_text",
+          text: `No ads found in Meta Ad Library for "${query}" between ${dateRange.startDate} and ${dateRange.endDate}.`,
+        },
+      ],
+    },
+  };
+}
+
+export async function executeSearchAdLibraryTool(
+  input: ToolInput<SearchAdLibraryArgs>,
+): Promise<ToolOutput<{ contentParts: Array<InputContentParam> }>> {
+  const query = input.args?.query?.trim();
+  const context = input.context;
+
+  if (!query) {
+    const errorMsg = "The 'query' parameter is required.";
+    return {
+      success: false,
+      data: {
+        contentParts: [{ type: "input_text", text: `Error: ${errorMsg}` }],
+      },
+      error: errorMsg,
+    };
+  }
+
+  const targetCount = Math.max(1, input.args?.targetCount ?? 10);
+  const defaultCountry = input.args?.country?.trim() || "IN";
+  const mediaType = input.args?.mediaType || "all";
+
+  let dateRange: { startDate: string; endDate: string };
+  try {
+    dateRange = resolveDateRange({
+      startDate: input.args?.startDate,
+      endDate: input.args?.endDate,
+    });
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    return {
+      success: false,
+      data: {
+        contentParts: [{ type: "input_text", text: `Error: ${errorMsg}` }],
+      },
+      error: errorMsg,
+    };
+  }
+
+  // Every researched ad id is excluded, whichever brand it came from.
+  const researches = await getCompetitorResearches(input.context?.userId);
+
+  const permanentExcludeIds = new Set<string>();
+  for (const r of researches) {
+    const ads = [...(r.newAds?.staticAds ?? []), ...(r.newAds?.videoAds ?? [])];
+    for (const adRef of ads) {
+      const id = extractAdIdFromReference(String(adRef));
+      if (id) permanentExcludeIds.add(id);
+    }
+  }
+
+  const turnKey = context?.turnId;
+
+  const turnSeenAds = getTurnSeenAdIds(turnKey);
+  const excludeIds = new Set([...permanentExcludeIds, ...turnSeenAds]);
+
+  const { data: cachedAds = [] } = await getAdsByQuery(
+    query,
+    excludeIds,
+    targetCount,
+    dateRange,
+  );
+
+  if (cachedAds.length >= targetCount) {
+    const delivered = cachedAds.slice(0, targetCount);
+    for (const ad of delivered) {
+      turnSeenAds.add(ad.libraryId);
+    }
+    return {
+      success: true,
+      data: {
+        contentParts: [
+          {
+            type: "input_text",
+            text: buildAdLibraryTelemetry({
+              query,
+              country: defaultCountry,
+              dateRange,
+              ads: delivered,
+              excludeCount: permanentExcludeIds.size,
+            }),
+          },
+        ],
+      },
+    };
+  }
+
+  const shortage = targetCount - cachedAds.length;
+
+  const targetUrl = buildMetaAdLibraryUrl({
+    query,
+    country: defaultCountry,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
+    mediaType,
+  });
+
+  // Roughly seventeen results per scroll on the Ad Library grid, with a page
+  // showing about twenty-nine; enough steps to reach the wanted rows.
+  const RESULTS_PER_SCROLL = 17;
+  const RESULTS_ON_FIRST_VIEW = 29;
+  const MAX_SCROLL_STEPS = 100;
+  const targetWindow = shortage + excludeIds.size + 30;
+  const calculatedScrollSteps = Math.min(
+    MAX_SCROLL_STEPS,
+    Math.max(
+      0,
+      Math.ceil((targetWindow - RESULTS_ON_FIRST_VIEW) / RESULTS_PER_SCROLL),
+    ),
+  );
+
+  const scanFullPage = calculatedScrollSteps > 0;
+  const scrapeRes = await executeAlternateWebSearchTool({
+    args: {
+      url: targetUrl,
+      scanFullPage,
+      maxScrollSteps: scanFullPage ? calculatedScrollSteps : undefined,
+      pageTimeout: 180000,
+    },
+    context: input.context,
+  });
+
+  if (!scrapeRes.success || !scrapeRes.data?.contentParts) {
+    if (cachedAds.length > 0) {
+      for (const a of cachedAds) {
+        turnSeenAds.add(a.libraryId);
+      }
+      return {
+        success: true,
+        data: {
+          contentParts: [
+            {
+              type: "input_text",
+              text: buildAdLibraryTelemetry({
+                query,
+                country: defaultCountry,
+                dateRange,
+                ads: cachedAds,
+                excludeCount: permanentExcludeIds.size,
+                notice: "The live scan was unavailable; these are previously verified ads.",
+              }),
+            },
+          ],
+        },
+      };
+    }
+
+    const errorMsg =
+      scrapeRes.error || `Failed to scrape Meta Ad Library for "${query}".`;
+    return {
+      success: false,
+      data: {
+        contentParts: [{ type: "input_text", text: `Error: ${errorMsg}` }],
+      },
+      error: errorMsg,
+    };
+  }
+
+  const fullText = scrapeRes.data.contentParts
+    .map((p: any) => p.text || "")
+    .join("\n");
+
+  const isUpstreamMetaError =
+    /your request couldn't be processed|sorry!? (?:something went wrong|we're having trouble)|there's an issue and the page could not be loaded/i.test(
+      fullText,
+    );
+
+  if (
+    (isUpstreamMetaError || !fullText.includes("Library ID:")) &&
+    cachedAds.length > 0
+  ) {
+    for (const a of cachedAds) {
+      turnSeenAds.add(a.libraryId);
+    }
+    return {
+      success: true,
+      data: {
+        contentParts: [
+          {
+            type: "input_text",
+            text: buildAdLibraryTelemetry({
+              query,
+              country: defaultCountry,
+              dateRange,
+              ads: cachedAds,
+              excludeCount: permanentExcludeIds.size,
+              notice: `No additional ads found for this date range in Meta Ad Library. Returning available verified cached ads.`,
+            }),
+          },
+        ],
+      },
+    };
+  }
+
+  if (isUpstreamMetaError || !fullText.includes("Library ID:")) {
+    return emptyResult(query, dateRange);
+  }
+
+  const ingestResult = await ingestScrapedAds({
+    searchQuery: query,
+    rawMarkdown: fullText,
+    analyzedAdIds: excludeIds,
+  });
+
+  const deliveredIds = new Set(cachedAds.map((a) => a.libraryId));
+  const freshAccepted: ProcessedAdItem[] = [];
+  for (const ad of ingestResult.acceptedAds) {
+    if (freshAccepted.length >= shortage) break;
+    if (ad.startDate) {
+      if (
+        ad.startDate < dateRange.startDate ||
+        ad.startDate > dateRange.endDate
+      ) {
+        continue;
+      }
+    }
+    if (!deliveredIds.has(ad.libraryId) && !excludeIds.has(ad.libraryId)) {
+      deliveredIds.add(ad.libraryId);
+      freshAccepted.push(ad);
+    }
+  }
+
+  const finalAds = [...cachedAds, ...freshAccepted];
+  if (finalAds.length === 0) return emptyResult(query, dateRange);
+
+  for (const a of finalAds) {
+    turnSeenAds.add(a.libraryId);
+  }
+
+  return {
+    success: true,
+    data: {
+      contentParts: [
+        {
+          type: "input_text",
+          text: buildAdLibraryTelemetry({
+            query,
+            country: defaultCountry,
+            dateRange,
+            ads: finalAds,
+            excludeCount: permanentExcludeIds.size,
+          }),
+        },
+      ],
+    },
+  };
+}
