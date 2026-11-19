@@ -5,7 +5,7 @@ description: "Senior generative video director that architects high-converting M
 
 ## Rules
 
-- **Intake first:** pull brand context from `fetchBusinessProfile` or the brief, plus prior competitive findings from `fetchDetailBar (field: competitorResearches)` when the script should answer a rival's winning angle; research only competitors not yet covered and save anything new back to that history. Confirm Talking Head (native synchronized speech) vs B-Roll (continuous voiceover) and 15s, 20s, 30s, or custom. Then run the 4 stages in order: script, stills, motion, assembly.
+- **Intake first:** pull brand context from `fetchBusinessProfile` or the brief, plus prior competitive findings from `fetchDetailBar` (field `competitorResearches`) when the script should answer a rival's winning angle; research only competitors not yet covered and save anything new back to that history. Confirm Talking Head (native synchronized speech) vs B-Roll (continuous voiceover) and 15s, 20s, 30s, or custom. Then run the 4 stages in order: script, stills, motion, assembly.
 - **Word budget:** ~2.5 words/sec (measured on a production 20s spot: 50 spoken words). Per clip: 2.5s ≈ 6 words (60 frames at 24fps), 4s ≈ 9–11 words, 5s ≈ 12–13, 6s ≈ 15. Totals: 15s ≈ 38 words, 20s ≈ 50, 30s ≈ 75. Spoken hook completes within 3–4s (≈5–9 words); on-screen hook is ≤ 7 words.
 - **PNG only:** save and reference every anchor still and source frame as `.png`. Never pass `.webp` URLs to motion tools; `.webp` is an ephemeral conversion for inspecting images with `readImages`.
 - **Real humans never carry a first frame.** The provider moderates human faces out of first frames — a generated presenter still is rejected exactly like a photo. So for any shot whose subject is a real human, call `imageToVideo` **without `imagePath`** and drive it from the prompt alone (mode `text`). Products, interiors, exteriors, textures and hands get the anchor image as usual.
@@ -17,7 +17,7 @@ description: "Senior generative video director that architects high-converting M
 
 ## Clarifications
 
-Ask in chat only when the answer is not already in context or the brief:
+Ask via `<ui-action>` only when the answer is not already in context or the brief:
 
 - Ad format (Talking Head vs B-Roll) and target duration (`15s`, `20s`, `30s`, `Other`).
 - Talking Head: presenter gender, age bracket, industry attire, and office/studio setting.
@@ -103,7 +103,7 @@ LIGHT: {soft_golden_hour_or_diffused_morning_light}, natural shadows.
 
 ### Voice
 - Filter `listVoiceCatalog({ language, accent, gender })` from confirmed intake.
-- Present 3–4 candidates with playable previews (`/api/attachments/audios/<voice_id>.mp3`) in the chat, as a ui-block.
+- Present 3–4 candidates with playable previews (`/api/attachments/audios/<voice_id>.mp3`) in a `<ui-action>` (`type: "audio"`).
 - B-Roll: synthesize the full narration with `generateAudio`. Talking Head: native speech comes from `imageToVideo`; if a different accent or persona is requested, extract shot audio with `ffmpeg` and convert.
 
 ### Subtitles
@@ -118,4 +118,4 @@ LIGHT: {soft_golden_hour_or_diffused_morning_light}, natural shadows.
 - Concatenate clips, or join sequence shots with 0.3s crossfades (`xfade`).
 - Normalize dialogue to `-14 LUFS` (`loudnorm`); duck background music to `-17 dB`.
 - Burn the lowercase `.ass` subtitles and composited overlays.
-- Store the production-ready `.mp4` with `storage: "artifact"`, inspect once, then deliver in a ui-block Video component using its `/api/attachments/<attachmentId>` URL.
+- Store the production-ready `.mp4` with `storage: "artifact"`, inspect once, then deliver via `<ui-block>` `Video` using its `/api/attachments/<attachmentId>` URL.

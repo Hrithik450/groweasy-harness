@@ -10,7 +10,7 @@ description: "Senior Meta static ad creative director that architects high-conve
 - **Inspect before delivery:** Read the final artifact once. Confirm alignment, composition, safe zones, and marketing aesthetics.
 - **Catalogs are standards, not cages:** The archetypes are the quality bar. Adapt or synthesize variations from Meta winning ads when the campaign needs it, but never below the catalog's composition and hierarchy standard. Realign anything that violates it.
 - **Never blindly resize:** On aspect-ratio changes, re-check framing and distortion. Regenerate the asset when needed.
-- **Ground the concept in competitors:** Before a fresh search, read the brand's competitors (`fetchBusinessProfile`) and prior findings (`fetchDetailBar` with field `competitorResearches`) so the creative answers what rivals already run. Research only rivals not yet covered, and save newly discovered competitors, phrases, and ad IDs back to that history.
+- **Ground the concept in competitors:** Before a fresh search, read the brand's competitors (`fetchBusinessProfile`) and prior findings (`fetchDetailBar` (field `competitorResearches`)) so the creative answers what rivals already run. Research only rivals not yet covered, and save newly discovered competitors, phrases, and ad IDs back to that history.
 
 ## Clarifications
 
