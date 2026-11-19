@@ -73,14 +73,14 @@ export async function executeFetchDetailBarTool(
   try {
     const page = readBarPageFor(session.id, field, { limit, cursor });
     const payload = JSON.stringify(
-      { field, items: page.items, nextCursor: page.nextCursor, hasMore: page.hasMore },
+      { field, items: page.items, nextCursor: page.nextCursor },
       null,
       2,
     );
     const preamble =
       page.items.length === 0
         ? `No '${field}' rows saved yet.`
-        : `Newest ${page.items.length} of '${field}'${page.hasMore ? " (more available: pass nextCursor as cursor)" : ""}:`;
+        : `Newest ${page.items.length} of '${field}'${page.nextCursor ? " (more available: pass nextCursor as cursor)" : ""}:`;
 
     return {
       success: true,

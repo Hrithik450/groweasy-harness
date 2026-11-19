@@ -3,8 +3,8 @@ import type {
   DetailBarTabProps,
 } from "@/lib/detail.bar/types";
 
-import { BAR_TABS } from "@/lib/detail.bar/fields";
+import { DETAIL_BAR_TABS } from "@/lib/detail.bar/fields";
 
-export type AdCreatorTabKey = keyof typeof BAR_TABS.adCreator;
+export type AdCreatorTabKey = keyof typeof DETAIL_BAR_TABS.adCreator;
 
 export type AdCreatorTabProps = Partial<DetailBarTabProps<AdCreatorDetailBarData>>;

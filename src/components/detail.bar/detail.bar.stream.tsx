@@ -22,8 +22,8 @@ export function DetailBarStream({ sessionId }: { sessionId: string }): null {
       if (message.event !== SESSION_DETAIL_BAR_EVENT) return;
 
       const payload = parseJson(message.data) as {
-        type?: string;
         sessionId?: string;
+        type?: string;
         field?: string;
         items?: unknown;
       } | null;
@@ -32,11 +32,7 @@ export function DetailBarStream({ sessionId }: { sessionId: string }): null {
 
       useDetailBarStore
         .getState()
-        .setField(
-          payload.sessionId ?? sessionId,
-          payload.field,
-          payload.items,
-        );
+        .setField(payload.sessionId ?? sessionId, payload.field, payload.items);
     },
     () => {},
   );

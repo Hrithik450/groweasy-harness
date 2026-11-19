@@ -106,21 +106,48 @@ export const sessionEvents = sqliteTable(
   ],
 );
 
-export const barDocs = sqliteTable(
-  "bar_docs",
+export const detailBarItems = sqliteTable(
+  "detail_bar_items",
   {
     sessionId: text("session_id")
       .notNull()
       .references(() => sessions.id, { onDelete: "cascade" }),
+    /** Slug of the bar that owns the tab, e.g. adManager. */
+    sessionSlug: text("session_slug").notNull(),
     /** Tab id, e.g. campaigns, alerts. */
     field: text("field").notNull(),
-    /** The tab's cards in display order, nested as the UI renders them. */
-    data: text("data", { mode: "json" }).$type<unknown[]>().notNull(),
+    /** Card id, stable and client-facing. */
+    id: text("id").notNull(),
+    /** Only one level: an ad's campaign. */
+    parentId: text("parent_id"),
+    /** User-owned state: pending, completed, ignored, error. */
+    status: text("status"),
+    /** The card itself, without its children. */
+    data: text("data", { mode: "json" })
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
     updatedAt: text("updated_at")
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
   },
-  (table) => [primaryKey({ columns: [table.sessionId, table.field] })],
+  (table) => [
+    primaryKey({ columns: [table.sessionId, table.field, table.id] }),
+    index("idx_detail_bar_items_page").on(
+      table.sessionId,
+      table.field,
+      table.parentId,
+      table.updatedAt,
+      table.id,
+    ),
+    index("idx_detail_bar_items_status").on(
+      table.sessionId,
+      table.field,
+      table.status,
+    ),
+  ],
 );
 
 export const connectors = sqliteTable(
@@ -238,7 +265,7 @@ export const sessionsRelations = relations(sessions, ({ one, many }) => ({
     references: [users.id],
   }),
   events: many(sessionEvents),
-  barDocs: many(barDocs),
+  detailBarItems: many(detailBarItems),
   cronJobs: many(cronJobs),
 }));
 
@@ -249,9 +276,9 @@ export const sessionEventsRelations = relations(sessionEvents, ({ one }) => ({
   }),
 }));
 
-export const barDocsRelations = relations(barDocs, ({ one }) => ({
+export const detailBarItemsRelations = relations(detailBarItems, ({ one }) => ({
   session: one(sessions, {
-    fields: [barDocs.sessionId],
+    fields: [detailBarItems.sessionId],
     references: [sessions.id],
   }),
 }));

@@ -1,6 +1,6 @@
-import { BAR_TABS } from "@/lib/detail.bar/fields";
+import { DETAIL_BAR_TABS } from "@/lib/detail.bar/fields";
 
-export type AdManagerTabKey = keyof typeof BAR_TABS.adManager;
+export type AdManagerTabKey = keyof typeof DETAIL_BAR_TABS.adManager;
 
 export interface AdManagerTabProps {
   session?: { id: string; title?: string } | null;

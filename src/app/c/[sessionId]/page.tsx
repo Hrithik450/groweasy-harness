@@ -10,7 +10,7 @@ import type { SessionView } from "@/lib/core/session/view";
 import type { SessionJournalChange } from "@/lib/session/journal";
 import { getSessionFromCookies } from "@/lib/auth/session.server";
 import type { DetailBarState } from "@/lib/detail.bar/state";
-import { readBarState } from "@/lib/bar/snapshot";
+import { getDetailBarState } from "@/lib/bar/snapshot";
 import { repairSessionTail } from "@/lib/session/agent.host";
 import { ChatSkeleton } from "./page.skeleton";
 
@@ -56,7 +56,7 @@ export default async function Page({ params }: PageProps) {
 async function PageComponent({ session }: { session: SessionView }) {
   let initialDetailBar: DetailBarState = {};
   try {
-    initialDetailBar = await readBarState(session.id);
+    initialDetailBar = await getDetailBarState(session.id);
   } catch {}
 
   let initialJournal: SessionJournalChange = {

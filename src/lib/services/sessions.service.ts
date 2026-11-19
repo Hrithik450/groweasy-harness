@@ -1,5 +1,5 @@
 import * as repo from "@/lib/repositories";
-import { readBarState } from "@/lib/bar/snapshot";
+import { getDetailBarState } from "@/lib/bar/snapshot";
 import { toSessionView, type SessionView } from "@/lib/core/session/view";
 import { DEFAULT_SESSIONS } from "./default";
 import type { Session, NewSession } from "@/lib/db";
@@ -225,7 +225,7 @@ export async function getCompetitorResearches(
     const session = repo.getSessionByUserIdAndSlug(userId, "adStrategist");
     if (!session) return researches;
 
-    const detailBar = await readBarState(session.id);
+    const detailBar = await getDetailBarState(session.id);
 
     const allResearches: CompetitorResearchItemWithBrand[] =
       (detailBar.adStrategist?.competitorResearches ??

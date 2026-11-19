@@ -5,7 +5,7 @@ import { getSessionFromRequest } from "@/lib/auth/session";
 import type { Session } from "@/lib/db";
 import { toSessionView } from "@/lib/core/session/view";
 import type { DetailBarState } from "@/lib/detail.bar/state";
-import { readBarState } from "@/lib/bar/snapshot";
+import { getDetailBarState } from "@/lib/bar/snapshot";
 
 /**
  * GET /api/sessions/[sessionId]
@@ -35,7 +35,7 @@ export async function GET(
   };
   let detailBar: DetailBarState = {};
   try {
-    detailBar = await readBarState(session.id);
+    detailBar = await getDetailBarState(session.id);
   } catch {
     // The live journal fold still supplies the bar to the client.
   }
@@ -78,7 +78,7 @@ export async function PATCH(
     };
     let detailBar: DetailBarState = {};
     try {
-      detailBar = await readBarState(updated.id);
+      detailBar = await getDetailBarState(updated.id);
     } catch {
       // The live journal fold still supplies the bar to the client.
     }

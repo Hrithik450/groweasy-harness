@@ -47,8 +47,24 @@ export async function GET(
     }).catch((err) => console.error("[bar] Campaign sync failed:", err));
   }
 
-  const page = readBarPageFor(session.id, field);
-  return NextResponse.json({ field, items: page.items });
+  const rawLimit = Number(url.searchParams.get("limit"));
+  const limit =
+    Number.isFinite(rawLimit) && rawLimit > 0
+      ? Math.min(Math.floor(rawLimit), 100)
+      : undefined;
+  const cursor = url.searchParams.get("cursor");
+  const parentId = url.searchParams.get("parentId");
+
+  const page = readBarPageFor(session.id, field, {
+    ...(limit ? { limit } : {}),
+    ...(cursor ? { cursor } : {}),
+    ...(parentId ? { parentId } : {}),
+  });
+  return NextResponse.json({
+    field,
+    items: page.items,
+    nextCursor: page.nextCursor,
+  });
 }
 
 /**

@@ -10,12 +10,12 @@
 import type { SessionId } from "@/lib/core/session/types";
 import type { DetailBarState } from "@/lib/detail.bar/state";
 import { getSessionById } from "@/lib/repositories/sessions.repo";
-import { readBarSnapshot } from "./service";
+import { getDetailBarSnapshot } from "./service";
 
-export async function readBarState(
+export async function getDetailBarState(
   sessionId: SessionId | string,
 ): Promise<DetailBarState> {
   const session = getSessionById(String(sessionId));
   if (!session?.slug) return {};
-  return readBarSnapshot(session);
+  return getDetailBarSnapshot(session);
 }

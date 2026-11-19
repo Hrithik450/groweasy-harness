@@ -1,18 +1,20 @@
 /**
- * Detail-bar service: one JSON document per tab.
+ * Detail-bar service: one row per card, one optional child level.
  *
- * A tool hands over cards; the stored document is exactly what the UI renders.
- * Campaigns carry their `ads` array inside the card, so no tree, cursors or
- * assembly live here.
+ * Campaigns own their ads through `parent_id`; every tab reads and writes the
+ * same way. Pages and retention are SQL over indexed columns.
  *
  * @module @/lib/bar/service
  */
 
 import type { Session } from "@/lib/db";
 import {
+  ADS_PER_CAMPAIGN,
   allBarFieldsOf,
   barOwner,
   isBarField,
+  SNAPSHOT_ROOTS,
+  tabRetention,
   BAR_STATUSES,
   type BarField,
 } from "@/lib/detail.bar/fields";
@@ -25,7 +27,18 @@ import { resolveDetailBarType } from "@/lib/detail.bar/utils";
 import { publish } from "@/lib/session/bus";
 import { sessionKey } from "@/lib/session/keys";
 import { SESSION_DETAIL_BAR_EVENT } from "@/lib/session/journal";
-import { readBarDoc, writeBarDoc, type BarCard } from "./docs.repo";
+import {
+  formatCursor,
+  pruneOrphanChildren,
+  pruneRows,
+  readAllRootRows,
+  readChildRows,
+  readRootRows,
+  readRowByCardId,
+  upsertRows,
+  type BarCard,
+  type DetailBarRow,
+} from "./items.repo";
 
 export type { BarCard };
 
@@ -49,34 +62,158 @@ export function resolveBarSession(
   return getSessionByUserIdAndSlug(userId, barOwner(field)) ?? null;
 }
 
-/** Merge one card's columns into the document shape. */
-function toCard(field: BarField, item: BarItemInput): BarCard {
-  const { id, data, status, error } = item;
-  const card: BarCard = { ...((data ?? {}) as Record<string, unknown>), id };
-  if (status !== undefined && status !== null) card.status = status;
-  if (error !== undefined && error !== null) {
-    card.error = error;
-    // Alerts show the reason as a note.
-    if (field === "alerts") card.note = error;
+function rowToCard(row: DetailBarRow, withStatusIntoAction = false): BarCard {
+  const card: BarCard = {
+    ...(row.data as Record<string, unknown>),
+    id: row.id,
+  };
+  if (row.status) {
+    card.status = row.status;
+    if (withStatusIntoAction) {
+      const action =
+        typeof card.action === "object" && card.action !== null
+          ? { ...(card.action as Record<string, unknown>) }
+          : { fix: "" };
+      card.action = { ...action, status: row.status };
+    }
   }
   return card;
 }
 
-function publishField(
-  session: Session,
+/** Roots with their children attached, as the UI renders them. */
+function assemble(
   field: BarField,
-  items: BarCard[],
-): void {
+  roots: readonly DetailBarRow[],
+  children: readonly DetailBarRow[],
+): BarCard[] {
+  const byParent = new Map<string, BarCard[]>();
+  for (const child of children) {
+    const parent = child.parentId;
+    if (!parent) continue;
+    const list = byParent.get(parent) ?? [];
+    list.push(rowToCard(child, true));
+    byParent.set(parent, list);
+  }
+
+  return roots.map((root) => {
+    const card = rowToCard(root);
+    if (field !== "campaigns") return card;
+    const ads = byParent.get(root.id);
+    return ads && ads.length > 0 ? { ...card, ads } : card;
+  });
+}
+
+/** Roots of one tab, children included, newest first. */
+function readAssembled(
+  sessionId: string,
+  field: BarField,
+  options: { limit?: number; cursor?: string | null } = {},
+): { items: BarCard[]; nextCursor: string | null } {
+  const limit = options.limit ?? tabRetention(field);
+  const page = readRootRows(sessionId, field, {
+    limit,
+    cursor: options.cursor,
+  });
+  const children =
+    field === "campaigns"
+      ? readChildRows(
+          sessionId,
+          field,
+          page.rows.map((row) => row.id),
+        )
+      : [];
+  return {
+    items: assemble(field, page.rows, children),
+    nextCursor: page.nextCursor,
+  };
+}
+
+function publishField(session: Session, field: BarField): void {
+  const page = readAssembled(session.id, field);
   publish(sessionKey(session.id), {
     event: SESSION_DETAIL_BAR_EVENT,
-    data: { type: "field", sessionId: session.id, field, items },
+    data: {
+      type: "field",
+      sessionId: session.id,
+      field,
+      items: page.items,
+    },
   });
+}
+
+/** Split one incoming card into its row and, for campaigns, its ad rows. */
+function toRows(
+  field: BarField,
+  item: BarItemInput,
+  nowId: string,
+): {
+  root: {
+    id: string;
+    parentId: null;
+    status: string | null;
+    data: Record<string, unknown>;
+  };
+  children: Array<{
+    id: string;
+    parentId: string;
+    status: string | null;
+    data: Record<string, unknown>;
+  }>;
+} {
+  const { id, data, status, error } = item;
+  const raw = { ...((data ?? {}) as Record<string, unknown>) };
+  const children: Array<{
+    id: string;
+    parentId: string;
+    status: string | null;
+    data: Record<string, unknown>;
+  }> = [];
+
+  if (field === "campaigns" && Array.isArray(raw.ads)) {
+    for (const value of raw.ads as Array<Record<string, unknown>>) {
+      const adId = typeof value.id === "string" ? value.id : "";
+      if (!adId) continue;
+      const { id: _ignored, status: adStatus, error: _adError, ...ad } = value;
+      const action =
+        typeof ad.action === "object" && ad.action !== null
+          ? (ad.action as Record<string, unknown>)
+          : null;
+      const statusValue =
+        typeof adStatus === "string"
+          ? adStatus
+          : typeof action?.status === "string"
+            ? action.status
+            : null;
+      children.push({
+        id: adId,
+        parentId: id,
+        status: statusValue,
+        data: ad,
+      });
+    }
+    delete raw.ads;
+  }
+
+  const cardStatus =
+    typeof status === "string"
+      ? status
+      : typeof raw.status === "string"
+        ? raw.status
+        : null;
+  const { status: _status, error: _error, ...rest } = raw;
+  if (typeof error === "string" && field !== "alerts") rest.error = error;
+  if (typeof error === "string" && field === "alerts") rest.note = error;
+
+  return {
+    root: { id: id || nowId, parentId: null, status: cardStatus, data: rest },
+    children,
+  };
 }
 
 /**
  * Write cards into the tab that owns them.
  *
- * @returns the written cards, or `null` when the owning session is missing.
+ * @returns the written root cards, or `null` when the session is missing.
  */
 export function saveBarItems(
   userId: string,
@@ -87,36 +224,54 @@ export function saveBarItems(
   const session = resolveBarSession(userId, field);
   if (!session) return null;
 
-  const replace = options.replace === true;
-  const byId = new Map<string, BarCard>();
-  if (!replace) {
-    for (const card of readBarDoc(session.id, field) ?? []) {
-      byId.set(String(card.id), card);
+  const slug = session.slug ?? barOwner(field);
+  if (options.replace === true) {
+    const existing = readAllRootRows(session.id, field);
+    for (const root of existing) {
+      pruneRows(session.id, field, root.id, 0);
     }
+    pruneRows(session.id, field, null, 0);
   }
 
-  const written = items.map((item) => toCard(field, item));
-  for (const card of written) byId.set(card.id, card);
+  const roots: Array<{
+    id: string;
+    parentId: null;
+    status: string | null;
+    data: Record<string, unknown>;
+  }> = [];
+  const children: Array<{
+    id: string;
+    parentId: string;
+    status: string | null;
+    data: Record<string, unknown>;
+  }> = [];
 
-  const data = Array.from(byId.values());
-  writeBarDoc(session.id, field, data);
-  publishField(session, field, data);
-
-  return { session, items: written };
-}
-
-/** Find a card by id, including an ad inside a campaign's `ads` array. */
-function findCard(
-  data: readonly BarCard[],
-  id: string,
-): { card: BarCard; parent?: BarCard } | null {
-  for (const card of data) {
-    if (card.id === id) return { card };
-    const ads = Array.isArray(card.ads) ? (card.ads as BarCard[]) : [];
-    const ad = ads.find((row) => row?.id === id);
-    if (ad) return { card: ad, parent: card };
+  for (const item of items) {
+    const split = toRows(field, item, item.id);
+    roots.push(split.root);
+    children.push(...split.children);
   }
-  return null;
+
+  const writtenChildren = upsertRows(session.id, slug, field, children);
+  const writtenRoots = upsertRows(session.id, slug, field, roots);
+
+  pruneRows(session.id, field, null, tabRetention(field));
+  if (field === "campaigns") {
+    for (const root of roots) {
+      pruneRows(session.id, field, root.id, ADS_PER_CAMPAIGN);
+    }
+    pruneOrphanChildren(session.id, field);
+  }
+
+  publishField(session, field);
+
+  if (writtenRoots.length === 0 && writtenChildren.length === 0) {
+    return { session, items: [] };
+  }
+  return {
+    session,
+    items: writtenRoots.map((row) => rowToCard(row)),
+  };
 }
 
 /** Keep only the fields a user owns, so a stale client cannot rewrite analysis. */
@@ -134,7 +289,7 @@ function userOwnedPatch(
 /**
  * Merge a user patch into one stored card and publish its tab.
  *
- * @returns the updated card, or `null` when the card does not exist.
+ * @returns the updated card, or `null` when the row does not exist.
  */
 export function patchBarItem(
   session: Session,
@@ -145,42 +300,37 @@ export function patchBarItem(
   const owned = userOwnedPatch(patch);
   if (Object.keys(owned).length === 0) return null;
 
-  if (!session.slug) return null;
-  const fields = field ? [field] : allBarFieldsOf(session.slug);
-  for (const current of fields) {
-    const data = readBarDoc(session.id, current);
-    if (!data) continue;
+  const row = readRowByCardId(session.id, id);
+  if (!row) return null;
+  if (field && row.field !== field) return null;
 
-    const hit = findCard(data, id);
-    if (!hit) continue;
-
-    const next: BarCard = { ...hit.card, ...owned };
-    if (current === "alerts" && typeof owned.error === "string") {
-      next.note = owned.error;
-    }
-
-    const nextData = hit.parent
-      ? data.map((card) =>
-          card.id === hit.parent!.id
-            ? {
-                ...card,
-                ads: (card.ads as BarCard[]).map((ad) =>
-                  ad.id === id ? next : ad,
-                ),
-              }
-            : card,
-        )
-      : data.map((card) => (card.id === id ? next : card));
-
-    writeBarDoc(session.id, current, nextData);
-    publishField(session, current, nextData);
-    return next;
+  const data = { ...(row.data as Record<string, unknown>) };
+  if (typeof owned.error === "string") {
+    if (row.field === "alerts") data.note = owned.error;
+    else data.error = owned.error;
   }
 
-  return null;
+  const [written] = upsertRows(
+    session.id,
+    session.slug ?? row.sessionSlug,
+    row.field,
+    [
+      {
+        id,
+        parentId: row.parentId,
+        status: typeof owned.status === "string" ? owned.status : row.status,
+        data,
+        updatedAt: row.updatedAt,
+      },
+    ],
+  );
+  if (!written) return null;
+
+  publishField(session, row.field as BarField);
+  return rowToCard(written, row.parentId !== null);
 }
 
-/** Read one card by id inside one tab. */
+/** Read one card by id inside one tab, children attached for campaigns. */
 export function readBarItemFor(
   userId: string,
   field: BarField,
@@ -188,7 +338,11 @@ export function readBarItemFor(
 ): BarCard | null {
   const session = resolveBarSession(userId, field);
   if (!session) return null;
-  return findCard(readBarDoc(session.id, field) ?? [], id)?.card ?? null;
+  const row = readRowByCardId(session.id, id);
+  if (!row || row.field !== field) return null;
+  if (field !== "campaigns") return rowToCard(row);
+  const children = readChildRows(session.id, field, [id]);
+  return assemble(field, [row], children)[0] ?? rowToCard(row);
 }
 
 /** Read one card by id when only the session id is known. */
@@ -197,12 +351,9 @@ export function readBarItemForSession(
   id: string,
 ): BarCard | null {
   const session = getSessionById(sessionId);
-  if (!session?.slug) return null;
-  for (const field of allBarFieldsOf(session.slug)) {
-    const hit = findCard(readBarDoc(session.id, field) ?? [], id);
-    if (hit) return hit.card;
-  }
-  return null;
+  if (!session) return null;
+  const row = readRowByCardId(session.id, id);
+  return row ? rowToCard(row) : null;
 }
 
 /** The newest card in one tab, or `null` when it is empty. */
@@ -212,34 +363,45 @@ export function latestBarItemFor(
 ): BarCard | null {
   const session = resolveBarSession(userId, field);
   if (!session) return null;
-  const data = readBarDoc(session.id, field) ?? [];
-  return data[data.length - 1] ?? null;
+  const row: DetailBarRow | undefined = readAllRootRows(session.id, field)[0];
+  return row ? rowToCard(row) : null;
 }
 
-/** One tab's cards; page params are kept for older callers. */
+/** One page of a tab, roots with their ads, newest first. */
 export function readBarPageFor(
   sessionId: string,
   field: BarField,
-  _options: {
+  options: {
     limit?: number;
     cursor?: string | null;
     parentId?: string | null;
     kind?: string | null;
   } = {},
-): { items: BarCard[]; nextCursor: string | null; hasMore: boolean } {
-  return {
-    items: readBarDoc(sessionId, field) ?? [],
-    nextCursor: null,
-    hasMore: false,
-  };
+): { items: BarCard[]; nextCursor: string | null } {
+  if (options.parentId) {
+    const parent = readRowByCardId(sessionId, options.parentId);
+    if (!parent) return { items: [], nextCursor: null };
+    const children = readChildRows(sessionId, field, [options.parentId]);
+    return {
+      items: assemble(field, [parent], children).slice(0, 1),
+      nextCursor: null,
+    };
+  }
+  return readAssembled(sessionId, field, {
+    limit: options.limit ?? SNAPSHOT_ROOTS,
+    cursor: options.cursor,
+  });
 }
 
-/** Every tab the session owns, as the client renders it. */
-export function readBarSnapshot(session: Session): DetailBarState {
+/** First page of every tab the session owns. */
+export function getDetailBarSnapshot(session: Session): DetailBarState {
   if (!session.slug) return {};
   const group: Record<string, BarCard[]> = {};
   for (const field of allBarFieldsOf(session.slug)) {
-    group[field] = readBarDoc(session.id, field) ?? [];
+    // A tab's retained rows are bounded (≤200), so the shell gets them all.
+    group[field] = readAssembled(session.id, field, {
+      limit: tabRetention(field),
+    }).items;
   }
   return {
     [resolveDetailBarType({ slug: session.slug })]: group,
@@ -252,22 +414,26 @@ export function readAdsForClassification(
 ): Array<Record<string, unknown>> | null {
   const session = resolveBarSession(userId, "campaigns");
   if (!session) return null;
-
-  const campaigns = readBarDoc(session.id, "campaigns") ?? [];
-  return campaigns.flatMap((campaign) =>
-    (Array.isArray(campaign.ads) ? (campaign.ads as BarCard[]) : []).map(
-      (ad) => ({
-        campaignId: campaign.id,
-        id: ad.id,
-        name: ad.name,
-        adsetId: ad.adsetId,
-        category: ad.category,
-        metrics: ad.metrics,
-        resultShare: ad.resultShare,
-        status: ad.status,
-      }),
-    ),
+  const roots = readAllRootRows(session.id, "campaigns");
+  const children = readChildRows(
+    session.id,
+    "campaigns",
+    roots.map((row) => row.id),
   );
+
+  return children.map((ad) => {
+    const data = ad.data as Record<string, unknown>;
+    return {
+      campaignId: ad.parentId,
+      id: ad.id,
+      name: data.name,
+      adsetId: data.adsetId,
+      category: data.category,
+      metrics: data.metrics,
+      resultShare: data.resultShare,
+      status: ad.status,
+    };
+  });
 }
 
 const AD_CATEGORIES = new Set([
@@ -292,10 +458,7 @@ export interface AdClassification {
 }
 
 /**
- * Write the health skill's verdicts onto the campaigns document.
- *
- * Only the category (and its derived move) changes; the synced metrics stand.
- * Each touched campaign's chips are recounted from its ads.
+ * Write the health skill's verdicts onto ad rows; chips follow the verdicts.
  */
 export function classifyCampaignAds(
   userId: string,
@@ -304,53 +467,86 @@ export function classifyCampaignAds(
   const session = resolveBarSession(userId, "campaigns");
   if (!session) return null;
 
-  const raw = readBarDoc(session.id, "campaigns");
-  if (!raw) return null;
+  const roots = readAllRootRows(session.id, "campaigns");
+  const children = readChildRows(
+    session.id,
+    "campaigns",
+    roots.map((row) => row.id),
+  );
 
   let updated = 0;
   const touched = new Set<string>();
+  const writes: Array<{
+    id: string;
+    parentId: string | null;
+    status: string | null;
+    data: Record<string, unknown>;
+    updatedAt?: string;
+  }> = [];
 
-  const data = raw.map((campaign) => {
-    if (!Array.isArray(campaign.ads)) return campaign;
-    let changed = false;
-    const ads = (campaign.ads as BarCard[]).map((ad) => {
-      const entry = entries.find((item) => item.id === ad.id);
-      const category = entry?.category?.trim().toLowerCase();
-      if (!category || !AD_CATEGORIES.has(category)) return ad;
+  for (const ad of children) {
+    const entry = entries.find((item) => item.id === ad.id);
+    const category = entry?.category?.trim().toLowerCase();
+    if (!category || !AD_CATEGORIES.has(category)) continue;
 
-      const { action: _previous, ...rest } = ad;
-      const fix = ACTION_BY_CATEGORY[category];
-      const next: BarCard = {
+    const { action: _previous, ...rest } = ad.data as Record<string, unknown>;
+    const fix = ACTION_BY_CATEGORY[category];
+    writes.push({
+      id: ad.id,
+      parentId: ad.parentId,
+      status: ad.status,
+      data: {
         ...rest,
         category,
         ...(fix ? { action: { fix, status: ad.status ?? "pending" } } : {}),
-      };
-      updated += 1;
-      changed = true;
-      touched.add(String(campaign.id));
-      return next;
+      },
+      updatedAt: ad.updatedAt,
     });
-    if (!changed) return campaign;
+    updated += 1;
+    if (ad.parentId) touched.add(ad.parentId);
+  }
 
+  if (writes.length === 0) return { updated };
+
+  upsertRows(session.id, session.slug ?? "adManager", "campaigns", writes);
+
+  // Chips are the ad categories counted, so they follow the verdicts.
+  for (const parentId of touched) {
+    const parent = readRowByCardId(session.id, parentId);
+    if (!parent) continue;
+    const ads = readChildRows(session.id, "campaigns", [parentId]);
     const chips: Record<string, number> = {};
     for (const ad of ads) {
-      if (ad.category === "winner") chips.winners = (chips.winners ?? 0) + 1;
-      if (ad.category === "scaler") chips.scalers = (chips.scalers ?? 0) + 1;
-      if (ad.category === "loser") chips.losers = (chips.losers ?? 0) + 1;
-      if (ad.category === "potential")
+      const data = ad.data as Record<string, unknown>;
+      if (data.category === "winner") chips.winners = (chips.winners ?? 0) + 1;
+      if (data.category === "scaler") chips.scalers = (chips.scalers ?? 0) + 1;
+      if (data.category === "loser") chips.losers = (chips.losers ?? 0) + 1;
+      if (data.category === "potential")
         chips.potential = (chips.potential ?? 0) + 1;
     }
-    const { chips: _oldChips, ...campaignRest } = campaign;
-    return {
-      ...campaignRest,
-      ads,
-      ...(Object.keys(chips).length > 0 ? { chips } : {}),
-    } as BarCard;
-  });
+    const { chips: _oldChips, ...parentRest } = parent.data as Record<
+      string,
+      unknown
+    >;
+    upsertRows(session.id, session.slug ?? "adManager", "campaigns", [
+      {
+        id: parentId,
+        parentId: null,
+        status: parent.status,
+        data: {
+          ...parentRest,
+          ...(Object.keys(chips).length > 0 ? { chips } : {}),
+        },
+        updatedAt: parent.updatedAt,
+      },
+    ]);
+  }
 
-  if (touched.size === 0) return { updated };
-
-  writeBarDoc(session.id, "campaigns", data);
-  publishField(session, "campaigns", data);
+  publishField(session, "campaigns");
   return { updated };
+}
+
+/** Cursor of the last row of a page (kept for callers that build one). */
+export function pageCursor(row: DetailBarRow): string {
+  return formatCursor(row);
 }
