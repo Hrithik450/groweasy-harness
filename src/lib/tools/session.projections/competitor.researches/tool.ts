@@ -116,7 +116,7 @@ export async function executeUpdateCompetitorResearchTool(
     const rawStatic = Array.isArray(newAds?.staticAds) ? newAds.staticAds : [];
     const rawVideo = Array.isArray(newAds?.videoAds) ? newAds.videoAds : [];
 
-    const uniqueStatic = Array.from(
+    let uniqueStatic = Array.from(
       new Set(
         rawStatic
           .map((a) => extractAdIdFromReference(String(a)) || String(a).trim())
@@ -124,7 +124,7 @@ export async function executeUpdateCompetitorResearchTool(
       ),
     );
 
-    const uniqueVideo = Array.from(
+    let uniqueVideo = Array.from(
       new Set(
         rawVideo
           .map((a) => extractAdIdFromReference(String(a)) || String(a).trim())
@@ -135,6 +135,7 @@ export async function executeUpdateCompetitorResearchTool(
     const allSubmittedIds = Array.from(
       new Set([...uniqueStatic, ...uniqueVideo]),
     );
+    let droppedIds: string[] = [];
 
     if (allSubmittedIds.length > 0) {
       const cachedAdsRes = await getScrapedAdsByIds(allSubmittedIds);
@@ -142,14 +143,12 @@ export async function executeUpdateCompetitorResearchTool(
 
       const invalidIds = allSubmittedIds.filter((id) => !cachedMap.has(id));
       if (invalidIds.length > 0) {
-        const errorMsg = `Invalid ad ID(s): [${invalidIds.join(", ")}]. All submitted ads must be verified ads previously retrieved and cached from Meta Ad Library via the 'searchAdLibrary' tool. Please provide valid ad IDs.`;
-        return {
-          success: false,
-          data: {
-            contentParts: [{ type: "input_text", text: `Error: ${errorMsg}` }],
-          },
-          error: errorMsg,
-        };
+        // Unverified references are dropped individually: one bad id must not
+        // discard the competitors, keywords and findings of the whole run.
+        const invalid = new Set(invalidIds);
+        uniqueStatic = uniqueStatic.filter((id) => !invalid.has(id));
+        uniqueVideo = uniqueVideo.filter((id) => !invalid.has(id));
+        droppedIds = invalidIds;
       }
     }
 
@@ -194,7 +193,11 @@ export async function executeUpdateCompetitorResearchTool(
         contentParts: [
           {
             type: "input_text",
-            text: `Successfully saved competitor research "${String(data.title)}" as ${id} in the Ad Strategist DetailBar.`,
+            text: `Successfully saved competitor research "${String(data.title)}" as ${id} in the Ad Strategist DetailBar.${
+              droppedIds.length > 0
+                ? ` Dropped ${droppedIds.length} unverified ad reference(s) not returned by searchAdLibrary: ${droppedIds.join(", ")}.`
+                : ""
+            }`,
           },
         ],
       },
