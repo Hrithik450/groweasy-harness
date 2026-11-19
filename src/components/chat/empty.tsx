@@ -1,12 +1,41 @@
 "use client";
 
 import React from "react";
-import { Clock, Compass, Palette, Sparkles } from "lucide-react";
+import {
+  Clock,
+  Compass,
+  Lightbulb,
+  Palette,
+  Search,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Video,
+  type LucideIcon,
+} from "lucide-react";
 import { BotDollAvatar } from "@/components/bot.doll.loader";
+import {
+  suggestionsFor,
+  type SuggestionIcon,
+} from "@/lib/constants/session.suggestions";
 
 interface ChatEmptyStateProps {
   onSelectPrompt: (content: string) => void;
+  /** The bar this chat belongs to; picks the suggestion set. */
+  slug?: string | null;
 }
+
+const ICONS: Record<SuggestionIcon, LucideIcon> = {
+  compass: Compass,
+  palette: Palette,
+  sparkles: Sparkles,
+  clock: Clock,
+  search: Search,
+  target: Target,
+  trending: TrendingUp,
+  video: Video,
+  lightbulb: Lightbulb,
+};
 
 /**
  * Empty-conversation seat: the suggestion grid shown before the first turn.
@@ -14,32 +43,11 @@ interface ChatEmptyStateProps {
  * Square card surfaces with text-only buttons; the icon tile inverts to the
  * brand surface on hover rather than tinting.
  */
-export function ChatEmptyState({ onSelectPrompt }: ChatEmptyStateProps) {
-  const suggestions = [
-    {
-      icon: Compass,
-      title: "Competitor research & strategy",
-      prompt:
-        "Analyze the top competitors in our niche and suggest our winning ad strategy",
-    },
-    {
-      icon: Palette,
-      title: "Generate poster & video creatives",
-      prompt:
-        "Create an eye-catching marketing poster and fast-cut video ad for our product",
-    },
-    {
-      icon: Sparkles,
-      title: "Campaign brief & target audiences",
-      prompt:
-        "Generate a targeted campaign brief with high-converting Facebook audience segments",
-    },
-    {
-      icon: Clock,
-      title: "Schedule daily automation",
-      prompt: "Set up a daily automated marketing review at 9:00 AM",
-    },
-  ];
+export function ChatEmptyState({ onSelectPrompt, slug }: ChatEmptyStateProps) {
+  const suggestions = suggestionsFor(slug).map((item) => ({
+    ...item,
+    icon: ICONS[item.icon],
+  }));
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-8 overflow-y-auto w-full">

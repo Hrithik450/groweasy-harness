@@ -25,6 +25,7 @@ import type { SessionJournalChange } from "@/lib/session/journal";
 import type { DetailBarState } from "@/lib/detail.bar/state";
 import { ChatHeader } from "./header";
 import { ChatEmptyState } from "./empty";
+import { chipsFor } from "@/lib/constants/session.suggestions";
 import { DetailBar } from "./detail.bar";
 import { TurnView, UserMarkdown } from "./turn";
 import { ChatInputForm } from "./input.form";
@@ -36,14 +37,6 @@ interface MainChatProps {
   initialJournal: SessionJournalChange;
   initialDetailBar: DetailBarState;
 }
-
-const SUGGESTION_CHIPS = [
-  "Campaign brief",
-  "Find audiences",
-  "Competitor research",
-  "Marketing strategy",
-  "Schedule daily report at 9 am",
-] as const;
 
 /** Sliver of newly loaded history left visible above the viewport. */
 const PREPEND_PEEK_PX = 20;
@@ -296,7 +289,10 @@ export function Chat({
             {pagination.isLoadingInitial ? (
               <BotDollLoader variant="center" text="Loading conversation" />
             ) : turnGroups.length === 0 ? (
-              <ChatEmptyState onSelectPrompt={handleSendMessage} />
+              <ChatEmptyState
+                onSelectPrompt={handleSendMessage}
+                slug={initialSession.slug}
+              />
             ) : (
               <>
                 {turnGroups.map((group, idx) => (
@@ -335,7 +331,7 @@ export function Chat({
         <div className="px-4 pb-4 pt-1 sm:px-6 sm:pb-5 sm:pt-1 bg-transparent shrink-0">
           <div className="max-w-3xl mx-auto space-y-1.5 w-full">
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-              {SUGGESTION_CHIPS.map((chip) => (
+              {chipsFor(initialSession.slug).map((chip) => (
                 <button
                   key={chip}
                   type="button"

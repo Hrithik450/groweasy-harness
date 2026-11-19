@@ -17,3 +17,5 @@ export const CONNECTOR_SLUGS = [
   "shopify",
   "businessProfile",
 ] as const;
+
+export * from "./session.suggestions";
