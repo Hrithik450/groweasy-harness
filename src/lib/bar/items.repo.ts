@@ -193,7 +193,7 @@ export function upsertRows(
   return written;
 }
 
-/** Delete ad rows whose campaign was trimmed away. */
+/** Delete any row whose parent is gone, at every depth. */
 export function pruneOrphanChildren(sessionId: string, field: string): void {
   getDb()
     .delete(detailBarItems)
@@ -211,7 +211,6 @@ export function pruneOrphanChildren(sessionId: string, field: string): void {
               and(
                 eq(detailBarItems.sessionId, sessionId),
                 eq(detailBarItems.field, field),
-                isNull(detailBarItems.parentId),
               ),
             ),
         ),

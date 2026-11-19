@@ -9,11 +9,11 @@
 
 import type { Session } from "@/lib/db";
 import {
-  ADS_PER_CAMPAIGN,
   allBarFieldsOf,
   barOwner,
   isBarField,
   SNAPSHOT_ROOTS,
+  tabChildren,
   tabRetention,
   BAR_STATUSES,
   type BarField,
@@ -80,27 +80,54 @@ function rowToCard(row: DetailBarRow, withStatusIntoAction = false): BarCard {
   return card;
 }
 
-/** Roots with their children attached, as the UI renders them. */
-function assemble(
+/** Every descendant of the given roots, level by level, as configured. */
+function readSubtree(
+  sessionId: string,
   field: BarField,
   roots: readonly DetailBarRow[],
-  children: readonly DetailBarRow[],
-): BarCard[] {
-  const byParent = new Map<string, BarCard[]>();
-  for (const child of children) {
-    const parent = child.parentId;
-    if (!parent) continue;
-    const list = byParent.get(parent) ?? [];
-    list.push(rowToCard(child, true));
-    byParent.set(parent, list);
+): DetailBarRow[] {
+  const all: DetailBarRow[] = [...roots];
+  let frontier = roots.map((row) => row.id);
+  let config = tabChildren(field);
+
+  while (config && frontier.length > 0) {
+    const kids = readChildRows(sessionId, field, frontier);
+    if (kids.length === 0) break;
+    all.push(...kids);
+    frontier = kids.map((row) => row.id);
+    config = config.children;
   }
 
-  return roots.map((root) => {
-    const card = rowToCard(root);
-    if (field !== "campaigns") return card;
-    const ads = byParent.get(root.id);
-    return ads && ads.length > 0 ? { ...card, ads } : card;
-  });
+  return all;
+}
+
+/** Attach descendants under their configured keys, at any depth. */
+function assembleRows(
+  rows: readonly DetailBarRow[],
+  rootRows: readonly DetailBarRow[],
+  config: ReturnType<typeof tabChildren>,
+): BarCard[] {
+  const byParent = new Map<string, DetailBarRow[]>();
+  for (const row of rows) {
+    if (!row.parentId) continue;
+    const list = byParent.get(row.parentId) ?? [];
+    list.push(row);
+    byParent.set(row.parentId, list);
+  }
+
+  const build = (
+    row: DetailBarRow,
+    level: ReturnType<typeof tabChildren>,
+  ): BarCard => {
+    const card = rowToCard(row, row.parentId !== null);
+    if (!level) return card;
+    const kids = (byParent.get(row.id) ?? []).map((kid) =>
+      build(kid, level.children),
+    );
+    return kids.length > 0 ? { ...card, [level.key]: kids } : card;
+  };
+
+  return rootRows.map((row) => build(row, config));
 }
 
 /** Roots of one tab, children included, newest first. */
@@ -114,16 +141,9 @@ function readAssembled(
     limit,
     cursor: options.cursor,
   });
-  const children =
-    field === "campaigns"
-      ? readChildRows(
-          sessionId,
-          field,
-          page.rows.map((row) => row.id),
-        )
-      : [];
+  const rows = readSubtree(sessionId, field, page.rows);
   return {
-    items: assemble(field, page.rows, children),
+    items: assembleRows(rows, page.rows, tabChildren(field)),
     nextCursor: page.nextCursor,
   };
 }
@@ -141,57 +161,86 @@ function publishField(session: Session, field: BarField): void {
   });
 }
 
-/** Split one incoming card into its row and, for campaigns, its ad rows. */
+interface RowWrite {
+  id: string;
+  parentId: string | null;
+  status: string | null;
+  data: Record<string, unknown>;
+}
+
+interface PruneTask {
+  parentId: string;
+  retain: number;
+}
+
+/** Split one nested array into rows, recursing into configured children. */
+function splitLevel(
+  config: NonNullable<ReturnType<typeof tabChildren>>,
+  parentId: string,
+  values: readonly unknown[],
+  rows: RowWrite[],
+  prune: PruneTask[],
+): void {
+  prune.push({ parentId, retain: config.retain });
+
+  for (const value of values) {
+    if (typeof value !== "object" || value === null) continue;
+    const record = value as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id : "";
+    if (!id) continue;
+
+    const {
+      id: _ignored,
+      status: ownStatus,
+      error: _ownError,
+      ...rest
+    } = record;
+    const action =
+      typeof rest.action === "object" && rest.action !== null
+        ? (rest.action as Record<string, unknown>)
+        : null;
+    const status =
+      typeof ownStatus === "string"
+        ? ownStatus
+        : typeof action?.status === "string"
+          ? action.status
+          : null;
+
+    rows.push({ id, parentId, status, data: rest });
+
+    if (config.children && Array.isArray(rest[config.children.key])) {
+      splitLevel(
+        config.children,
+        id,
+        rest[config.children.key] as readonly unknown[],
+        rows,
+        prune,
+      );
+      delete rest[config.children.key];
+    }
+  }
+}
+
+/** One incoming card split into its root row and every descendant row. */
 function toRows(
   field: BarField,
   item: BarItemInput,
-  nowId: string,
-): {
-  root: {
-    id: string;
-    parentId: null;
-    status: string | null;
-    data: Record<string, unknown>;
-  };
-  children: Array<{
-    id: string;
-    parentId: string;
-    status: string | null;
-    data: Record<string, unknown>;
-  }>;
-} {
+): { root: RowWrite; descendants: RowWrite[]; prune: PruneTask[] } {
   const { id, data, status, error } = item;
   const raw = { ...((data ?? {}) as Record<string, unknown>) };
-  const children: Array<{
-    id: string;
-    parentId: string;
-    status: string | null;
-    data: Record<string, unknown>;
-  }> = [];
+  const descendants: RowWrite[] = [];
+  const prune: PruneTask[] = [];
 
-  if (field === "campaigns" && Array.isArray(raw.ads)) {
-    for (const value of raw.ads as Array<Record<string, unknown>>) {
-      const adId = typeof value.id === "string" ? value.id : "";
-      if (!adId) continue;
-      const { id: _ignored, status: adStatus, error: _adError, ...ad } = value;
-      const action =
-        typeof ad.action === "object" && ad.action !== null
-          ? (ad.action as Record<string, unknown>)
-          : null;
-      const statusValue =
-        typeof adStatus === "string"
-          ? adStatus
-          : typeof action?.status === "string"
-            ? action.status
-            : null;
-      children.push({
-        id: adId,
-        parentId: id,
-        status: statusValue,
-        data: ad,
-      });
-    }
-    delete raw.ads;
+  const config = tabChildren(field);
+  if (config && Array.isArray(raw[config.key])) {
+    splitLevel(
+      config,
+      id,
+      raw[config.key] as readonly unknown[],
+      descendants,
+      prune,
+    );
+    delete raw[config.key];
   }
 
   const cardStatus =
@@ -205,8 +254,9 @@ function toRows(
   if (typeof error === "string" && field === "alerts") rest.note = error;
 
   return {
-    root: { id: id || nowId, parentId: null, status: cardStatus, data: rest },
-    children,
+    root: { id, parentId: null, status: cardStatus, data: rest },
+    descendants,
+    prune,
   };
 }
 
@@ -233,35 +283,25 @@ export function saveBarItems(
     pruneRows(session.id, field, null, 0);
   }
 
-  const roots: Array<{
-    id: string;
-    parentId: null;
-    status: string | null;
-    data: Record<string, unknown>;
-  }> = [];
-  const children: Array<{
-    id: string;
-    parentId: string;
-    status: string | null;
-    data: Record<string, unknown>;
-  }> = [];
+  const roots: RowWrite[] = [];
+  const descendants: RowWrite[] = [];
+  const prune: PruneTask[] = [];
 
   for (const item of items) {
-    const split = toRows(field, item, item.id);
+    const split = toRows(field, item);
     roots.push(split.root);
-    children.push(...split.children);
+    descendants.push(...split.descendants);
+    prune.push(...split.prune);
   }
 
-  const writtenChildren = upsertRows(session.id, slug, field, children);
+  const writtenChildren = upsertRows(session.id, slug, field, descendants);
   const writtenRoots = upsertRows(session.id, slug, field, roots);
 
   pruneRows(session.id, field, null, tabRetention(field));
-  if (field === "campaigns") {
-    for (const root of roots) {
-      pruneRows(session.id, field, root.id, ADS_PER_CAMPAIGN);
-    }
-    pruneOrphanChildren(session.id, field);
+  for (const task of prune) {
+    pruneRows(session.id, field, task.parentId, task.retain);
   }
+  pruneOrphanChildren(session.id, field);
 
   publishField(session, field);
 
@@ -340,9 +380,9 @@ export function readBarItemFor(
   if (!session) return null;
   const row = readRowByCardId(session.id, id);
   if (!row || row.field !== field) return null;
-  if (field !== "campaigns") return rowToCard(row);
-  const children = readChildRows(session.id, field, [id]);
-  return assemble(field, [row], children)[0] ?? rowToCard(row);
+  if (!tabChildren(field)) return rowToCard(row);
+  const rows = readSubtree(session.id, field, [row]);
+  return assembleRows(rows, [row], tabChildren(field))[0] ?? rowToCard(row);
 }
 
 /** Read one card by id when only the session id is known. */
@@ -381,9 +421,9 @@ export function readBarPageFor(
   if (options.parentId) {
     const parent = readRowByCardId(sessionId, options.parentId);
     if (!parent) return { items: [], nextCursor: null };
-    const children = readChildRows(sessionId, field, [options.parentId]);
+    const rows = readSubtree(sessionId, field, [parent]);
     return {
-      items: assemble(field, [parent], children).slice(0, 1),
+      items: assembleRows(rows, [parent], tabChildren(field)).slice(0, 1),
       nextCursor: null,
     };
   }

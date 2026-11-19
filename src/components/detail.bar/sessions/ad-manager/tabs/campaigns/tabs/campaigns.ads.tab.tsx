@@ -13,6 +13,7 @@ import type {
   ActionStatus,
   AdCategory,
 } from "@/lib/detail.bar/types";
+import { DETAIL_BAR_TABS } from "@/lib/detail.bar/fields";
 import { AdCard } from "../ad.card";
 import { campaignStatusLabel, statusChipClass } from "../campaigns.shared";
 
@@ -114,7 +115,7 @@ export function CampaignsAdsTab({
       {/* The one nested tab level. */}
       <div className="flex items-center gap-4 border-b border-border">
         <span className="h-full flex items-center py-2 text-[13px] font-bold text-foreground border-b-[2px] -mb-[1px] border-brand">
-          Ads
+          {DETAIL_BAR_TABS.adManager.campaigns.children?.label ?? "Ads"}
         </span>
       </div>
 

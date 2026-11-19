@@ -9,15 +9,31 @@
 
 import type { DetailBarSlug } from "./types";
 
-/** One tab: its label and the root cards it keeps. */
+/** The one nested level a tab may own. */
+export interface TabChildren {
+  /** Key children attach under, e.g. ads. */
+  readonly key: string;
+  readonly label: string;
+  /** Children kept per parent. */
+  readonly retain: number;
+  /** The next level under these children, if any. */
+  readonly children?: TabChildren;
+}
+
+/** One tab: its label, the root cards it keeps, and its optional child level. */
 export interface TabNode {
   readonly label: string;
   readonly retain: number;
+  readonly children?: TabChildren;
 }
 
 export const DETAIL_BAR_TABS = {
   adManager: {
-    campaigns: { label: "Campaigns", retain: 25 },
+    campaigns: {
+      label: "Campaigns",
+      retain: 25,
+      children: { key: "ads", label: "Ads", retain: 10 },
+    },
     alerts: { label: "Alerts", retain: 200 },
     suggestions: { label: "Suggestions", retain: 100 },
   },
@@ -32,6 +48,20 @@ export const DETAIL_BAR_TABS = {
   },
 } as const satisfies Record<DetailBarSlug, Record<string, TabNode>>;
 
+/** Config for one tab. */
+export function tabNode(field: BarField): TabNode {
+  for (const owner of Object.keys(DETAIL_BAR_TABS) as BarOwner[]) {
+    const tabs = DETAIL_BAR_TABS[owner] as Record<string, TabNode>;
+    if (Object.hasOwn(tabs, field)) return tabs[field];
+  }
+  throw new Error(`Unknown bar field: ${field}`);
+}
+
+/** The child level a tab owns, if any. */
+export function tabChildren(field: BarField): TabChildren | undefined {
+  return tabNode(field).children;
+}
+
 /** Root cards one tab keeps. */
 export function tabRetention(field: BarField): number {
   for (const owner of Object.keys(DETAIL_BAR_TABS) as BarOwner[]) {
@@ -40,9 +70,6 @@ export function tabRetention(field: BarField): number {
   }
   return 25;
 }
-
-/** Ads kept per campaign. */
-export const ADS_PER_CAMPAIGN = 10;
 
 /** Root cards the server renders before older pages are requested. */
 export const SNAPSHOT_ROOTS = 20;
