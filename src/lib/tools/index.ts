@@ -82,9 +82,6 @@ import {
   executeFetchBusinessProfileTool,
 } from "./business.profile";
 import {
-  searchWebToolDefinition,
-  SearchWebArgs,
-  executeSearchWebTool,
   scrapeWebPageToolDefinition,
   ScrapeWebPageArgs,
   executeScrapeWebPageTool,
@@ -390,10 +387,6 @@ export const TOOL_REGISTRY: Record<
         input as ToolInput<UpdateCompetitorResearchArgs>,
       ),
   },
-  searchWeb: {
-    definition: searchWebToolDefinition,
-    execute: (input) => executeSearchWebTool(input as ToolInput<SearchWebArgs>),
-  },
   scrapeWebPage: {
     definition: scrapeWebPageToolDefinition,
     execute: (input) =>
@@ -403,9 +396,19 @@ export const TOOL_REGISTRY: Record<
     definition: alternateWebSearchToolDefinition,
     execute: async (input) => {
       try {
+        const args = input.args as {
+          maxScrollSteps?: number;
+          scrollSteps?: number;
+        };
         return {
           success: true,
-          data: await alternateWebSearchTool.execute(input.args, {}),
+          data: await alternateWebSearchTool.execute(
+            {
+              ...input.args,
+              maxScrollSteps: args.maxScrollSteps ?? args.scrollSteps,
+            },
+            {},
+          ),
         };
       } catch (error) {
         return {
@@ -491,7 +494,6 @@ export function getToolDefinitionsForSlug(
 ): readonly ModelToolSchema[] {
   if (slug === "businessProfile") {
     return [
-      searchWebToolDefinition,
       scrapeWebPageToolDefinition,
       alternateWebSearchToolDefinition,
       searchAdLibraryToolDefinition,

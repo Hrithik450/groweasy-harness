@@ -376,5 +376,4 @@ export const alternateWebSearchTool = defineTool({
 });
 
 // Real search/scrape implementations live in their own modules.
-export * from "./search/tool";
 export * from "./scrape/tool";

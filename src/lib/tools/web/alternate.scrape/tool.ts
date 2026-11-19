@@ -24,6 +24,10 @@ export const alternateWebSearchToolDefinition = {
         description:
           "Maximum number of scroll steps during full page scan (e.g. 5 to 15).",
       },
+      scrollSteps: {
+        type: "number",
+        description: "Alias for maxScrollSteps; prefer maxScrollSteps.",
+      },
       scrollDelay: {
         type: "number",
         description:
@@ -58,7 +62,7 @@ export const alternateWebSearchToolDefinition = {
           "Total navigation and crawl timeout in milliseconds (e.g. 60000 for 60 seconds, 120000 for 2 minutes). Increase when executing many scroll steps or crawling heavy dynamic pages. Default: 60000.",
       },
     },
-    required: ["url", "scrollSteps", "pageTimeout"],
+    required: ["url"],
   },
 };
 
