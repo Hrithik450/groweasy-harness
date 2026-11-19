@@ -1,0 +1,8 @@
+# Build output
+.next/
+node_modules/
+*.tsbuildinfo
+
+# Runtime state: SQLite is written on every request, so the dev watcher must
+# never see it or every read triggers a rebuild and a full page reload.
+data/

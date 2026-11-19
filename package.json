@@ -1,0 +1,70 @@
+{
+  "name": "openai-harness",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/lib/drizzle/migration.ts",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@aryanjsx/knowindia": "^1.2.4",
+    "@aws-sdk/client-s3": "^3.1169.0",
+    "@aws-sdk/s3-request-presigner": "^3.1169.0",
+    "@json-render/core": "^0.22.0",
+    "@json-render/react": "^0.22.0",
+    "@json-render/shadcn": "^0.22.0",
+    "better-sqlite3": "^13.0.3",
+    "cordis": "4.0.0-rc.12",
+    "countries-list": "^3.4.1",
+    "country-state-city": "^3.2.1",
+    "drizzle-orm": "^0.45.4",
+    "google-auth-library": "^11.3.1",
+    "india-pincode": "^2.5.9",
+    "jose": "^6.2.13",
+    "lucide-react": "^1.61.0",
+    "next": "16.4.3",
+    "openai": "^7.43.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-markdown": "^10.1.0",
+    "react-textarea-autosize": "^8.5.9",
+    "recharts": "^3.10.1",
+    "remark-gfm": "^4.0.1",
+    "sharp": "^0.35.5",
+    "sonner": "^2.0.8",
+    "zod": "^4.6.7",
+    "zustand": "^5.0.16"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.5",
+    "@tailwindcss/turbopack": "^4",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.3",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@10.22.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "sharp",
+      "esbuild",
+      "@tailwindcss/oxide",
+      "unrs-resolver",
+      "babel-plugin-react-compiler"
+    ]
+  }
+}
