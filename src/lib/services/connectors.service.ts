@@ -1,0 +1,200 @@
+import type { Response } from "./types";
+import * as repo from "@/lib/repositories";
+import type { Connector, NewConnector } from "@/lib/db";
+import type { ConnectorContext } from "@/lib/connectors/types";
+import { syncCronJobsForConnector } from "@/lib/cron/activation";
+import { publish } from "@/lib/session/bus";
+import { userKey } from "@/lib/session/keys";
+import { SESSION_CONNECTOR_EVENT } from "@/lib/session/journal";
+import {
+  AVAILABLE_CONNECTORS,
+  toBrowserConnector,
+} from "@/lib/connectors/registry";
+
+/**
+ * Push one connector's stored row to the browser.
+ *
+ * Reads after the write so clients receive the stored truth; a deleted row
+ * falls back to the catalogue's disconnected definition.
+ */
+function publishConnector(userId: string, slug: string): void {
+  const row = repo.getConnectorByUserIdAndSlug(userId, slug);
+
+  const connector =
+    row ?? AVAILABLE_CONNECTORS.find((item) => item.slug === slug);
+  if (connector === undefined || connector === null) return;
+
+  publish(userKey(userId), {
+    event: SESSION_CONNECTOR_EVENT,
+    data: {
+      slug: connector.slug,
+      connector: toBrowserConnector(
+        connector as unknown as Record<string, unknown>,
+      ) as unknown as Record<string, unknown>,
+    },
+  });
+}
+
+/**
+ * Upserts a connector configuration for a user.
+ */
+export async function upsertConnector(
+  data: NewConnector,
+): Promise<Response<Connector>> {
+  try {
+    const result = repo.upsertConnector(data);
+    // Connector availability is what admits gated jobs to the schedule.
+    syncCronJobsForConnector(result.userId, result.slug, result.status);
+    // Every write — tool, route, disconnect — reaches open clients from here.
+    publish(userKey(result.userId), {
+      event: SESSION_CONNECTOR_EVENT,
+      data: {
+        slug: result.slug,
+        connector: toBrowserConnector(
+          result as unknown as Record<string, unknown>,
+        ) as unknown as Record<string, unknown>,
+      },
+    });
+    return { success: true, data: result };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Returns all active/configured connectors for a specific user.
+ */
+export async function getConnectorsByUserId(
+  userId: string,
+): Promise<Response<Connector[]>> {
+  try {
+    const data = repo.getConnectorsByUserId(userId);
+    return { success: true, data };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Retrieves a single connector configuration for a user by connector slug (e.g. "businessProfile", "metaAds").
+ */
+export async function getConnectorByUserIdAndSlug(
+  userId: string,
+  slug: string,
+): Promise<Response<Connector | null>> {
+  try {
+    const data = repo.getConnectorByUserIdAndSlug(userId, slug);
+    return { success: true, data };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Retrieves a single connector configuration for a user by providerSlug.
+ */
+export async function getConnectorByUserIdAndProviderSlug(
+  userId: string,
+  providerSlug: string,
+): Promise<Response<Connector | null>> {
+  try {
+    const data = repo.getConnectorByUserIdAndProviderSlug(userId, providerSlug);
+    return { success: true, data };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Disconnects a connector for a user by connector slug.
+ */
+export async function disconnectConnectorBySlug(
+  userId: string,
+  slug: string,
+): Promise<Response<boolean>> {
+  try {
+    const data = repo.disconnectConnectorBySlug(userId, slug);
+    // The capability is gone: park its jobs until it connects again.
+    syncCronJobsForConnector(userId, slug, "disconnected");
+    publishConnector(userId, slug);
+    return { success: true, data };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Deletes a connector connection completely from the database.
+ */
+export async function deleteConnector(
+  userId: string,
+  providerSlug: string,
+): Promise<Response<boolean>> {
+  try {
+    const data = repo.deleteConnector(userId, providerSlug);
+    syncCronJobsForConnector(userId, providerSlug, null);
+    publishConnector(userId, providerSlug);
+    return { success: true, data };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Resolves authentication context (access token) for a specified connector.
+ * If direct access token is passed in overrides, it takes precedence.
+ * Otherwise, fetches the user's active connector connection from SQLite.
+ */
+export async function resolveConnectorContext(
+  userId?: string,
+  providerSlug = "meta",
+  overrides?: Partial<ConnectorContext>,
+): Promise<Response<ConnectorContext>> {
+  try {
+    if (!userId) {
+      return {
+        success: false,
+        error:
+          "Authentication required: user session is missing or unauthenticated.",
+      };
+    }
+
+    // Direct token override takes precedence
+    if (overrides?.accessToken) {
+      return {
+        success: true,
+        data: {
+          userId,
+          providerSlug,
+          accessToken: overrides.accessToken,
+        },
+      };
+    }
+
+    const conn = repo.getConnectorByUserIdAndProviderSlug(userId, providerSlug);
+    if (!conn || !conn.accessToken) {
+      return {
+        success: false,
+        error: `${providerSlug} is not connected. Please connect your account in Connectors.`,
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        userId,
+        providerSlug,
+        accessToken: conn.accessToken,
+      },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: message };
+  }
+}
