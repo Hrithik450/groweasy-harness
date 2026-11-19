@@ -106,52 +106,21 @@ export const sessionEvents = sqliteTable(
   ],
 );
 
-export const barItems = sqliteTable(
-  "bar_items",
+export const barDocs = sqliteTable(
+  "bar_docs",
   {
-    /** Business id, stable and client-facing (uuidv7 or a Meta id). */
-    id: text("id").notNull(),
     sessionId: text("session_id")
       .notNull()
       .references(() => sessions.id, { onDelete: "cascade" }),
-    /** Tab path: campaigns, campaigns.ads, campaigns.ads.creatives. */
-    kind: text("kind").notNull(),
-    parentId: text("parent_id"),
-    depth: integer("depth").notNull().default(0),
-    /** User-owned state: pending, accepted, ignored, completed, error. */
-    status: text("status"),
-    /** Why the status changed: dismissal note or failure reason. */
-    error: text("error"),
-    data: text("data", { mode: "json" })
-      .$type<Record<string, unknown>>()
-      .notNull(),
-    createdAt: text("created_at")
-      .notNull()
-      .$defaultFn(() => new Date().toISOString()),
+    /** Tab id, e.g. campaigns, alerts. */
+    field: text("field").notNull(),
+    /** The tab's cards in display order, nested as the UI renders them. */
+    data: text("data", { mode: "json" }).$type<unknown[]>().notNull(),
     updatedAt: text("updated_at")
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
   },
-  (table) => [
-    primaryKey({ columns: [table.sessionId, table.id] }),
-    uniqueIndex("uq_bar_items_session_kind_id").on(
-      table.sessionId,
-      table.kind,
-      table.id,
-    ),
-    index("idx_bar_items_page").on(
-      table.sessionId,
-      table.kind,
-      table.parentId,
-      table.updatedAt,
-      table.id,
-    ),
-    index("idx_bar_items_status").on(
-      table.sessionId,
-      table.kind,
-      table.status,
-    ),
-  ],
+  (table) => [primaryKey({ columns: [table.sessionId, table.field] })],
 );
 
 export const connectors = sqliteTable(
@@ -269,7 +238,7 @@ export const sessionsRelations = relations(sessions, ({ one, many }) => ({
     references: [users.id],
   }),
   events: many(sessionEvents),
-  barItems: many(barItems),
+  barDocs: many(barDocs),
   cronJobs: many(cronJobs),
 }));
 
@@ -280,9 +249,9 @@ export const sessionEventsRelations = relations(sessionEvents, ({ one }) => ({
   }),
 }));
 
-export const barItemsRelations = relations(barItems, ({ one }) => ({
+export const barDocsRelations = relations(barDocs, ({ one }) => ({
   session: one(sessions, {
-    fields: [barItems.sessionId],
+    fields: [barDocs.sessionId],
     references: [sessions.id],
   }),
 }));

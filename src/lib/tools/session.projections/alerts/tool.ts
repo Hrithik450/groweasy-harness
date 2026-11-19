@@ -3,7 +3,7 @@ import { ToolInput, ToolOutput } from "@/lib/tools/types";
 import { toolFailure as failure } from "@/lib/tools/utils";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
 import { readBarItemFor, resolveBarSession, saveBarItems } from "@/lib/bar/service";
-import { type BarItemInput } from "@/lib/bar/items.repo";
+import { type BarItemInput } from "@/lib/bar/service";
 import { validateAndNormalizeUI } from "@/lib/generative.ui";
 import type {
   Alert,

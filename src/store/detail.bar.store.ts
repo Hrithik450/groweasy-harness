@@ -1,99 +1,84 @@
 "use client";
 
 /**
- * Detail-bar projections pushed by the server.
+ * Detail-bar fields pushed by the server.
  *
- * Rows are stored normalized (`byId`), exactly like `bar_items`; the nested
- * card shape is assembled on read. One row event therefore costs one row,
- * whatever the tree depth.
+ * Each tab is one array, exactly as the backend stores it; there is no tree
+ * to assemble. A field event replaces that tab's array.
  *
  * @module @/store/detail.bar.store
  */
 
 import { create } from "zustand";
 import type { DetailBarState } from "@/lib/detail.bar/state";
-import { barOwner, type BarField, type BarItem } from "@/lib/detail.bar/fields";
-import { assembleBarItems } from "@/lib/detail.bar/rows";
-
-interface FieldRows {
-  byId: Record<string, BarItem>;
-}
+import { barOwner, type BarField } from "@/lib/detail.bar/fields";
 
 interface DetailBarStore {
-  /** Nested card shape read by the UI, derived from `rows`. */
+  /** Card arrays per session and tab, as the UI renders them. */
   states: Record<string, DetailBarState | undefined>;
-  /** Normalized rows per session and field. */
-  rows: Record<string, Record<string, FieldRows | undefined>>;
 
-  /** Replace (or merge) one field's rows; the card list is re-derived. */
-  applyRows: (
-    sessionId: string,
-    field: BarField,
-    rows: readonly BarItem[],
-    options?: { replace?: boolean },
-  ) => void;
-  /** Upsert one row; the affected card is re-derived. */
-  applyRow: (sessionId: string, field: BarField, row: BarItem) => void;
+  /** Replace one tab's cards. */
+  setField: (sessionId: string, field: BarField, items: unknown[]) => void;
+  /** Merge cards into one tab by id (rare; used by older callers). */
+  applyRows: (sessionId: string, field: BarField, rows: unknown[]) => void;
+  /** Upsert one card by id. */
+  applyRow: (sessionId: string, field: BarField, row: unknown) => void;
 }
 
-/** Write a field's derived card list into its bar group. */
 function withField(
   state: DetailBarStore,
   sessionId: string,
   field: BarField,
-  rows: readonly BarItem[],
+  items: unknown[],
 ): Partial<DetailBarStore> {
   const owner = barOwner(field);
   const existing = (state.states[sessionId] ?? {}) as Record<
     string,
-    Record<string, unknown> | undefined
+    Record<string, unknown>
   >;
   const group = existing[owner] ?? {};
-  const cards = assembleBarItems(rows);
-
   return {
     states: {
       ...state.states,
-      [sessionId]: {
-        ...existing,
-        [owner]: { ...group, [field]: cards },
-      } as DetailBarState,
-    },
+      [sessionId]: { ...existing, [owner]: { ...group, [field]: items } },
+    } as unknown as Record<string, DetailBarState | undefined>,
   };
+}
+
+/** One tab's array, or `undefined` before any event lands. */
+export function readField(
+  states: Record<string, DetailBarState | undefined>,
+  sessionId: string,
+  field: BarField,
+): unknown[] | undefined {
+  const owner = barOwner(field);
+  const group = (states[sessionId] as Record<string, unknown> | undefined)?.[
+    owner
+  ] as Record<string, unknown> | undefined;
+  return group?.[field] as unknown[] | undefined;
 }
 
 export const useDetailBarStore = create<DetailBarStore>((set) => ({
   states: {},
-  rows: {},
 
-  applyRows: (sessionId, field, rows, options = {}) =>
-    set((current) => {
-      const existing = current.rows[sessionId]?.[field];
-      const byId: Record<string, BarItem> = options.replace
-        ? {}
-        : { ...(existing?.byId ?? {}) };
-      for (const row of rows) byId[row.id] = row;
+  setField: (sessionId, field, items) =>
+    set((state) => ({
+      ...withField(state, sessionId, field, items),
+    })),
 
-      return {
-        rows: {
-          ...current.rows,
-          [sessionId]: { ...(current.rows[sessionId] ?? {}), [field]: { byId } },
-        },
-        ...withField(current, sessionId, field, Object.values(byId)),
-      };
-    }),
+  applyRows: (sessionId, field, rows) =>
+    set((state) => ({ ...withField(state, sessionId, field, rows) })),
 
   applyRow: (sessionId, field, row) =>
-    set((current) => {
-      const existing = current.rows[sessionId]?.[field];
-      const byId = { ...(existing?.byId ?? {}), [row.id]: row };
-
-      return {
-        rows: {
-          ...current.rows,
-          [sessionId]: { ...(current.rows[sessionId] ?? {}), [field]: { byId } },
-        },
-        ...withField(current, sessionId, field, Object.values(byId)),
-      };
+    set((state) => {
+      const current = readField(state.states, sessionId, field) ?? [];
+      const id = (row as { id?: string })?.id;
+      if (!id) return state;
+      const next = current.some((item) => (item as { id?: string })?.id === id)
+        ? current.map((item) =>
+            (item as { id?: string })?.id === id ? row : item,
+          )
+        : [...current, row];
+      return { ...withField(state, sessionId, field, next) };
     }),
 }));

@@ -18,7 +18,7 @@ import {
   sessionEvents,
   connectors,
   cronJobs,
-  barItems,
+  barDocs,
   attachmentReceipts,
 } from "./schema/schema";
 import { scrapedAds } from "./schema/scraper";
@@ -67,8 +67,8 @@ export type NewSessionEventRow = typeof sessionEvents.$inferInsert;
 
 // --- Detail bars ------------------------------------------------------------
 
-export type BarItemRow = typeof barItems.$inferSelect;
-export type NewBarItemRow = typeof barItems.$inferInsert;
+export type BarDocRow = typeof barDocs.$inferSelect;
+export type NewBarDocRow = typeof barDocs.$inferInsert;
 
 // --- Session messages (rendered chat surface) ------------------------------
 

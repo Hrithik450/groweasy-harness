@@ -1,20 +1,14 @@
 import { NextResponse } from "next/server";
 import { getAuthSessionFromRequest } from "@/lib/auth/session";
 import { getOwnedSessionById } from "@/lib/repositories/sessions.repo";
-import { barOwner, isBarField, rootKind } from "@/lib/detail.bar/fields";
-import {
-  patchBarItem,
-  readBarPageFor,
-  BAR_PAGE_SIZE,
-} from "@/lib/bar/service";
+import { barOwner, isBarField } from "@/lib/detail.bar/fields";
+import { patchBarItem, readBarPageFor } from "@/lib/bar/service";
 import { syncCampaignsBar } from "@/lib/bar/sync/campaigns";
 
 /**
- * GET one page of a detail-bar list.
+ * GET one tab of a session's detail bar.
  *
- * `?field=` names the list, `?cursor=` the last row of the page already shown.
- * The owner slug decides the session, so a page request is independent of the
- * session the reader happens to be viewing.
+ * The tab is one JSON document: its cards, nested as the UI renders them.
  */
 export async function GET(
   req: Request,
@@ -50,35 +44,17 @@ export async function GET(
   if (field === "campaigns") {
     await syncCampaignsBar(user.id, {
       force: url.searchParams.get("refresh") === "1",
-    }).catch((err) =>
-      console.error("[bar] Campaign sync failed:", err),
-    );
+    }).catch((err) => console.error("[bar] Campaign sync failed:", err));
   }
 
-  const rawLimit = Number(url.searchParams.get("limit"));
-  const cursor = url.searchParams.get("cursor");
-  const parentId = url.searchParams.get("parentId");
-  const kind = url.searchParams.get("kind");
-  const limit =
-    Number.isFinite(rawLimit) && rawLimit > 0
-      ? Math.min(Math.floor(rawLimit), 100)
-      : BAR_PAGE_SIZE;
-
-  const page = readBarPageFor(session.id, field, {
-    limit,
-    ...(cursor ? { cursor } : {}),
-    ...(parentId ? { parentId } : {}),
-    ...(kind ? { kind } : {}),
-  });
-
-  return NextResponse.json({ field, ...page });
+  const page = readBarPageFor(session.id, field);
+  return NextResponse.json({ field, items: page.items });
 }
 
 /**
- * POST one user patch onto a stored row.
+ * POST one user patch onto a stored card.
  *
- * The patch is merged, never replaced, so the fields the agent owns survive.
- * The row is the durable state; the write publishes that field to open clients.
+ * Only the fields the user owns change; the card's tab is republished.
  */
 export async function POST(
   req: Request,
@@ -124,18 +100,15 @@ export async function POST(
     );
   }
 
-  const patchData = patch as Record<string, unknown>;
-  const written = patchBarItem(session, id.trim(), patchData);
+  const written = patchBarItem(
+    session,
+    id.trim(),
+    patch as Record<string, unknown>,
+    isBarField(kind) ? kind : undefined,
+  );
   if (!written) {
     return NextResponse.json({ error: "Row not found" }, { status: 404 });
   }
-  // `kind` names the tab (a top-level field); the row's kind is its full path.
-  if (kind !== undefined && rootKind(written.kind) !== kind) {
-    return NextResponse.json(
-      { error: "Kind does not match the row" },
-      { status: 409 },
-    );
-  }
 
-  return NextResponse.json({ kind: written.kind, item: written });
+  return NextResponse.json({ item: written });
 }

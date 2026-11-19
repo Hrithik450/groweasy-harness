@@ -4,7 +4,7 @@ import { readBarItemFor, resolveBarSession, saveBarItems } from "@/lib/bar/servi
 import { toolFailure as failure } from "@/lib/tools/utils";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
 import { validateAndNormalizeUI } from "@/lib/generative.ui";
-import { type BarItemInput } from "@/lib/bar/items.repo";
+import { type BarItemInput } from "@/lib/bar/service";
 import type {
   AlertMeta,
   Suggestion,

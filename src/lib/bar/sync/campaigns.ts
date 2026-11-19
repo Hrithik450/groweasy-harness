@@ -16,7 +16,7 @@ import {
 } from "@/lib/connectors/meta.ads";
 import { getConnectorByUserIdAndProviderSlug } from "@/lib/services/connectors.service";
 import { readBarItemFor, saveBarItems } from "@/lib/bar/service";
-import type { BarItemInput } from "@/lib/bar/items.repo";
+import type { BarItemInput } from "@/lib/bar/service";
 import type {
   Campaign,
   CampaignAd,
