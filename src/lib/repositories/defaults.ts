@@ -16,7 +16,10 @@ export type DefaultSessionConfig = Omit<
  */
 export const SESSION_CONFIG_OVERRIDES: Partial<
   Record<SessionSlug, Partial<Omit<DefaultSessionConfig, "slug">>>
-> = {};
+> = {
+  // The profile analyzer is background machinery, not a chat the user owns.
+  businessProfile: { hidden: true },
+};
 
 /**
  * Default sessions derived automatically from canonical sidebar slugs.
