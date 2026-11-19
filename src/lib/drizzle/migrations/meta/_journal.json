@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1794773654213,
+      "tag": "0000_far_rachel_grey",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794828096657,
+      "tag": "0001_sad_lizard",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794885563210,
+      "tag": "0002_loose_speed_demon",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1794975563210,
+      "tag": "0003_detail_bar_tree",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1795081105043,
+      "tag": "0004_bar_items_page_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1795081571783,
+      "tag": "0005_bar_item_tabs",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1795082318334,
+      "tag": "0006_bar_items_by_session",
+      "breakpoints": true
+    }
+  ]
+}
