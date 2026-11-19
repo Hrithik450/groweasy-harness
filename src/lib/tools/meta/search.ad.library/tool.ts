@@ -3,11 +3,13 @@ import type { InputContentParam } from "openai/resources/beta/agents/agents";
 import { executeAlternateWebSearchTool } from "@/lib/tools/web/alternate.scrape/tool";
 import { getCompetitorResearches } from "@/lib/services/sessions.service";
 import {
+  computeContentHash,
   extractAdIdFromReference,
   resolveDateRange,
 } from "@/lib/services/utils";
 import {
   getAdsByQuery,
+  getScrapedAdsByIds,
   ingestScrapedAds,
   buildMetaAdLibraryUrl,
   type ProcessedAdItem,
@@ -65,24 +67,45 @@ export interface SearchAdLibraryArgs {
 }
 
 /**
- * In-memory map of ad IDs already returned to the AI in the current turn.
- * Automatically evicts old turns to keep memory footprint minimal.
+ * Ads delivered since the last committed result, per session.
+ *
+ * A tool result only lands after the tool returns, so two searches in one step
+ * would otherwise both read a log that predates the other. Ids and creative
+ * hashes are reserved together: Meta lists the same creative under several ad
+ * ids, and reserving hashes stops the duplicate at the source.
  */
-const turnSeenAdIds = new Map<string, Set<string>>();
+interface InFlightReservation {
+  ids: Set<string>;
+  hashes: Set<string>;
+  expiresAt: number;
+}
 
-function getTurnSeenAdIds(turnKey?: string): Set<string> {
-  if (!turnKey) return new Set();
-  let set = turnSeenAdIds.get(turnKey);
-  if (!set) {
-    if (turnSeenAdIds.size > 50) {
-      const oldestKey = turnSeenAdIds.keys().next().value;
-      if (oldestKey) turnSeenAdIds.delete(oldestKey);
-    }
-    set = new Set();
-    turnSeenAdIds.set(turnKey, set);
-    setTimeout(() => turnSeenAdIds.delete(turnKey), 10 * 60 * 1000).unref?.();
+const inFlightAdIds = new Map<string, InFlightReservation>();
+const IN_FLIGHT_TTL_MS = 10 * 60 * 1000;
+
+function inFlightReservation(
+  sessionId?: string,
+  now = Date.now(),
+): InFlightReservation {
+  if (!sessionId) {
+    return { ids: new Set(), hashes: new Set(), expiresAt: now };
   }
-  return set;
+  const entry = inFlightAdIds.get(sessionId);
+  if (entry !== undefined && entry.expiresAt > now) return entry;
+
+  if (inFlightAdIds.size >= 100) {
+    for (const [key, value] of inFlightAdIds) {
+      if (value.expiresAt <= now) inFlightAdIds.delete(key);
+    }
+  }
+
+  const reservation: InFlightReservation = {
+    ids: new Set(),
+    hashes: new Set(),
+    expiresAt: now + IN_FLIGHT_TTL_MS,
+  };
+  inFlightAdIds.set(sessionId, reservation);
+  return reservation;
 }
 
 /**
@@ -202,22 +225,33 @@ export async function executeSearchAdLibraryTool(
     }
   }
 
-  const turnKey = context?.turnId;
+  const reservation = inFlightReservation(context?.sessionId);
+  const excludeIds = new Set([...permanentExcludeIds, ...reservation.ids]);
 
-  const turnSeenAds = getTurnSeenAdIds(turnKey);
-  const excludeIds = new Set([...permanentExcludeIds, ...turnSeenAds]);
+  // Same creative, different ad id: exclude by content hash too.
+  const excludedHashes = new Set<string>(reservation.hashes);
+  if (excludeIds.size > 0) {
+    const stored = await getScrapedAdsByIds([...excludeIds]);
+    for (const rows of stored.data?.values() ?? []) {
+      for (const row of rows) excludedHashes.add(row.contentHash);
+    }
+  }
 
-  const { data: cachedAds = [] } = await getAdsByQuery(
+  const { data: allCachedAds = [] } = await getAdsByQuery(
     query,
     excludeIds,
     targetCount,
     dateRange,
   );
+  const cachedAds = allCachedAds.filter(
+    (ad) => !excludedHashes.has(ad.contentHash),
+  );
 
   if (cachedAds.length >= targetCount) {
     const delivered = cachedAds.slice(0, targetCount);
     for (const ad of delivered) {
-      turnSeenAds.add(ad.libraryId);
+      reservation.ids.add(ad.libraryId);
+      reservation.hashes.add(ad.contentHash);
     }
     return {
       success: true,
@@ -275,8 +309,9 @@ export async function executeSearchAdLibraryTool(
 
   if (!scrapeRes.success || !scrapeRes.data?.contentParts) {
     if (cachedAds.length > 0) {
-      for (const a of cachedAds) {
-        turnSeenAds.add(a.libraryId);
+      for (const ad of cachedAds) {
+        reservation.ids.add(ad.libraryId);
+        reservation.hashes.add(ad.contentHash);
       }
       return {
         success: true,
@@ -322,8 +357,9 @@ export async function executeSearchAdLibraryTool(
     (isUpstreamMetaError || !fullText.includes("Library ID:")) &&
     cachedAds.length > 0
   ) {
-    for (const a of cachedAds) {
-      turnSeenAds.add(a.libraryId);
+    for (const ad of cachedAds) {
+      reservation.ids.add(ad.libraryId);
+      reservation.hashes.add(ad.contentHash);
     }
     return {
       success: true,
@@ -367,6 +403,7 @@ export async function executeSearchAdLibraryTool(
         continue;
       }
     }
+    if (excludedHashes.has(ad.contentHash)) continue;
     if (!deliveredIds.has(ad.libraryId) && !excludeIds.has(ad.libraryId)) {
       deliveredIds.add(ad.libraryId);
       freshAccepted.push(ad);
@@ -376,8 +413,9 @@ export async function executeSearchAdLibraryTool(
   const finalAds = [...cachedAds, ...freshAccepted];
   if (finalAds.length === 0) return emptyResult(query, dateRange);
 
-  for (const a of finalAds) {
-    turnSeenAds.add(a.libraryId);
+  for (const ad of finalAds) {
+    reservation.ids.add(ad.libraryId);
+    reservation.hashes.add(ad.contentHash ?? computeContentHash(ad.content));
   }
 
   return {
