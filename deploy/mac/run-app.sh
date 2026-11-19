@@ -36,8 +36,18 @@ export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 # and the runtime SKILL.md tree from there.
 cd "$RELEASE"
 
-# --env-file fills missing variables only; the launchd environment still wins.
+# Node 26 rejects --env-file when Next forwards it to workers; export instead.
+# Existing launchd values still win (missing keys are filled from the file).
 if [ -f "$ENV_FILE" ]; then
-	exec "$NODE_BIN" --env-file="$ENV_FILE" "$NEXT_BIN" start -H 127.0.0.1 -p "$APP_PORT"
+	source <("$NODE_BIN" -e '
+		const fs = require("node:fs");
+		const { parseEnv } = require("node:util");
+		const values = parseEnv(fs.readFileSync(process.argv[1], "utf8"));
+		const sq = String.fromCharCode(39);
+		const quote = (v) => sq + String(v).replaceAll(sq, sq + "\\" + sq + sq) + sq;
+		for (const [key, value] of Object.entries(values)) {
+			if (process.env[key] === undefined) console.log("export " + key + "=" + quote(value));
+		}
+	' "$ENV_FILE")
 fi
 exec "$NODE_BIN" "$NEXT_BIN" start -H 127.0.0.1 -p "$APP_PORT"

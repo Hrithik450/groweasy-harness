@@ -176,15 +176,25 @@ else
 	echo "==> building release $SHA"
 	rm -rf "$RELEASE"
 	mkdir -p "$RELEASE"
+	# Node 26 rejects --env-file when Next forwards exec args to build workers,
+	# so load the deploy env here. Process env wins over the checkout's .env.
 	if [ -f "$ENV_FILE" ]; then
-		env_args=(--env-file="$ENV_FILE")
+		source <("$NODE_BIN" -e '
+			const fs = require("node:fs");
+			const { parseEnv } = require("node:util");
+			const values = parseEnv(fs.readFileSync(process.argv[1], "utf8"));
+			const sq = String.fromCharCode(39);
+			const quote = (v) => sq + String(v).replaceAll(sq, sq + "\\" + sq + sq) + sq;
+			for (const [key, value] of Object.entries(values)) {
+				if (process.env[key] === undefined) console.log("export " + key + "=" + quote(value));
+			}
+		' "$ENV_FILE")
 	else
 		print -u2 "==> WARNING: $ENV_FILE is missing; building with the checkout's .env"
-		env_args=()
 	fi
 	# Build first: a broken build exits here, before anything is published, so
 	# the running site keeps serving the previous release.
-	"$NODE_BIN" "${env_args[@]}" node_modules/next/dist/bin/next build
+	"$NODE_BIN" node_modules/next/dist/bin/next build
 	# `next start` reads the build, public assets and config from the release.
 	rsync -a --delete --exclude 'cache' --exclude 'dev' .next/ "$RELEASE/.next/"
 	cp -R public "$RELEASE/public"

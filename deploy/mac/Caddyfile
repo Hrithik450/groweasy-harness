@@ -13,7 +13,10 @@
 	grace_period 5s
 }
 
-127.0.0.1:__CADDY_PORT__ {
+:__CADDY_PORT__ {
+	# Hostless site address so the tunnel's Host header matches; bind keeps it
+	# local.
+	bind 127.0.0.1
 	log {
 		output file "__HARNESS_ROOT__/logs/caddy.log" {
 			roll_size 20mb
