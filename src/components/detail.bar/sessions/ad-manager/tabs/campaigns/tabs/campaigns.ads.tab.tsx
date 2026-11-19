@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Radio } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { buildCampaignAdPrompt } from "@/lib/prompts/campaign.ad";
 import { formatCompact, formatRoas } from "@/lib/utils/metrics.format";
-import { useBarPager } from "@/hooks/use.bar.pager";
 import type {
   AdManagerDetailBarData,
   Campaign,
@@ -14,8 +13,6 @@ import type {
   ActionStatus,
   AdCategory,
 } from "@/lib/detail.bar/types";
-import { DetailBarEmptyState } from "@/components/detail.bar/common";
-import type { SessionView } from "@/lib/core/session/view";
 import { AdCard } from "../ad.card";
 import { campaignStatusLabel, statusChipClass } from "../campaigns.shared";
 
@@ -31,9 +28,8 @@ const GROUPS: { key: AdCategory; label: string }[] = [
 ];
 
 export interface CampaignsAdsTabProps {
-  campaignId: string;
+  campaign: Campaign;
   data: AdManagerDetailBarData;
-  session?: SessionView;
   isStreaming?: boolean;
   handleSubmit?: (
     content: string,
@@ -46,16 +42,9 @@ export interface CampaignsAdsTabProps {
   onBack: () => void;
 }
 
-/**
- * One campaign's ads: the only nested tab level (campaigns.ads).
- *
- * The bar owns the drill state and the header tabs; this tab resolves the
- * campaign from the same store the list uses and renders only its ads.
- */
+/** One campaign's ads, rendered straight from its `ads` array. */
 export function CampaignsAdsTab({
-  campaignId,
-  data,
-  session,
+  campaign,
   isStreaming,
   handleSubmit,
   handleUpdateData,
@@ -65,28 +54,6 @@ export function CampaignsAdsTab({
   const [statusByAd, setStatusByAd] = useState<Record<string, ActionStatus>>(
     {},
   );
-
-  const pager = useBarPager(
-    session?.id ?? "",
-    "campaigns",
-    data.campaigns ?? [],
-  );
-  const campaign: Campaign | undefined = pager.items.find(
-    (row) => (row.id || row.name) === campaignId,
-  );
-
-  if (!campaign) {
-    return (
-      <div className="space-y-3 pb-6">
-        <BackButton label="All campaigns" onBack={onBack} />
-        <DetailBarEmptyState
-          icon={Radio}
-          title="Campaign not found"
-          description="It may have been removed or trimmed."
-        />
-      </div>
-    );
-  }
 
   const ads = Array.isArray(campaign.ads) ? campaign.ads : [];
   const groups = GROUPS.map((group) => ({
@@ -99,16 +66,8 @@ export function CampaignsAdsTab({
 
   const saveStatus = (ad: CampaignAd, status: ActionStatus) => {
     setStatusByAd((current) => ({ ...current, [ad.id]: status }));
-    const nextAds = campaign.ads?.map((row) =>
-      row.id === ad.id && row.action
-        ? { ...row, action: { ...row.action, status } }
-        : row,
-    );
-    const campaigns = (data.campaigns ?? []).map((row) =>
-      (row.id || row.name) === campaignId ? { ...row, ads: nextAds } : row,
-    );
     void handleUpdateData?.(
-      { campaigns },
+      {},
       { kind: "campaigns", id: ad.id, patch: { status } },
     ).catch(() => toast.error("Failed to save the change"));
   };
@@ -143,7 +102,21 @@ export function CampaignsAdsTab({
 
   return (
     <div className="space-y-3 pb-6 panel-slide-in-right">
-      <BackButton label="All campaigns" onBack={onBack} />
+      <button
+        type="button"
+        onClick={onBack}
+        className={`inline-flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer ${FOCUS_RING}`}
+      >
+        <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+        <span>All campaigns</span>
+      </button>
+
+      {/* The one nested tab level. */}
+      <div className="flex items-center gap-4 border-b border-border">
+        <span className="h-full flex items-center py-2 text-[13px] font-bold text-foreground border-b-[2px] -mb-[1px] border-brand">
+          Ads
+        </span>
+      </div>
 
       <header className="border border-border bg-card rounded-2xl p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
@@ -179,8 +152,7 @@ export function CampaignsAdsTab({
 
       {groups.length === 0 ? (
         <p className="text-[12px] text-muted-foreground leading-relaxed">
-          No ad-level verdicts saved for this campaign yet. Ask the assistant
-          for a campaign health check.
+          No ads are stored for this campaign yet.
         </p>
       ) : (
         groups.map((group) => (
@@ -215,18 +187,5 @@ export function CampaignsAdsTab({
         ))
       )}
     </div>
-  );
-}
-
-function BackButton({ label, onBack }: { label: string; onBack: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onBack}
-      className={`inline-flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer ${FOCUS_RING}`}
-    >
-      <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
-      <span>{label}</span>
-    </button>
   );
 }

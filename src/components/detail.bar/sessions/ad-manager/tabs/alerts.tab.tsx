@@ -21,7 +21,6 @@ import type {
   AdManagerDetailBarData,
 } from "@/lib/detail.bar/types";
 import { useBarPager } from "@/hooks/use.bar.pager";
-import { flattenBarItems } from "@/lib/detail.bar/rows";
 import {
   DetailBarEmptyState,
   DetailBarLoadOlder,
@@ -99,7 +98,7 @@ export function AlertsTab({
       if (Array.isArray(page.items)) {
         useDetailBarStore
           .getState()
-          .applyRows(session.id, "alerts", flattenBarItems(page.items));
+          .applyRows(session.id, "alerts", page.items ?? []);
       }
       toast.success("Alerts refreshed");
     } catch (err) {

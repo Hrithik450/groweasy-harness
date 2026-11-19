@@ -6,7 +6,6 @@ import type {
   DetailBarTabProps,
   AdCreatorDetailBarData,
 } from "@/lib/detail.bar/types";
-import { barTabs } from "@/lib/detail.bar/fields";
 import { DetailBarHeader } from "../../common";
 import { IdeasTab, CreativesTab } from "./tabs";
 import type { AdCreatorTabKey } from "./types";
@@ -30,7 +29,10 @@ export function AdCreatorDetailBar({
   handleSubmit,
   handleNavigation,
 }: DetailBarComponentProps<AdCreatorDetailBarData>) {
-  const tabs = barTabs("adCreator");
+  const tabs = [
+    { key: "ideas", label: "Ideas" },
+    { key: "creatives", label: "Creatives" },
+  ] as const;
   const [activeTab, setActiveTab] = useState<AdCreatorTabKey>(
     tabs[0]?.key as AdCreatorTabKey,
   );

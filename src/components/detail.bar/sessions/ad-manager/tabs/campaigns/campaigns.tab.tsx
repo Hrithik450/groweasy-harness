@@ -16,12 +16,12 @@ import type {
   DetailBarTabProps,
 } from "@/lib/detail.bar/types";
 import { useBarPager } from "@/hooks/use.bar.pager";
-import { flattenBarItems } from "@/lib/detail.bar/rows";
 import {
   DetailBarEmptyState,
   DetailBarLoadOlder,
 } from "@/components/detail.bar/common";
 import { formatCompact, formatRoas } from "@/lib/utils/metrics.format";
+import { CampaignsAdsTab } from "./tabs/campaigns.ads.tab";
 import {
   campaignChips,
   campaignStatusLabel,
@@ -39,19 +39,20 @@ const FILTER_OPTIONS: { value: CampaignFilterStatus; label: string }[] = [
   { value: "ARCHIVED", label: "Archived" },
 ];
 
-/** The tab path these rows live under; opening one pushes this kind. */
-const TAB_KIND = "campaigns";
-
 const FOCUS_RING =
   "focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground";
 
-type CampaignsTabProps = DetailBarTabProps<AdManagerDetailBarData> & {
-  /** Opens a campaign at its child tab; the bar handles the level. */
-  onOpen: (kind: string, id: string) => void;
-};
+type CampaignsTabProps = DetailBarTabProps<AdManagerDetailBarData>;
 
-/** The campaigns list; its rows open the campaign's own child tab. */
-export function CampaignsTab({ data, session, onOpen }: CampaignsTabProps) {
+/** The campaigns list; a row opens that campaign's ads in place. */
+export function CampaignsTab({
+  data,
+  session,
+  isStreaming,
+  handleSubmit,
+  handleUpdateData,
+}: CampaignsTabProps) {
+  const [openCampaignId, setOpenCampaignId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<CampaignFilterStatus>("ALL");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -87,7 +88,7 @@ export function CampaignsTab({ data, session, onOpen }: CampaignsTabProps) {
       if (Array.isArray(page.items)) {
         useDetailBarStore
           .getState()
-          .applyRows(session.id, "campaigns", flattenBarItems(page.items));
+          .applyRows(session.id, "campaigns", page.items ?? []);
       }
       toast.success("Campaigns refreshed");
     } catch (err) {
@@ -97,6 +98,25 @@ export function CampaignsTab({ data, session, onOpen }: CampaignsTabProps) {
       setIsRefreshing(false);
     }
   };
+
+  const openCampaign = openCampaignId
+    ? visibleCampaigns.find(
+        (campaign) => (campaign.id || campaign.name) === openCampaignId,
+      )
+    : undefined;
+
+  if (openCampaign) {
+    return (
+      <CampaignsAdsTab
+        campaign={openCampaign}
+        data={barData}
+        isStreaming={isStreaming}
+        handleSubmit={handleSubmit}
+        handleUpdateData={handleUpdateData}
+        onBack={() => setOpenCampaignId(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-3 pb-6">
@@ -306,7 +326,7 @@ export function CampaignsTab({ data, session, onOpen }: CampaignsTabProps) {
 
                   <button
                     type="button"
-                    onClick={() => onOpen(TAB_KIND, campaignId)}
+                    onClick={() => setOpenCampaignId(campaignId)}
                     className={`ml-auto inline-flex items-center gap-1 text-[11.5px] font-semibold text-foreground hover:text-brand transition-colors cursor-pointer ${FOCUS_RING}`}
                   >
                     <span>View ads</span>

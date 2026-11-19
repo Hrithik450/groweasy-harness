@@ -6,7 +6,6 @@ import type {
   DetailBarTabProps,
   AdStrategistDetailBarData,
 } from "@/lib/detail.bar/types";
-import { barTabs } from "@/lib/detail.bar/fields";
 import { DetailBarHeader } from "../../common";
 import {
   ReportsTab,
@@ -36,7 +35,11 @@ export function AdStrategistDetailBar({
   handleUpdateData,
   handleNavigation,
 }: DetailBarComponentProps<AdStrategistDetailBarData>) {
-  const tabs = barTabs("adStrategist");
+  const tabs = [
+    { key: "reports", label: "Daily reports" },
+    { key: "competitorResearches", label: "Competitor research" },
+    { key: "campaignBriefs", label: "Campaign brief" },
+  ] as const;
   const [activeTab, setActiveTab] = useState<AdStrategistTabKey>(
     tabs[0]?.key as AdStrategistTabKey,
   );
