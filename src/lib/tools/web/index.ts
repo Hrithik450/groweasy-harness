@@ -116,6 +116,124 @@ export function associateMediaByAnchor(
   }));
 }
 
+import { abortReason, createConcurrencyLimiter } from "./limiter";
+
+/** Ad Library pages need enough navigation budget to hydrate the first cards. */
+const AD_LIBRARY_MIN_PAGE_TIMEOUT_MS = 45_000;
+/** Headroom on top of the crawler's own page budget for queueing and transfer. */
+const CRAWL_ABORT_BUFFER_MS = 30_000;
+/** Concurrent Ad Library crawls allowed per process. */
+const AD_LIBRARY_CRAWL_CONCURRENCY = 6;
+/** Hard ceiling on Ad Library scroll steps. */
+const AD_LIBRARY_MAX_SCROLL_STEPS = 15;
+
+const adLibraryCrawler = createConcurrencyLimiter(AD_LIBRARY_CRAWL_CONCURRENCY);
+
+/** Whether a URL is a Meta Ad Library search/results page. */
+function isMetaAdLibraryUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase().replace(/^(?:www|web|m)\./, "");
+    if (host !== "facebook.com" && !host.endsWith(".facebook.com")) return false;
+    return /^\/ads\/library(?:\/|$)/i.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}
+
+/** Drop wait conditions the crawler cannot honour (JS/XPath). */
+function normalizeWaitForSelector(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  if (/^(?:js|xpath)\s*:/i.test(trimmed)) {
+    console.warn(
+      `[alternateWebSearch] Ignoring non-CSS waitForSelector: ${trimmed}`,
+    );
+    return undefined;
+  }
+  return trimmed;
+}
+
+/** Clamp requested Ad Library scroll steps into the supported range. */
+function resolveAdLibraryScrollSteps(requested?: number): number {
+  const steps =
+    requested !== undefined && Number.isFinite(requested)
+      ? Math.floor(requested)
+      : 10;
+  return Math.max(1, Math.min(AD_LIBRARY_MAX_SCROLL_STEPS, steps));
+}
+
+/** Tool arguments → the crawler's CrawlerRunConfig params. */
+function buildCrawlerParams(args: {
+  url: string;
+  scanFullPage?: boolean;
+  maxScrollSteps?: number;
+  scrollDelay?: number;
+  delayBeforeSnapshot?: number;
+  waitForSelector?: string;
+  processIframes?: boolean;
+  cssSelector?: string | string[];
+  pageTimeout?: number;
+}): Record<string, unknown> {
+  const adLibrary = isMetaAdLibraryUrl(args.url);
+
+  const params: Record<string, unknown> = {
+    cache_mode: "bypass",
+    wait_until: "domcontentloaded",
+    page_timeout: args.pageTimeout ?? 60000,
+    scan_full_page: args.scanFullPage ?? false,
+    scroll_delay: args.scrollDelay ?? 2.0,
+    delay_before_return_html: args.delayBeforeSnapshot ?? 1.5,
+    remove_consent_popups: true,
+    remove_overlay_elements: true,
+    process_iframes: args.processIframes ?? false,
+    excluded_tags: ["select", "option", "nav", "footer", "header", "form"],
+    exclude_social_media_domains: false,
+    exclude_external_images: false,
+  };
+
+  if (adLibrary) {
+    params.scan_full_page = true;
+    params.max_scroll_steps = resolveAdLibraryScrollSteps(args.maxScrollSteps);
+    params.page_timeout = Math.max(
+      args.pageTimeout ?? 60000,
+      AD_LIBRARY_MIN_PAGE_TIMEOUT_MS,
+    );
+  } else if (args.maxScrollSteps !== undefined) {
+    params.max_scroll_steps = args.maxScrollSteps;
+  }
+
+  const waitForSelector = normalizeWaitForSelector(args.waitForSelector);
+  if (waitForSelector) params.wait_for = waitForSelector;
+
+  if (args.cssSelector) {
+    params.css_selector = Array.isArray(args.cssSelector)
+      ? args.cssSelector.join(", ")
+      : args.cssSelector;
+  }
+
+  return params;
+}
+
+/** Wall-clock budget for the `/crawl` request itself. */
+function resolveCrawlAbortMs(budget: {
+  pageTimeout?: number;
+  maxScrollSteps?: number;
+  scrollDelay?: number;
+  delayBeforeSnapshot?: number;
+}): number {
+  const pageTimeout = budget.pageTimeout ?? 60000;
+  const maxScrollSteps = budget.maxScrollSteps ?? 10;
+  const scrollDelay = budget.scrollDelay ?? 2.0;
+  const delayBeforeSnapshot = budget.delayBeforeSnapshot ?? 1.5;
+  return (
+    pageTimeout +
+    maxScrollSteps * scrollDelay * 1000 +
+    delayBeforeSnapshot * 1000 +
+    CRAWL_ABORT_BUFFER_MS
+  );
+}
+
 export const alternateWebSearchTool = defineTool({
   name: "alternateWebSearch",
   description:
@@ -240,67 +358,16 @@ export const alternateWebSearchTool = defineTool({
       throw new Error("ALTERNATIVE_WEB_SCRAPER_URL is not configured.");
     }
 
-    const crawlerParams: Record<string, unknown> = {
-      cache_mode: "bypass",
-      wait_until: "domcontentloaded",
-      page_timeout: args.pageTimeout ?? 60000,
-      scan_full_page: args.scanFullPage ?? false,
-      scroll_delay: args.scrollDelay ?? 2.0,
-      delay_before_return_html: args.delayBeforeSnapshot ?? 1.5,
-      remove_consent_popups: true,
-      remove_overlay_elements: true,
-      process_iframes: args.processIframes ?? false,
-      excluded_tags: ["select", "option", "nav", "footer", "header", "form"],
-      exclude_social_media_domains: false,
-      exclude_external_images: false,
+    const crawlerParams = buildCrawlerParams({ ...args, url: normUrl });
+    const crawlBudget = {
+      pageTimeout: crawlerParams.page_timeout as number,
+      maxScrollSteps: crawlerParams.max_scroll_steps as number | undefined,
+      scrollDelay: crawlerParams.scroll_delay as number,
+      delayBeforeSnapshot: crawlerParams.delay_before_return_html as number,
     };
 
-    if (args.maxScrollSteps !== undefined) {
-      crawlerParams.max_scroll_steps = args.maxScrollSteps;
-    }
-
-    if (args.waitForSelector) {
-      crawlerParams.wait_for = args.waitForSelector;
-    }
-
-    if (args.cssSelector) {
-      crawlerParams.css_selector = Array.isArray(args.cssSelector)
-        ? args.cssSelector.join(", ")
-        : args.cssSelector;
-    }
-
-    const res = await fetch(`${baseUrl}/crawl`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        urls: [normUrl],
-        browser_config: {
-          type: "BrowserConfig",
-          params: {
-            headless: true,
-            enable_stealth: true,
-            viewport_width: 1920,
-            viewport_height: 1080,
-          },
-        },
-        crawler_config: {
-          type: "CrawlerRunConfig",
-          params: crawlerParams,
-        },
-      }),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(
-        `Alternative scraper failed (HTTP ${res.status}): ${errText}`,
-      );
-    }
-
-    const json = (await res.json()) as {
+    /** Submit one crawl under its own abort budget. */
+    const launchCrawl = async (): Promise<{
       results?: Array<{
         url?: string;
         html?: string;
@@ -312,7 +379,65 @@ export const alternateWebSearchTool = defineTool({
         metadata?: { title?: string; description?: string };
         status_code?: number;
       }>;
+    }> => {
+      const abortAfterMs = resolveCrawlAbortMs(crawlBudget);
+      const controller = new AbortController();
+      let timedOut = false;
+      const abortTimer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, abortAfterMs);
+
+      try {
+        const res = await fetch(`${baseUrl}/crawl`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            urls: [normUrl],
+            browser_config: {
+              type: "BrowserConfig",
+              params: {
+                headless: true,
+                enable_stealth: true,
+                viewport_width: 1920,
+                viewport_height: 1080,
+              },
+            },
+            crawler_config: {
+              type: "CrawlerRunConfig",
+              params: crawlerParams,
+            },
+          }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const errText = await res.text().catch(() => "");
+          throw new Error(
+            `Alternative scraper failed (HTTP ${res.status}): ${errText}`,
+          );
+        }
+
+        return (await res.json()) as Awaited<ReturnType<typeof launchCrawl>>;
+      } catch (err) {
+        if (timedOut) {
+          throw new Error(`Alternate web scrape timed out after ${abortAfterMs}ms`, {
+            cause: err,
+          });
+        }
+        throw err;
+      } finally {
+        clearTimeout(abortTimer);
+      }
     };
+
+    // Ad Library crawls share the process-wide gate; other URLs go straight in.
+    const json = isMetaAdLibraryUrl(normUrl)
+      ? await adLibraryCrawler.run(launchCrawl)
+      : await launchCrawl();
 
     const firstResult = json.results?.[0];
     if (!firstResult) {
