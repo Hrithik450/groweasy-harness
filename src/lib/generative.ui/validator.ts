@@ -1,0 +1,181 @@
+import { nestedToFlat } from "@json-render/core";
+import { isRenderableAssetUrl } from "@/lib/attachments/asset.url";
+import { catalog } from "./catalog";
+
+type NestedUINode = {
+  type: string;
+  props?: Record<string, unknown>;
+  children?: unknown;
+  slots?: unknown;
+  [key: string]: unknown;
+};
+
+export interface CanonicalUINode {
+  type: string;
+  props: Record<string, unknown>;
+  children?: string[];
+  slots?: Record<string, string[]>;
+}
+
+export interface CanonicalUIMesssage {
+  root: string;
+  elements: Record<string, CanonicalUINode>;
+  [key: string]: unknown;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function cloneElements(
+  elements: Record<string, CanonicalUINode>,
+): Record<string, CanonicalUINode> {
+  return Object.fromEntries(
+    Object.entries(elements).map(([id, element]) => {
+      const raw = element as unknown;
+
+      // Keep malformed entries as-is; validateSpec produces the clear error.
+      if (!isRecord(raw)) return [id, raw as CanonicalUINode];
+
+      const props = isRecord(raw.props) ? { ...raw.props } : raw.props;
+      return [id, { ...raw, props } as unknown as CanonicalUINode];
+    }),
+  ) as Record<string, CanonicalUINode>;
+}
+
+/**
+ * Accepts an object or a JSON string (optionally wrapped in <ui-block> tags).
+ */
+function parseInput(rawUI: unknown): Record<string, unknown> {
+  let parsed = rawUI;
+
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed.replace(/<\/?ui-block>/g, "").trim());
+    } catch {
+      throw new Error(
+        "Invalid UI specification: string could not be parsed as valid JSON.",
+      );
+    }
+  }
+
+  if (!isRecord(parsed)) {
+    throw new Error("Invalid UI specification: must be an object.");
+  }
+
+  return parsed;
+}
+
+/**
+ * Normalizes either a flat `{ root, elements }` spec or a nested component
+ * tree into the canonical flat representation.
+ */
+function toFlatSpec(raw: Record<string, unknown>): CanonicalUIMesssage {
+  if ("root" in raw && "elements" in raw) {
+    if (!isRecord(raw.elements)) {
+      throw new Error(
+        "Invalid UI specification: 'elements' must be a valid dictionary.",
+      );
+    }
+
+    // Spread first so the normalized values win over the raw ones.
+    return {
+      ...raw,
+      root: String(raw.root),
+      elements: cloneElements(raw.elements as Record<string, CanonicalUINode>),
+    };
+  }
+
+  if (typeof raw.type !== "string") {
+    throw new Error(
+      "Invalid UI specification: must have either a 'type' property or '{ root, elements }' structure.",
+    );
+  }
+
+  // Props may be flat on the node rather than under `props`.
+  const node: NestedUINode =
+    raw.props != null
+      ? (raw as NestedUINode)
+      : (() => {
+          const { type, children, slots, ...props } = raw;
+          return { type, props, children, slots };
+        })();
+
+  const flat = nestedToFlat(
+    node as Parameters<typeof nestedToFlat>[0],
+  ) as CanonicalUIMesssage;
+
+  return { ...flat, elements: cloneElements(flat.elements) };
+}
+
+/**
+ * Validates structure and every element against the component catalog.
+ * Element props are replaced with Zod-parsed output.
+ */
+function validateSpec(spec: CanonicalUIMesssage): void {
+  const { root, elements } = spec;
+
+  if (!isRecord(elements) || Object.keys(elements).length === 0) {
+    throw new Error(
+      "Invalid UI specification: 'elements' must be a valid dictionary.",
+    );
+  }
+
+  if (!elements[root]) {
+    throw new Error(
+      `Invalid UI specification: root element "${root}" not found in elements dictionary.`,
+    );
+  }
+
+  for (const [elId, element] of Object.entries(elements)) {
+    if (
+      !isRecord(element) ||
+      typeof element.type !== "string" ||
+      !element.type
+    ) {
+      throw new Error(`Invalid element "${elId}": missing 'type'.`);
+    }
+
+    const componentDef =
+      catalog.data.components[
+        element.type as keyof typeof catalog.data.components
+      ];
+
+    if (!componentDef?.props) continue;
+
+    const parseResult = componentDef.props.safeParse(element.props ?? {});
+    if (!parseResult.success) {
+      const firstIssue = parseResult.error.issues[0];
+      const pathStr =
+        firstIssue.path.length > 0 ? firstIssue.path.join(".") : "root";
+      throw new Error(
+        `Invalid ${element.type} ("${elId}") at "${pathStr}": ${firstIssue.message}.`,
+      );
+    }
+
+    // Media props must be browser-fetchable: the attachment route or https.
+    for (const key of ["src", "url"] as const) {
+      const value = (element.props as Record<string, unknown> | undefined)?.[key];
+      if (value === undefined) continue;
+      if (!isRenderableAssetUrl(value)) {
+        throw new Error(
+          `Invalid ${element.type} ("${elId}") at "${key}": expected "/api/attachments/…" or an https URL, got "${String(value)}".`,
+        );
+      }
+    }
+
+    // Replace with validated props from Zod.
+    element.props = parseResult.data as Record<string, unknown>;
+  }
+}
+
+export function validateAndNormalizeUI(
+  rawUI: unknown,
+): CanonicalUIMesssage | undefined {
+  if (!rawUI) return undefined;
+
+  const spec = toFlatSpec(parseInput(rawUI));
+  validateSpec(spec);
+
+  return spec;
+}
