@@ -1,0 +1,51 @@
+# Local origin for the Cloudflare Tunnel.
+#
+# Cloudflare terminates TLS at the edge and forwards plain HTTP to
+# :__CADDY_PORT__, so this server runs without certificates. The tunnel is the
+# only way in; the port is bound to localhost.
+{
+	auto_https off
+	admin off
+	# Caddy's default shutdown waits for every open connection, which means a
+	# live SSE stream keeps it alive forever and a restart never finishes.
+	# Five seconds is the ceiling: in-flight requests finish, idle streams are
+	# dropped and reconnect on their own.
+	grace_period 5s
+}
+
+127.0.0.1:__CADDY_PORT__ {
+	log {
+		output file "__HARNESS_ROOT__/logs/caddy.log" {
+			roll_size 20mb
+			roll_keep 5
+		}
+		# JSON: the shape GoAccess's CADDY format parses, and it keeps every
+		# field Caddy records (the client IP is request.headers.Cf-Connecting-Ip,
+		# since {remote_host} is always the tunnel process itself).
+		format json
+	}
+
+	# No `encode` here on purpose: the SSE session stream must not be buffered
+	# by a compressor. Cloudflare compresses text responses at the edge.
+
+	# Log viewer at /_logs/ (basic auth). Caddy is the only authentication
+	# here; the viewer binds 127.0.0.1 and must never be exposed directly.
+	# The imported snippet is either the basic_auth block or `respond 404`
+	# when LOG_VIEWER_BASIC_AUTH is unset.
+	handle_path /_logs* {
+		import log-viewer-auth.caddy
+		reverse_proxy 127.0.0.1:__LOG_VIEWER_PORT__
+	}
+
+	# Next.js serves pages, API routes and the SSE session stream.
+	handle {
+		reverse_proxy 127.0.0.1:__APP_PORT__ {
+			# Long-lived SSE responses: no proxy-side deadline, no buffering.
+			flush_interval -1
+			transport http {
+				read_timeout 0
+				write_timeout 0
+			}
+		}
+	}
+}
