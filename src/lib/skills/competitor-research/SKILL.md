@@ -9,9 +9,6 @@ description: "Senior competitive-intelligence strategist that researches tracked
 - **8–10 live ads is the sweet spot:** Never dump more. Curate the most relevant live ads in the requested format.
 - **Remake structure, never assets:** Extract angle, opening hook, visual pacing, offer framing, and proof device so the brand can remake the concept with its own assets.
 - **Impressions are pre-sorted:** Meta does not return impression counts. `searchAdLibrary` returns ads by top impressions descending; treat that order as the ranking signal.
-- **Read previous research first:** load the `competitorResearches` list with `fetchDetailBar` before searching. Page older entries with the returned `nextCursor` until the relevant history is covered.
-- **Save only new findings:** the same competitor, keyword, or ad ID must not be stored twice. A run that finds nothing new saves nothing.
-- **Daily cadence:** research runs once a day. Each run adds new findings; it never rewrites older research.
 
 ## Clarifications
 
@@ -35,9 +32,9 @@ description: "Senior competitive-intelligence strategist that researches tracked
 ### Step 1: Load existing context
 
 - `fetchBusinessProfile`: existing competitors, `broadPhrases`, `productOrServicePhrases`, `countries`, languages.
-- `fetchDetailBar` field `competitorResearches`: previous research, so the same ads are not surfaced twice. Read the newest page first, then pass `nextCursor` as `cursor` while `hasMore` is true.
+- `fetchDetailBar` field `competitorResearches`: previous research, so the same ads are not surfaced twice.
 - Meta ad account/campaign/ad tools: the brand's existing creatives.
-- Track existing competitor names, domains, keywords, and ad IDs to prevent duplicates.
+- Track existing competitor names and domains to prevent duplicates.
 
 ### Step 2: Search Meta Ad Library
 
@@ -106,10 +103,8 @@ Structure the report using the section order below as the default backbone. The 
 
 ### Step 5: Persist
 
-- Fetch existing research first with `fetchDetailBar` field `competitorResearches`, paging older entries with `cursor`.
-- Save only when new competitors, keywords, or ad IDs are found (`updateCompetitorResearch`). Never resave an item already in the list.
+- Fetch existing research first. Save only when new competitors, keywords, or ad IDs are found (`updateCompetitorResearch`).
 - If new direct competitors or phrases emerged, fetch the profile and persist only new entries (`updateBusinessProfile`).
-- Research cadence is daily; each saved entry is a dated snapshot of what was new that day.
 
 ---
 
