@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSessionFromRequest } from "@/lib/auth/session";
 import { exchangeShopifyCodeForToken } from "@/lib/auth/shopify";
+import { getPublicOrigin } from "@/lib/auth/public.origin";
 import {
   sanitizeShopDomain,
   syncShopifyConnector,
@@ -8,7 +9,7 @@ import {
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl;
-  const origin = req.nextUrl.origin;
+  const origin = getPublicOrigin(req);
 
   const code = url.searchParams.get("code");
   const shop = url.searchParams.get("shop");

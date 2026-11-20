@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/auth/session";
+import { getPublicOrigin } from "@/lib/auth/public.origin";
 import {
   buildShopifyOAuthLoginUrl,
   isShopifyOAuthConfigured,
@@ -13,7 +14,7 @@ import {
  * the `state` parameter, so the callback never has to trust anything else.
  */
 export async function GET(req: NextRequest) {
-  const origin = req.nextUrl.origin;
+  const origin = getPublicOrigin(req);
   const shop = req.nextUrl.searchParams.get("shop")?.trim() ?? "";
   const returnTo = req.nextUrl.searchParams.get("returnTo") ?? "/c";
   const safeReturnTo = returnTo.startsWith("/") ? returnTo : "/c";

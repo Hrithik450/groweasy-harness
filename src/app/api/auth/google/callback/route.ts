@@ -2,8 +2,10 @@ import { rebindUserWithGoogle } from "@/lib/services";
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeGoogleCodeForUser } from "@/lib/auth/google";
 import { attachSessionCookie, getSessionFromRequest } from "@/lib/auth/session";
+import { getPublicOrigin } from "@/lib/auth/public.origin";
 
 export async function GET(req: NextRequest) {
+  const origin = getPublicOrigin(req);
   let redirectUrl = "/c";
 
   try {
@@ -17,7 +19,7 @@ export async function GET(req: NextRequest) {
           ? "Google sign-in was cancelled."
           : "Google sign-in failed. Please try again.";
       return NextResponse.redirect(
-        new URL(`/?error=${encodeURIComponent(msg)}`, req.url),
+        new URL(`/?error=${encodeURIComponent(msg)}`, origin),
       );
     }
 
@@ -25,7 +27,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(
         new URL(
           `/?error=${encodeURIComponent("Authorization code was not received from Google. Please try again.")}`,
-          req.url,
+          origin,
         ),
       );
     }
@@ -54,7 +56,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const origin = req.nextUrl.origin;
     const identity = await exchangeGoogleCodeForUser(code, origin);
 
     // Rebind existing anonymous user row in-place with Google identity
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
     }
 
     const user = userRes.data;
-    const response = NextResponse.redirect(new URL(redirectUrl, req.url));
+    const response = NextResponse.redirect(new URL(redirectUrl, origin));
     return await attachSessionCookie(response, user);
   } catch (err: unknown) {
     if ((err as { digest?: string })?.digest?.startsWith("NEXT_")) {
@@ -83,7 +84,7 @@ export async function GET(req: NextRequest) {
       err instanceof Error
         ? err.message
         : "Failed to complete Google sign-in. Please try again or contact support.";
-    const targetUrl = new URL(redirectUrl, req.url);
+    const targetUrl = new URL(redirectUrl, origin);
     targetUrl.searchParams.set("error", message);
     return NextResponse.redirect(targetUrl);
   }

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/auth/session";
 import { getMetaOAuthLoginUrl, isMetaOAuthConfigured } from "@/lib/auth/meta";
+import { getPublicOrigin } from "@/lib/auth/public.origin";
 
 export async function GET(req: NextRequest) {
-  const origin = req.nextUrl.origin;
+  const origin = getPublicOrigin(req);
   const returnTo = req.nextUrl.searchParams.get("returnTo") ?? "/c";
 
   // Require user to be logged in to connect their Meta account

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/auth/session";
 import { exchangeMetaCodeForToken } from "@/lib/auth/meta";
+import { getPublicOrigin } from "@/lib/auth/public.origin";
 import { syncMetaConnector } from "@/lib/connectors/meta.ads";
 import { syncCampaignsDetailBar } from "@/lib/detail.bar/external/meta.campaigns";
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl;
-  const origin = req.nextUrl.origin;
+  const origin = getPublicOrigin(req);
 
   const code = url.searchParams.get("code");
   const error = url.searchParams.get("error");
