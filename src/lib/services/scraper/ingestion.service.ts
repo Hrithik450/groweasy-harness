@@ -43,7 +43,6 @@ export interface ProcessedAdItem {
 export interface IngestAdsOptions {
   searchQuery: string;
   rawMarkdown?: string;
-  cards?: RawScrapedAdCard[];
   minRelevanceThreshold?: number; // Default: 0.50
   analyzedAdIds?: Set<string>; // Ad IDs already reviewed/saved in competitor research memory
 }
@@ -87,9 +86,7 @@ export async function ingestScrapedAds(
     analyzedAdIds,
   } = options;
 
-  const cards =
-    options.cards ??
-    (rawMarkdown ? parseMetaAdCards(rawMarkdown).map(toRawCard) : []);
+  const cards = rawMarkdown ? parseMetaAdCards(rawMarkdown).map(toRawCard) : [];
   const allProcessed: ProcessedAdItem[] = [];
   const toUpsert: ScrapedAdRecord[] = [];
 
@@ -152,9 +149,7 @@ export async function ingestScrapedAds(
       }
 
       // Relevant unchanged ad -> bump timestamp and skip re-scoring
-      await touchScrapedAds([
-        { libraryId: card.libraryId, searchQuery },
-      ]);
+      await touchScrapedAds([{ libraryId: card.libraryId, searchQuery }]);
       allProcessed.push({
         libraryId: card.libraryId,
         adUrl: existingAd.adUrl || card.adUrl,

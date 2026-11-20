@@ -80,8 +80,8 @@ interface CrawlDepth {
 
 /** Requests at or below this count only ask "does this phrase have ads?". */
 const VALIDATION_TARGET_COUNT = 2;
-/** Cheap first-pass steps; Meta renders a full page before any scroll. */
-const PROBE_SCROLL_STEPS = 3;
+/** Validation scans stop after the first cards. */
+const VALIDATION_SCROLL_STEPS = 3;
 
 /**
  * Crawl depth from intent, ported from the legacy harness.
@@ -95,7 +95,7 @@ function resolveCrawlDepth(params: {
 
   if (targetCount <= VALIDATION_TARGET_COUNT) {
     return {
-      maxScrollSteps: PROBE_SCROLL_STEPS,
+      maxScrollSteps: VALIDATION_SCROLL_STEPS,
       scrollDelay: 1.2,
       delayBeforeSnapshot: 1.2,
       pageTimeout: 45000,
@@ -108,12 +108,6 @@ function resolveCrawlDepth(params: {
     delayBeforeSnapshot: 3.5,
     pageTimeout: 90000,
   };
-}
-
-/** Shallow first pass; validation depths are returned unchanged. */
-function resolveProbeDepth(depth: CrawlDepth): CrawlDepth {
-  if (depth.maxScrollSteps <= PROBE_SCROLL_STEPS) return depth;
-  return { ...depth, maxScrollSteps: PROBE_SCROLL_STEPS };
 }
 
 /**
@@ -325,7 +319,6 @@ export async function executeSearchAdLibraryTool(
   });
 
   const depth = resolveCrawlDepth({ targetCount, query });
-  const probeDepth = resolveProbeDepth(depth);
 
   const crawl = (d: CrawlDepth) =>
     executeWebSearchTool({
@@ -347,7 +340,7 @@ export async function executeSearchAdLibraryTool(
       .map((part) => (part as { text?: string }).text ?? "")
       .join("\n");
 
-  const scrapeRes = await crawl(probeDepth);
+  const scrapeRes = await crawl(depth);
 
   if (!scrapeRes.success || !scrapeRes.data?.contentParts) {
     if (cachedAds.length > 0) {
@@ -381,22 +374,7 @@ export async function executeSearchAdLibraryTool(
     );
   }
 
-  let fullText = readText(scrapeRes);
-
-  // Second pass only when the shallow pass fell short of the target.
-  const foundIds = new Set(
-    [...fullText.matchAll(/Library ID:\s*(\d+)/g)].map((m) => m[1]),
-  );
-  const remaining = Math.max(0, targetCount - cachedAds.length);
-  if (
-    probeDepth.maxScrollSteps < depth.maxScrollSteps &&
-    foundIds.size < remaining
-  ) {
-    const deepRes = await crawl(depth);
-    if (deepRes.success && deepRes.data?.contentParts) {
-      fullText = [fullText, readText(deepRes)].filter(Boolean).join("\n\n");
-    }
-  }
+  const fullText = readText(scrapeRes);
 
   const isUpstreamMetaError =
     /your request couldn't be processed|sorry!? (?:something went wrong|we're having trouble)|there's an issue and the page could not be loaded/i.test(
