@@ -1,7 +1,7 @@
 import type { ToolInput, ToolOutput } from "@/lib/tools/types";
 import { toolFailure as failure } from "@/lib/tools/utils";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
-import { executeWebSearchTool } from "@/lib/tools/web/search/tool";
+import { webSearchTool } from "@/lib/tools/web";
 import {
   getDetailBarPage,
   resolveDetailBarSession,
@@ -319,29 +319,39 @@ export async function executeSearchAdLibraryTool(
 
   const depth = resolveCrawlDepth({ targetCount, query });
 
-  const crawl = (d: CrawlDepth) =>
-    executeWebSearchTool({
-      args: {
+  interface CrawlResult {
+    summary?: string;
+    markdown?: string;
+    mediaByAnchor?: Array<{
+      anchor: string;
+      videos: string[];
+      images: string[];
+    }>;
+  }
+
+  const crawl = async (d: CrawlDepth): Promise<CrawlResult> =>
+    (await webSearchTool.execute(
+      {
         url: targetUrl,
         scanFullPage: true,
         maxScrollSteps: d.maxScrollSteps,
         scrollDelay: d.scrollDelay,
         delayBeforeSnapshot: d.delayBeforeSnapshot,
         pageTimeout: d.pageTimeout,
+        mediaAnchorPattern: "Library ID:\\s*(\\d+)",
       },
-      context: input.context,
-    });
+      {},
+    )) as CrawlResult;
 
-  const readText = (
-    res: Awaited<ReturnType<typeof executeWebSearchTool>>,
-  ): string =>
-    (res.data?.contentParts ?? [])
-      .map((part) => (part as { text?: string }).text ?? "")
-      .join("\n");
+  let scrapeRes: CrawlResult | null = null;
+  let scrapeError: string | null = null;
+  try {
+    scrapeRes = await crawl(depth);
+  } catch (err: unknown) {
+    scrapeError = err instanceof Error ? err.message : String(err);
+  }
 
-  const scrapeRes = await crawl(depth);
-
-  if (!scrapeRes.success || !scrapeRes.data?.contentParts) {
+  if (scrapeRes === null) {
     if (cachedAds.length > 0) {
       for (const ad of cachedAds) {
         reservation.ids.add(ad.libraryId);
@@ -369,11 +379,11 @@ export async function executeSearchAdLibraryTool(
     }
 
     return failure(
-      scrapeRes.error || `Failed to scrape Meta Ad Library for "${query}".`,
+      scrapeError || `Failed to scrape Meta Ad Library for "${query}".`,
     );
   }
 
-  const fullText = readText(scrapeRes);
+  const fullText = scrapeRes.markdown ?? scrapeRes.summary ?? "";
 
   const isUpstreamMetaError =
     /your request couldn't be processed|sorry!? (?:something went wrong|we're having trouble)|there's an issue and the page could not be loaded/i.test(
@@ -415,6 +425,7 @@ export async function executeSearchAdLibraryTool(
   const ingestResult = await ingestScrapedAds({
     searchQuery: query,
     rawMarkdown: fullText,
+    mediaByAnchor: scrapeRes.mediaByAnchor,
     excludeIds,
   });
 

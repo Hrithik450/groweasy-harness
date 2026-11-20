@@ -42,8 +42,8 @@ function toAdCard(
 
 /** One parsed card plus the markdown offset it starts at. */
 interface PositionedCard {
-  card: ScrapedAdCard;
   index: number;
+  card: ScrapedAdCard;
 }
 
 /** Index of the next `Library ID:` anchor after `fromIndex`, or the end. */
@@ -66,8 +66,6 @@ function parseAnchoredCards(markdownText: string): PositionedCard[] {
     seenIds.add(libraryId);
 
     const startIndex = match.index ?? 0;
-    // Stop at the next anchor of any kind, not just the next strict match, so
-    // a stateless card cannot leak into this card's chunk.
     const idIndex = markdownText.indexOf(
       `Library ID: ${libraryId}`,
       startIndex,
