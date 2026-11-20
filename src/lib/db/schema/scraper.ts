@@ -26,7 +26,7 @@ export const scrapedAds = sqliteTable(
       .$defaultFn(() => Math.floor(Date.now() / 1000)),
   },
   (table) => [
-    primaryKey({ columns: [table.libraryId, table.searchQuery] }),
+    primaryKey({ columns: [table.libraryId] }),
     index("idx_scraped_ads_query").on(table.searchQuery, table.relevanceScore),
   ],
 );

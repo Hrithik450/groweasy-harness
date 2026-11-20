@@ -56,8 +56,10 @@ export function upsertScrapedAd(ad: NewScrapedAdRecord): void {
       updatedAt: ad.updatedAt ?? now,
     })
     .onConflictDoUpdate({
-      target: [scrapedAds.libraryId, scrapedAds.searchQuery],
+      target: [scrapedAds.libraryId],
       set: {
+        searchQuery: ad.searchQuery.trim(),
+        adUrl: ad.adUrl,
         content: ad.content,
         contentHash: ad.contentHash,
         relevanceScore: ad.relevanceScore,
@@ -76,13 +78,8 @@ export function touchScrapedAd(libraryId: string, searchQuery: string): void {
   const now = Math.floor(Date.now() / 1000);
   scraperDb
     .update(scrapedAds)
-    .set({ updatedAt: now })
-    .where(
-      and(
-        eq(scrapedAds.libraryId, libraryId),
-        eq(scrapedAds.searchQuery, searchQuery.trim()),
-      ),
-    )
+    .set({ searchQuery: searchQuery.trim(), updatedAt: now })
+    .where(eq(scrapedAds.libraryId, libraryId))
     .run();
 }
 
