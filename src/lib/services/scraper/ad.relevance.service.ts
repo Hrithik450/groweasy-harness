@@ -32,6 +32,26 @@ export function dotProduct(
 }
 
 /**
+ * Small seam around the embedding provider. Tests can inject a deterministic
+ * fake; production uses {@link createOpenAIEmbeddingProvider}.
+ */
+export interface EmbeddingProvider {
+  readonly model: string;
+  embed(texts: string[]): Promise<Float32Array[]>;
+}
+
+/**
+ * Production provider backed by the target's batched OpenAI helpers. Keeping
+ * the model id on the object lets the pipeline key embedding reuse on it.
+ */
+export function createOpenAIEmbeddingProvider(): EmbeddingProvider {
+  return {
+    model: getOpenAIEmbeddingModel(),
+    embed: (texts) => getBatchEmbeddings(texts),
+  };
+}
+
+/**
  * Computes vector embeddings in optimal 20-item batches using OpenAI Embeddings API.
  * Chunks of 20 execute concurrently via Promise.all for minimal latency and maximum throughput.
  */

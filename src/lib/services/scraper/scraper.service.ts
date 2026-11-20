@@ -1,161 +1,169 @@
-import crypto from "node:crypto";
-import { inArray } from "drizzle-orm";
+/**
+ * Meta Ad Library page parsing, URL construction, and the scraper storage
+ * facade.
+ *
+ * The parser uses a loose Library-ID anchor so partially hydrated pages still
+ * yield cards, with a strict pass replacing cards whose status line hydrated.
+ *
+ * @module @/lib/services/scraper/scraper.service
+ */
+
 import * as repo from "@/lib/repositories/scraper.repo";
-import { scraperDb, scrapedAds } from "@/lib/db";
-import type { Response } from "../types";
-import type { NewScrapedAdRecord, ScrapedAdRecord } from "@/lib/db";
-
-export type { NewScrapedAdRecord, ScrapedAdRecord };
-
-/** The fields parsed out of one Meta Ad Library card. */
-export type ScrapedAd = Pick<
-  ScrapedAdRecord,
-  "libraryId" | "adUrl" | "content" | "startDate" | "status"
->;
+import type { ScrapedAdCard } from "./pipeline";
+import type {
+  NewAdQueryRelevance,
+  NewScrapedAd,
+  ScoredScrapedAd,
+  ScrapedAd,
+} from "./types";
+import { parseMetaAdDate } from "./utils";
 
 /**
- * Retrieves deduplicated relevant ads for a search query, with native SQLite exclusion and limit.
+ * Build one card from a chunk of a card's markdown.
+ *
+ * The status line is not always exactly "Active"/"Inactive" — Meta appends
+ * labels such as "Low impression count" ("ActiveLow impression count"), which
+ * a strict regex would silently drop.
  */
-export async function getAdsByQuery(
-  searchQuery: string,
-  excludeIds?: Set<string>,
-  limit?: number,
-  dateRange?: { startDate?: string; endDate?: string },
-): Promise<Response<ScrapedAdRecord[]>> {
-  try {
-    const rows = repo.getAdsByQuery(
-      searchQuery,
-      excludeIds,
-      limit && limit > 0 ? limit * 3 : undefined,
-    );
-    const inWindow = dateRange
-      ? rows.filter((row) => {
-          if (!row.startDate) return true;
-          if (dateRange.startDate && row.startDate < dateRange.startDate) {
-            return false;
-          }
-          if (dateRange.endDate && row.startDate > dateRange.endDate) {
-            return false;
-          }
-          return true;
-        })
-      : rows;
-    const data = limit && limit > 0 ? inWindow.slice(0, limit) : inWindow;
-    return { success: true, data };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { success: false, error: message };
-  }
+function toAdCard(
+  libraryId: string,
+  chunk: string,
+  status: string,
+): ScrapedAdCard {
+  const dateMatch = chunk.match(/Started running on ([^\n·]+)/i);
+  return {
+    libraryId,
+    adUrl: `https://www.facebook.com/ads/library/?id=${libraryId}`,
+    content: chunk,
+    startDate: dateMatch ? parseMetaAdDate(dateMatch[0]) : null,
+    status,
+  };
 }
 
-/**
- * Retrieves scraped ads by their libraryIds in a single query.
- * Returns a Map where key is libraryId and value is the list of matching records.
- */
-export async function getScrapedAdsByIds(
-  libraryIds: string[],
-): Promise<Response<Map<string, ScrapedAdRecord[]>>> {
-  try {
-    const ids = [...new Set(libraryIds)];
-    const data = new Map<string, ScrapedAdRecord[]>();
-    if (ids.length === 0) return { success: true, data };
-
-    const records = scraperDb
-      .select()
-      .from(scrapedAds)
-      .where(inArray(scrapedAds.libraryId, ids))
-      .all();
-
-    for (const record of records) {
-      const recordsForId = data.get(record.libraryId) ?? [];
-      recordsForId.push(record);
-      data.set(record.libraryId, recordsForId);
-    }
-    return { success: true, data };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { success: false, error: message };
-  }
+/** One parsed card plus the markdown offset it starts at. */
+interface PositionedCard {
+  card: ScrapedAdCard;
+  index: number;
 }
 
-/**
- * Inserts or updates scraped ad records (single or multiple).
- */
-export async function upsertScrapedAds(
-  records: NewScrapedAdRecord[],
-): Promise<Response<void>> {
-  try {
-    for (const record of records) repo.upsertScrapedAd(record);
-    return { success: true };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { success: false, error: message };
-  }
+/** Index of the next `Library ID:` anchor after `fromIndex`, or the end. */
+function nextAnchorIndex(markdownText: string, fromIndex: number): number {
+  const next = markdownText.indexOf("Library ID:", fromIndex);
+  return next === -1 ? markdownText.length : next;
 }
 
-/**
- * Updates the updatedAt timestamp for ads (single or multiple).
- */
-export async function touchScrapedAds(
-  items: Array<{ libraryId: string; searchQuery: string }>,
-): Promise<Response<void>> {
-  try {
-    for (const item of items) {
-      repo.touchScrapedAd(item.libraryId, item.searchQuery);
-    }
-    return { success: true };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { success: false, error: message };
-  }
-}
-
-/**
- * Computes an O(1) SHA-256 content hash of the complete ad card markdown/text.
- */
-export function computeContentHash(content: string): string {
-  return crypto
-    .createHash("sha256")
-    .update((content || "").trim())
-    .digest("hex");
-}
-
-/**
- * Parses raw scraped Meta Ad Library markdown text into complete individual ad card blocks.
- */
-export function parseMetaAdCards(markdownText: string): ScrapedAd[] {
-  if (!markdownText || typeof markdownText !== "string") return [];
-
-  const pattern = /(Active|Inactive)\s*\n\s*Library ID:\s*(\d+)/gi;
+/** Strict pass: Meta's normal layout, status line immediately above the id. */
+function parseAnchoredCards(markdownText: string): PositionedCard[] {
+  const pattern =
+    /^[ \t​‌‍﻿]*(Active|Inactive)[^\n]*\n(?:[ \t​‌‍﻿]*\n)*[ \t​‌‍﻿]*Library ID:\s*(\d+)/gim;
   const matches = Array.from(markdownText.matchAll(pattern));
-  const parsedCards: ScrapedAd[] = [];
+  const parsedCards: PositionedCard[] = [];
+  const seenIds = new Set<string>();
+
+  for (const match of matches) {
+    const libraryId = match[2];
+    if (seenIds.has(libraryId)) continue;
+    seenIds.add(libraryId);
+
+    const startIndex = match.index ?? 0;
+    // Stop at the next anchor of any kind, not just the next strict match, so
+    // a stateless card cannot leak into this card's chunk.
+    const idIndex = markdownText.indexOf(
+      `Library ID: ${libraryId}`,
+      startIndex,
+    );
+    const nextStartIndex = nextAnchorIndex(
+      markdownText,
+      idIndex === -1 ? startIndex : idIndex + 1,
+    );
+
+    parsedCards.push({
+      index: startIndex,
+      card: toAdCard(
+        libraryId,
+        markdownText.slice(startIndex, nextStartIndex).trim(),
+        match[1].toLowerCase() === "active" ? "active" : "inactive",
+      ),
+    });
+  }
+
+  return parsedCards;
+}
+
+/**
+ * Loose pass: anchor on the Library ID alone.
+ *
+ * The crawler sometimes snapshots the feed after the status label has been
+ * replaced by a skeleton/placeholder while cards are still hydrating. Parsing
+ * those cards (status read from the nearest preceding label, defaulting to
+ * active because the Ad Library URL only requests running ads) keeps a partial
+ * page usable instead of reporting a silent zero-ad result.
+ */
+function parseLibraryIdAnchoredCards(markdownText: string): PositionedCard[] {
+  const pattern = /Library ID:\s*(\d+)/g;
+  const matches = Array.from(markdownText.matchAll(pattern));
+  const parsedCards: PositionedCard[] = [];
+  const seenIds = new Set<string>();
 
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i];
+    const libraryId = match[1];
+    if (seenIds.has(libraryId)) continue;
+    seenIds.add(libraryId);
+
     const startIndex = match.index ?? 0;
     const nextStartIndex =
       i + 1 < matches.length
         ? (matches[i + 1].index ?? markdownText.length)
         : markdownText.length;
 
-    const chunk = markdownText.slice(startIndex, nextStartIndex).trim();
-    const status = match[1].toLowerCase() === "active" ? "active" : "inactive";
-    const libraryId = match[2];
-    const adUrl = `https://www.facebook.com/ads/library/?id=${libraryId}`;
-
-    const dateMatch = chunk.match(/Started running on ([^\n]+)/i);
-    const startDate = dateMatch ? dateMatch[0].trim() : null;
+    const before = markdownText.slice(
+      Math.max(0, startIndex - 240),
+      startIndex,
+    );
+    const statusMatch = /(?:^|\n)[ \t]*(Active|Inactive)\b[^\n]*[ \t]*$/i.exec(
+      before,
+    );
+    const status =
+      statusMatch !== null && statusMatch[1].toLowerCase() === "inactive"
+        ? "inactive"
+        : "active";
 
     parsedCards.push({
-      libraryId,
-      adUrl,
-      content: chunk,
-      startDate,
-      status,
+      index: startIndex,
+      card: toAdCard(
+        libraryId,
+        markdownText.slice(startIndex, nextStartIndex).trim(),
+        status,
+      ),
     });
   }
 
   return parsedCards;
+}
+
+/**
+ * Parses raw scraped Meta Ad Library markdown text into complete individual ad
+ * card blocks.
+ *
+ * The loose anchor finds every card; the strict pass then replaces the cards
+ * whose status line it recognized, so a page where only some cards hydrated
+ * still yields all of them, in feed order.
+ */
+export function parseMetaAdCards(markdownText: string): ScrapedAdCard[] {
+  if (!markdownText || typeof markdownText !== "string") return [];
+
+  const byId = new Map<string, PositionedCard>();
+  for (const positioned of parseLibraryIdAnchoredCards(markdownText)) {
+    byId.set(positioned.card.libraryId, positioned);
+  }
+  for (const positioned of parseAnchoredCards(markdownText)) {
+    byId.set(positioned.card.libraryId, positioned);
+  }
+
+  return [...byId.values()]
+    .sort((a, b) => a.index - b.index)
+    .map((positioned) => positioned.card);
 }
 
 /**
@@ -207,4 +215,35 @@ export function buildMetaAdLibraryUrl(params: {
   url.searchParams.set("start_date[max]", finalMaxDate);
 
   return url.toString();
+}
+
+/**
+ * Retrieves deduplicated relevant ads for a search query via the
+ * `(query, ad)` relation table, best match first.
+ */
+export async function getAdsByQuery(
+  searchQuery: string,
+  excludeIds?: Set<string>,
+  limit?: number,
+  dateRange?: { startDate?: string; endDate?: string },
+): Promise<ScoredScrapedAd[]> {
+  return repo.getAdsByQuery(searchQuery, excludeIds, limit, dateRange);
+}
+
+/**
+ * Retrieves scraped ads by their libraryIds in a single query.
+ * Returns a Map where key is libraryId and value is the matching record list.
+ */
+export async function getScrapedAdsByIds(
+  libraryIds: string[],
+): Promise<Map<string, ScrapedAd[]>> {
+  return repo.getScrapedAdsByIds(libraryIds);
+}
+
+/** Persists ad facts and per-query relevance rows in one transaction. */
+export async function persistScrapedAds(
+  ads: NewScrapedAd[],
+  relations: NewAdQueryRelevance[],
+): Promise<void> {
+  repo.persistScrapedAds(ads, relations);
 }

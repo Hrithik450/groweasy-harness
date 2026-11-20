@@ -138,8 +138,7 @@ export async function executeUpdateCompetitorResearchTool(
     let droppedIds: string[] = [];
 
     if (allSubmittedIds.length > 0) {
-      const cachedAdsRes = await getScrapedAdsByIds(allSubmittedIds);
-      const cachedMap = cachedAdsRes.data ?? new Map();
+      const cachedMap = await getScrapedAdsByIds(allSubmittedIds);
 
       const invalidIds = allSubmittedIds.filter((id) => !cachedMap.has(id));
       if (invalidIds.length > 0) {

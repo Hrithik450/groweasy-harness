@@ -21,7 +21,7 @@ import {
   detailBarItems,
   attachmentReceipts,
 } from "./schema/schema";
-import { scrapedAds } from "./schema/scraper";
+import { scrapedAds, adQueryRelevance } from "./schema/scraper";
 import { CONNECTOR_SLUGS, SESSION_SLUGS } from "@/lib/constants";
 
 // --- Users -----------------------------------------------------------------
@@ -133,3 +133,6 @@ export type NewAttachmentReceiptRow = typeof attachmentReceipts.$inferInsert;
 
 export type ScrapedAdRecord = typeof scrapedAds.$inferSelect;
 export type NewScrapedAdRecord = typeof scrapedAds.$inferInsert;
+
+export type AdQueryRelevanceRecord = typeof adQueryRelevance.$inferSelect;
+export type NewAdQueryRelevanceRecord = typeof adQueryRelevance.$inferInsert;

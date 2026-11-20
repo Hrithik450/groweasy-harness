@@ -8,7 +8,6 @@ import {
 } from "@/lib/detail.bar/service";
 import type { CompetitorResearchItem } from "@/lib/detail.bar/types";
 import {
-  computeContentHash,
   extractAdIdFromReference,
   resolveDateRange,
 } from "@/lib/services/utils";
@@ -17,7 +16,7 @@ import {
   getScrapedAdsByIds,
   ingestScrapedAds,
   buildMetaAdLibraryUrl,
-  type ProcessedAdItem,
+  type ScoredScrapedAd,
 } from "@/lib/services/scraper";
 
 export const searchAdLibraryToolDefinition = {
@@ -268,12 +267,12 @@ export async function executeSearchAdLibraryTool(
   const excludedHashes = new Set<string>(reservation.hashes);
   if (excludeIds.size > 0) {
     const stored = await getScrapedAdsByIds([...excludeIds]);
-    for (const rows of stored.data?.values() ?? []) {
+    for (const rows of stored.values()) {
       for (const row of rows) excludedHashes.add(row.contentHash);
     }
   }
 
-  const { data: allCachedAds = [] } = await getAdsByQuery(
+  const allCachedAds = await getAdsByQuery(
     query,
     excludeIds,
     targetCount,
@@ -416,12 +415,12 @@ export async function executeSearchAdLibraryTool(
   const ingestResult = await ingestScrapedAds({
     searchQuery: query,
     rawMarkdown: fullText,
-    analyzedAdIds: excludeIds,
+    excludeIds,
   });
 
   const deliveredIds = new Set(cachedAds.map((a) => a.libraryId));
-  const freshAccepted: ProcessedAdItem[] = [];
-  for (const ad of ingestResult.acceptedAds) {
+  const freshAccepted: ScoredScrapedAd[] = [];
+  for (const ad of ingestResult.relevantAds) {
     if (freshAccepted.length >= shortage) break;
     if (ad.startDate) {
       if (
@@ -443,7 +442,7 @@ export async function executeSearchAdLibraryTool(
 
   for (const ad of finalAds) {
     reservation.ids.add(ad.libraryId);
-    reservation.hashes.add(ad.contentHash ?? computeContentHash(ad.content));
+    reservation.hashes.add(ad.contentHash);
   }
 
   return {
