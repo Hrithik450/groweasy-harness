@@ -20,4 +20,3 @@ export type DetailBarState = {
 } & {
   default?: Record<string, unknown>;
 };
-

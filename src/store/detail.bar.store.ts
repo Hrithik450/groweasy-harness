@@ -1,84 +1,146 @@
 "use client";
 
 /**
- * Detail-bar fields pushed by the server.
+ * Detail-bar pages held by the client.
  *
- * Each tab is one array, exactly as the backend stores it; there is no tree
- * to assemble. A field event replaces that tab's array.
+ * One flat map keyed by level: `campaigns` holds a tab's roots,
+ * `campaigns.ads:cmp-1` holds that campaign's ads. Levels only grow: live
+ * events merge by id (rows are append-only, `seq` never changes), and only a
+ * session change, Refresh, or reconnect replaces a page.
  *
  * @module @/store/detail.bar.store
  */
 
 import { create } from "zustand";
-import type { DetailBarState } from "@/lib/detail.bar/state";
-import { barOwner, type BarField } from "@/lib/detail.bar/fields";
+import type { DetailBarField } from "@/lib/detail.bar/fields";
+
+/** Key of one level: the field itself for roots, `field:parentId` for children. */
+export function levelKey(
+  field: DetailBarField,
+  parentId: string | null,
+): string {
+  return parentId ? `${field}:${parentId}` : field;
+}
+
+/** One level's cards, or `undefined` before they were fetched. */
+export function readPage(
+  pages: Record<string, unknown[]>,
+  field: DetailBarField,
+  parentId: string | null = null,
+): unknown[] | undefined {
+  return pages[levelKey(field, parentId)];
+}
+
+/** One level's cursor: `undefined` unknown, `null` end of list. */
+export function readCursor(
+  cursors: Record<string, string | null>,
+  field: DetailBarField,
+  parentId: string | null = null,
+): string | null | undefined {
+  return cursors[levelKey(field, parentId)];
+}
+
+function idOf(item: unknown): string | undefined {
+  const id = (item as { id?: unknown })?.id;
+  return typeof id === "string" ? id : undefined;
+}
+
+/** Newest first; cards without a seq keep their relative position. */
+function seqOf(item: unknown): number {
+  const seq = (item as { seq?: unknown })?.seq;
+  return typeof seq === "number" ? seq : Number.NEGATIVE_INFINITY;
+}
 
 interface DetailBarStore {
-  /** Card arrays per session and tab, as the UI renders them. */
-  states: Record<string, DetailBarState | undefined>;
-
-  /** Replace one tab's cards. */
-  setField: (sessionId: string, field: BarField, items: unknown[]) => void;
-  /** Merge cards into one tab by id (rare; used by older callers). */
-  applyRows: (sessionId: string, field: BarField, rows: unknown[]) => void;
-  /** Upsert one card by id. */
-  applyRow: (sessionId: string, field: BarField, row: unknown) => void;
+  /** Level key → cards, always newest first. */
+  pages: Record<string, unknown[]>;
+  /** Level key → keyset cursor of the oldest loaded card. */
+  cursors: Record<string, string | null>;
+  /** Authoritative page: session seed, Refresh, reconnect, first fetch. */
+  replacePage: (
+    field: DetailBarField,
+    parentId: string | null,
+    items: unknown[],
+    nextCursor?: string | null,
+  ) => void;
+  /** Live page: union by id, replace known cards, keep everything loaded. */
+  mergePage: (
+    field: DetailBarField,
+    parentId: string | null,
+    items: unknown[],
+    nextCursor?: string | null,
+  ) => void;
+  /** One changed card; inserts it when it is not loaded yet. */
+  setItem: (
+    field: DetailBarField,
+    parentId: string | null,
+    card: unknown,
+  ) => void;
+  /** Drop everything (session changed). */
+  reset: () => void;
 }
 
-function withField(
-  state: DetailBarStore,
-  sessionId: string,
-  field: BarField,
-  items: unknown[],
-): Partial<DetailBarStore> {
-  const owner = barOwner(field);
-  const existing = (state.states[sessionId] ?? {}) as Record<
-    string,
-    Record<string, unknown>
-  >;
-  const group = existing[owner] ?? {};
-  return {
-    states: {
-      ...state.states,
-      [sessionId]: { ...existing, [owner]: { ...group, [field]: items } },
-    } as unknown as Record<string, DetailBarState | undefined>,
-  };
-}
+export const useDetailBarStore = create<DetailBarStore>((set, get) => ({
+  pages: {},
+  cursors: {},
 
-/** One tab's array, or `undefined` before any event lands. */
-export function readField(
-  states: Record<string, DetailBarState | undefined>,
-  sessionId: string,
-  field: BarField,
-): unknown[] | undefined {
-  const owner = barOwner(field);
-  const group = (states[sessionId] as Record<string, unknown> | undefined)?.[
-    owner
-  ] as Record<string, unknown> | undefined;
-  return group?.[field] as unknown[] | undefined;
-}
-
-export const useDetailBarStore = create<DetailBarStore>((set) => ({
-  states: {},
-
-  setField: (sessionId, field, items) =>
-    set((state) => ({
-      ...withField(state, sessionId, field, items),
-    })),
-
-  applyRows: (sessionId, field, rows) =>
-    set((state) => ({ ...withField(state, sessionId, field, rows) })),
-
-  applyRow: (sessionId, field, row) =>
+  replacePage: (field, parentId, items, nextCursor) =>
     set((state) => {
-      const current = readField(state.states, sessionId, field) ?? [];
-      const id = (row as { id?: string })?.id;
-      if (!id) return state;
-      const next = current.some((item) => (item as { id?: string })?.id === id)
-        ? current.map((item) =>
-            (item as { id?: string })?.id === id ? row : item,
-          )
-        : [...current, row];
-      return { ...withField(state, sessionId, field, next) };
+      const key = levelKey(field, parentId);
+      const cursors = { ...state.cursors };
+      if (nextCursor === undefined) delete cursors[key];
+      else cursors[key] = nextCursor;
+      return {
+        pages: { ...state.pages, [key]: items },
+        cursors,
+      };
     }),
+
+  mergePage: (field, parentId, items, nextCursor) =>
+    set((state) => {
+      const key = levelKey(field, parentId);
+      const merged = (state.pages[key] ?? []).slice();
+      const at = new Map<string, number>();
+      merged.forEach((item, index) => {
+        const id = idOf(item);
+        if (id) at.set(id, index);
+      });
+
+      for (const item of items) {
+        const id = idOf(item);
+        if (!id) continue;
+        const index = at.get(id);
+        if (index === undefined) {
+          at.set(id, merged.length);
+          merged.push(item);
+        } else {
+          merged[index] = item;
+        }
+      }
+      // Same order as the server: seq DESC, then id DESC (binary text compare).
+      merged.sort((a, b) => {
+        const bySeq = seqOf(b) - seqOf(a);
+        if (bySeq !== 0) return bySeq;
+        const idA = idOf(a) ?? "";
+        const idB = idOf(b) ?? "";
+        return idA < idB ? 1 : idA > idB ? -1 : 0;
+      });
+
+      const cursors =
+        nextCursor === undefined
+          ? state.cursors
+          : { ...state.cursors, [key]: nextCursor };
+
+      return {
+        pages: { ...state.pages, [key]: merged },
+        cursors,
+      };
+    }),
+
+  setItem: (field, parentId, card) => {
+    if (!idOf(card)) return;
+    get().mergePage(field, parentId, [card]);
+  },
+
+  reset: () => set({ pages: {}, cursors: {} }),
 }));

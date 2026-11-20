@@ -1,57 +1,113 @@
 "use client";
 
 /**
- * One detail-bar tab for a component.
+ * One detail-bar level: live items, first fetch for children, keyset paging.
  *
- * The store holds the tab array pushed by the server; before the first push,
- * the server-rendered seed is used. No cursors: a tab is one document.
+ * Roots are seeded by `DetailBar`; a child level fetches once when opened
+ * because the session snapshot never carries children. Stream events merge
+ * into the same level, and paging asks for rows older than the last loaded
+ * card's `seq|id`, so inserts never shift or duplicate a page.
  *
  * @module @/hooks/use.bar.pager
  */
 
-import { useEffect, useRef } from "react";
-import { useDetailBarStore, readField } from "@/store/detail.bar.store";
-import type { BarField } from "@/lib/detail.bar/fields";
+import { useCallback, useRef, useState } from "react";
+import {
+  readCursor,
+  readPage,
+  useDetailBarStore,
+} from "@/store/detail.bar.store";
+import { tabRetention, type DetailBarField } from "@/lib/detail.bar/fields";
+import type { BarCard } from "@/lib/detail.bar/types";
 
 export interface BarPager<T> {
-  items: T[];
+  items: BarCard<T>[];
+  hydrated: boolean;
   hasMore: boolean;
   isLoading: boolean;
   loadMore: () => void;
 }
 
-export function useBarPager<T>(
-  sessionId: string,
-  field: BarField,
-  seed: readonly T[],
-): BarPager<T> {
-  // Server-rendered seed lands in the store once, so later field events win.
-  const hydrated = useRef<string | null>(null);
-  useEffect(() => {
-    if (!sessionId || seed.length === 0) return;
-    const key = `${sessionId}|${field}`;
-    if (hydrated.current === key) return;
-    hydrated.current = key;
-    const current = readField(
-      useDetailBarStore.getState().states,
-      sessionId,
-      field,
-    );
-    if (!current) {
-      useDetailBarStore
-        .getState()
-        .setField(sessionId, field, [...seed]);
-    }
-  }, [field, seed, sessionId]);
+function tailCursor(item: unknown): string | null {
+  const card = item as { id?: unknown; seq?: unknown } | undefined;
+  return typeof card?.id === "string" && typeof card?.seq === "number"
+    ? `${card.seq}|${card.id}`
+    : null;
+}
 
-  const stored = useDetailBarStore((state) =>
-    readField(state.states, sessionId, field),
+interface BarPageResponse {
+  parentId?: string | null;
+  items?: unknown[];
+  nextCursor?: string | null;
+}
+
+async function fetchBarPage(
+  sessionId: string,
+  query: URLSearchParams,
+): Promise<BarPageResponse> {
+  const response = await fetch(
+    `/api/sessions/${sessionId}/detail.bar?${query.toString()}`,
   );
+  if (!response.ok) throw new Error(`bar page ${response.status}`);
+  return (await response.json()) as BarPageResponse;
+}
+
+export function useBarPager<T>(
+  sessionId: string | undefined,
+  field: DetailBarField,
+  parentId: string | null = null,
+): BarPager<T> {
+  const stored = useDetailBarStore((state) =>
+    readPage(state.pages, field, parentId),
+  );
+  const cursor = useDetailBarStore((state) =>
+    readCursor(state.cursors, field, parentId),
+  );
+  const [isLoading, setIsLoading] = useState(false);
+  const loadingRef = useRef(false);
+
+  const items = (stored as BarCard<T>[] | undefined) ?? [];
+  // No cursor yet: only a full seeded page can have older rows.
+  const hasMore =
+    cursor === undefined ? items.length >= tabRetention(field) : cursor !== null;
+
+  const loadMore = useCallback(() => {
+    if (!sessionId || loadingRef.current || !hasMore) return;
+
+    const next = cursor ?? tailCursor(items[items.length - 1]);
+    if (!next) return;
+
+    loadingRef.current = true;
+    setIsLoading(true);
+
+    const query = new URLSearchParams({ field, cursor: next });
+    if (parentId) query.set("parentId", parentId);
+
+    fetchBarPage(sessionId, query)
+      .then((page) => {
+        useDetailBarStore
+          .getState()
+          .mergePage(
+            field,
+            page.parentId ?? parentId,
+            page.items ?? [],
+            page.nextCursor ?? null,
+          );
+      })
+      .catch((err: unknown) => {
+        console.error("[Bar] Could not load older cards:", err);
+      })
+      .finally(() => {
+        loadingRef.current = false;
+        setIsLoading(false);
+      });
+  }, [sessionId, field, parentId, cursor, hasMore, items]);
 
   return {
-    items: (stored as T[] | undefined) ?? (seed as T[]),
-    hasMore: false,
-    isLoading: false,
-    loadMore: () => {},
+    items,
+    hydrated: stored !== undefined,
+    hasMore,
+    isLoading,
+    loadMore,
   };
 }

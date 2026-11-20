@@ -10,7 +10,7 @@ import type { SessionView } from "@/lib/core/session/view";
 import type { SessionJournalChange } from "@/lib/session/journal";
 import { getSessionFromCookies } from "@/lib/auth/session.server";
 import type { DetailBarState } from "@/lib/detail.bar/state";
-import { getDetailBarState } from "@/lib/bar/snapshot";
+import { getDetailBarState } from "@/lib/detail.bar/snapshot";
 import { repairSessionTail } from "@/lib/session/agent.host";
 import { ChatSkeleton } from "./page.skeleton";
 

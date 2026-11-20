@@ -2,10 +2,12 @@
 
 import { useState, useRef, type ComponentType } from "react";
 import type {
+  CompetitorResearchItem,
   DetailBarComponentProps,
   DetailBarTabProps,
   AdStrategistDetailBarData,
 } from "@/lib/detail.bar/types";
+import { useBarPager } from "@/hooks/use.bar.pager";
 import { DetailBarHeader } from "../../common";
 import {
   ReportsTab,
@@ -29,7 +31,6 @@ const CONTENT: Record<
 
 export function AdStrategistDetailBar({
   session,
-  detailBar,
   isStreaming,
   handleSubmit,
   handleUpdateData,
@@ -43,18 +44,24 @@ export function AdStrategistDetailBar({
   const [activeTab, setActiveTab] = useState<AdStrategistTabKey>(
     tabs[0]?.key as AdStrategistTabKey,
   );
-  const data = detailBar.data;
 
-  const researches = data?.competitorResearches ?? [];
 
+  // Live page, so the new-research badge follows SSE updates.
+  const pager = useBarPager<CompetitorResearchItem>(
+    session?.id,
+    "competitorResearches",
+  );
+  const researches = pager.items;
+
+  // Baseline is taken from the seeded page, never from a pre-hydration frame.
   const initialIdsRef = useRef<Set<string> | null>(null);
   const prevSessionIdRef = useRef<string | undefined>(session?.id);
 
-  if (
-    initialIdsRef.current === null ||
-    prevSessionIdRef.current !== session?.id
-  ) {
+  if (prevSessionIdRef.current !== session?.id) {
     prevSessionIdRef.current = session?.id;
+    initialIdsRef.current = null;
+  }
+  if (initialIdsRef.current === null && pager.hydrated) {
     initialIdsRef.current = new Set(
       researches.map((r, i) => r.turnId || r.createdAt || String(i)),
     );
@@ -110,7 +117,6 @@ export function AdStrategistDetailBar({
       {/* Main Tab Content */}
       <div className="flex-1 overflow-y-auto no-scrollbar p-4">
         <Body
-          data={data}
           session={session}
           isStreaming={isStreaming}
           handleSubmit={handleSubmit}

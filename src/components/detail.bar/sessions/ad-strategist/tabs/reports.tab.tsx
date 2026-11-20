@@ -69,9 +69,8 @@ function ReportRow({
 
 export function ReportsTab({
   session,
-  data,
 }: DetailBarTabProps<AdStrategistDetailBarData>) {
-  const pager = useBarPager(session?.id ?? "", "reports", data?.reports ?? []);
+  const pager = useBarPager<DailyReport>(session?.id, "reports");
   const groups = groupByDay(pager.items, (report) => report.createdAt);
   const sessionId = session?.id ?? "";
 

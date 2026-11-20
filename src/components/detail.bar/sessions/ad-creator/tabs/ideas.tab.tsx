@@ -5,6 +5,7 @@ import { ChevronDown, Sparkles } from "lucide-react";
 import { useBarPager } from "@/hooks/use.bar.pager";
 import { groupByDay } from "@/lib/utils/day.group";
 import { DetailBarEmptyState, DetailBarLoadOlder } from "@/components/detail.bar/common";
+import type { Idea } from "@/lib/detail.bar/types";
 import type { AdCreatorTabProps } from "../types";
 
 /** The ad an idea is modelled on, whole inside a fixed box (never cropped). */
@@ -35,8 +36,8 @@ function IdeaMedia({
 }
 
 /** Idea backlog for an ad-creator session: two equal cards per row. */
-export function IdeasTab({ data, session, isStreaming, handleSubmit }: AdCreatorTabProps) {
-  const pager = useBarPager(session?.id ?? "", "ideas", data?.ideas ?? []);
+export function IdeasTab({ session, isStreaming, handleSubmit }: AdCreatorTabProps) {
+  const pager = useBarPager<Idea>(session?.id, "ideas");
   const groups = groupByDay(pager.items, (idea) => idea.createdAt);
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
 

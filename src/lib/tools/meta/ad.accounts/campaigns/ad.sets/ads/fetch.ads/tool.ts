@@ -9,12 +9,13 @@ export const fetchMetaAdsToolDefinition = {
     "Fetch advertising ads from Meta Ads Manager using free-form Meta Graph API queries (v22.0).\n\n" +
     "Target Endpoint: `GET /v22.0/{ad_account_id}/ads`, `GET /v22.0/{ad_set_id}/ads`, `GET /v22.0/{campaign_id}/ads`, or `GET /v22.0/{ad_id}`\n\n" +
     "Supported Query Parameters:\n" +
-    "- `fields`: Comma-separated fields (e.g. `id,name,status,effective_status,adset_id,campaign_id,creative{id,name,title,body,image_url,thumbnail_url,video_id,call_to_action_type},ad_review_feedback,recommendations,issues_info,created_time,updated_time`)\n" +
+    "- `fields`: Comma-separated fields (e.g. `id,name,status,effective_status,adset_id,campaign_id,creative{id,name,title,body,image_hash,image_url,thumbnail_url,video_id,object_story_spec,asset_feed_spec,call_to_action_type},ad_review_feedback,recommendations,issues_info,created_time,updated_time`)\n" +
+    "  - `creative.image_hash` / `creative.video_id` are the reusable asset ids; `object_story_spec` carries the page and media.\n" +
     '- `filtering`: JSON array of filter objects (e.g. `[{"field":"effective_status","operator":"IN","value":["ACTIVE","DISAPPROVED","WITH_ISSUES"]}]`)\n' +
     "- `date_preset`: `today`, `yesterday`, `this_month`, `last_7d`, `last_30d`, `maximum`\n" +
     '- `time_range`: `{"since":"YYYY-MM-DD","until":"YYYY-MM-DD"}`\n' +
     "- `limit`: Max records to return (e.g. `limit=25`)\n\n" +
-    "Supports plural queries (max 5 parallel queries at a time) inside `queries` array. Provide full relative path and parameters except accessToken, which is securely injected on the backend.",
+    "Full field reference: https://developers.facebook.com/docs/marketing-api/reference/adgroup/.",
   parameters: {
     type: "object",
     properties: {
@@ -22,7 +23,7 @@ export const fetchMetaAdsToolDefinition = {
         type: "array",
         items: { type: "string" },
         description:
-          "Optional Array of 1 to 5 free-form Meta Graph query strings to execute as per your custom requirements in parallel (e.g. ['act_123456789/ads?fields=id,name,status,effective_status,creative{name,title,body,image_url}&limit=25', 'adset_987654321/ads?fields=id,name,status,effective_status&limit=10']).",
+          "Optional Array of 1 to 5 free-form Meta Graph query strings to execute as per your custom requirements in parallel (e.g. ['act_123456789/ads?fields=id,name,status,effective_status,creative{id,name,image_hash,video_id,object_story_spec}&limit=25', 'adset_987654321/ads?fields=id,name,status,effective_status&limit=10']).",
       },
     },
     required: ["queries"],

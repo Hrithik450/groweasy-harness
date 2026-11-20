@@ -1,24 +1,22 @@
 "use client";
 
 import type { SessionView } from "@/lib/core/session/view";
-import React, { useMemo, useState } from "react";
+import React, { useRef, useState } from "react";
 import { Loader2, ChevronLeft } from "lucide-react";
 import { useSidebarStore } from "@/store/sidebar.store";
-import { resolveDetailBarType } from "@/lib/detail.bar";
+import { DetailBarSlug } from "@/lib/detail.bar";
 import type { DetailBarState } from "@/lib/detail.bar/state";
-import type { BarField } from "@/lib/detail.bar/fields";
-import { useBarState } from "@/hooks/use.bar.state";
-import { DetailBarStream } from "@/components/detail.bar/detail.bar.stream";
 import {
-  getDetailBarComponent,
-  type DetailBarComponentProps,
-} from "@/components/detail.bar/registry";
+  isDetailBarField,
+  topDetailBarFieldsOf,
+  type DetailBarField,
+} from "@/lib/detail.bar/fields";
+import { readPage, useDetailBarStore } from "@/store/detail.bar.store";
+import { DetailBarStream } from "@/components/detail.bar/detail.bar.stream";
+import { getDetailBarComponent } from "@/components/detail.bar/registry";
 
-type RenderableDetailBar = React.ComponentType<
-  DetailBarComponentProps<unknown> & {
-    handleNavigation?: (messageId: string) => void;
-  }
->;
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? React.useEffect : React.useLayoutEffect;
 
 const MIN_RIGHT_WIDTH = 400;
 const MAX_RIGHT_WIDTH = 580;
@@ -75,33 +73,18 @@ export function DetailBar({
     window.addEventListener("mouseup", onMouseUp);
   };
 
-  const type = resolveDetailBarType(session);
-  const projection = useBarState(session.id, type ?? "default", initialData);
-
-  const [overrides, setOverrides] = useState<Record<string, unknown>>({});
-  const data = useMemo(
-    () => ({ ...projection, ...overrides }),
-    [projection, overrides],
-  );
-
   /**
    * Apply a bar update locally, and persist it when it names one row.
    *
-   * A row patch goes through `POST /bar`: the server merges only the fields the
+   * A row patch goes through `POST /detail.bar`: the server merges only the fields the
    * user owns, appends the event, and re-derives the projection.
    */
-  const handleUpdateData = async (
-    newData: unknown,
-    item?: { id: string; kind: BarField; patch: Record<string, unknown> },
-  ) => {
-    setOverrides((current) => ({
-      ...current,
-      ...(newData as Record<string, unknown>),
-    }));
-
-    if (!item) return;
-
-    const res = await fetch(`/api/sessions/${session.id}/bar`, {
+  const handleUpdateData = async (item: {
+    id: string;
+    kind: DetailBarField;
+    patch: Record<string, unknown>;
+  }) => {
+    const res = await fetch(`/api/sessions/${session.id}/detail.bar`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
@@ -113,11 +96,43 @@ export function DetailBar({
       } | null;
       throw new Error(body?.error ?? "Failed to save the change");
     }
+
+    const body = (await res.json().catch(() => null)) as {
+      field?: string;
+      parentId?: string | null;
+      item?: unknown;
+    } | null;
+    if (body?.item && isDetailBarField(body.field)) {
+      useDetailBarStore
+        .getState()
+        .setItem(body.field, body.parentId ?? null, body.item);
+    }
   };
 
-  const DetailBarComponent = type
-    ? (getDetailBarComponent(type) as RenderableDetailBar)
-    : null;
+  const type = session.slug as DetailBarSlug;
+  const DetailBarComponent = type ? getDetailBarComponent(type) : null;
+
+  const hydratedSession = useRef<string | null>(null);
+  useIsomorphicLayoutEffect(() => {
+    if (!session?.id || !type) return;
+
+    if (hydratedSession.current !== session.id) {
+      hydratedSession.current = session.id;
+      useDetailBarStore.getState().reset();
+    }
+
+    const store = useDetailBarStore.getState();
+    const snapshot = (
+      initialData as
+        | Record<string, Record<string, unknown> | undefined>
+        | undefined
+    )?.[type];
+    for (const field of topDetailBarFieldsOf(type)) {
+      if (readPage(store.pages, field)) continue;
+      const page = snapshot?.[field];
+      if (Array.isArray(page)) store.replacePage(field, null, page);
+    }
+  }, [initialData, session?.id, type]);
 
   return (
     <>
@@ -185,7 +200,6 @@ export function DetailBar({
           ) : (
             <DetailBarComponent
               session={session}
-              detailBar={{ type, data }}
               isStreaming={isStreaming}
               handleSubmit={handleSubmit}
               handleUpdateData={handleUpdateData}

@@ -2,13 +2,50 @@ import { NextRequest, NextResponse } from "next/server";
 import { toBrowserConnector } from "@/lib/connectors/registry";
 import { getSessionFromRequest } from "@/lib/auth/session";
 import { syncMetaConnector } from "@/lib/connectors/meta.ads";
-import { syncCampaignsBar } from "@/lib/bar/sync/campaigns";
+import { syncCampaignsDetailBar } from "@/lib/detail.bar/external/meta.campaigns";
 import { activateCronJobsForConnector } from "@/lib/cron/activation";
+import { getCronJobsByUserId } from "@/lib/repositories/cron.repo";
 import {
   ensureDefaultCronJobs,
+  getConnectorByUserIdAndProviderSlug,
   DEFAULT_META_CRON_JOBS,
-  upsertConnector,
 } from "@/lib/services";
+
+/** The Meta user behind a connection; that is all that decides rescheduling. */
+function metaUserId(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const userId = (metadata as { userId?: unknown }).userId;
+  return typeof userId === "string" && userId ? userId : null;
+}
+
+/**
+ * Schedule Meta's jobs only for a new Meta user or unscheduled jobs.
+ * Re-activating resets `nextRunAt`, so a plain reconnect must not run it again.
+ */
+async function ensureMetaCronSchedule(
+  userId: string,
+  previousMetaUserId: string | null,
+): Promise<void> {
+  const latest = await getConnectorByUserIdAndProviderSlug(userId, "metaAds");
+  const currentMetaUserId = metaUserId(latest.data?.metadata);
+  const jobs = getCronJobsByUserId(userId).filter(
+    (job) => job.requires === "metaAds",
+  );
+  const scheduled =
+    jobs.length > 0 && jobs.every((job) => job.status === "active");
+
+  if (
+    previousMetaUserId !== null &&
+    currentMetaUserId !== null &&
+    previousMetaUserId === currentMetaUserId &&
+    scheduled
+  ) {
+    return;
+  }
+
+  await ensureDefaultCronJobs(userId, DEFAULT_META_CRON_JOBS);
+  activateCronJobsForConnector(userId, "metaAds");
+}
 
 /**
  * POST /api/connectors/meta.ads/connect
@@ -23,52 +60,44 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const token = (body.token || body.accessToken)?.trim();
-
-    if (token) {
-      const syncRes = await syncMetaConnector({
-        context: {
-          userId: user.id,
-          providerSlug: "metaAds",
-          accessToken: token,
-        },
-      });
-
-      if (!syncRes.success) {
-        return NextResponse.json(
-          { error: syncRes.error?.message || "Failed to connect Meta account" },
-          { status: 400 },
-        );
-      }
-
-      await ensureDefaultCronJobs(user.id, DEFAULT_META_CRON_JOBS);
-      activateCronJobsForConnector(user.id, "metaAds");
-
-      // The Campaigns tab is Meta's: fill it as soon as the account connects.
-      await syncCampaignsBar(user.id, { force: true }).catch((err) =>
-        console.error("[Meta Connect] Campaign sync failed:", err),
+    if (!token) {
+      return NextResponse.json(
+        { error: "A Meta access token is required" },
+        { status: 400 },
       );
-
-      return NextResponse.json({
-        success: true,
-        connector: toBrowserConnector(syncRes.data as unknown as Record<string, unknown>),
-      });
     }
 
-    const res = await upsertConnector({
-      userId: user.id,
-      slug: "metaAds",
-      providerSlug: "metaAds",
-      status: "connected",
-      metadata: { connectedAt: new Date().toISOString() },
+    const previous = await getConnectorByUserIdAndProviderSlug(
+      user.id,
+      "metaAds",
+    );
+    const previousMetaUserId = metaUserId(previous.data?.metadata);
+
+    const syncRes = await syncMetaConnector({
+      context: {
+        userId: user.id,
+        providerSlug: "metaAds",
+        accessToken: token,
+      },
     });
 
-    await ensureDefaultCronJobs(user.id, DEFAULT_META_CRON_JOBS);
-    activateCronJobsForConnector(user.id, "metaAds");
+    if (!syncRes.success) {
+      return NextResponse.json(
+        { error: syncRes.error?.message || "Failed to connect Meta account" },
+        { status: 400 },
+      );
+    }
+
+    await ensureMetaCronSchedule(user.id, previousMetaUserId);
+
+    await syncCampaignsDetailBar(user.id).catch((err) =>
+      console.error("[Meta Connect] Campaign sync failed:", err),
+    );
 
     return NextResponse.json({
       success: true,
       connector: toBrowserConnector(
-        res as unknown as Record<string, unknown>,
+        syncRes.data as unknown as Record<string, unknown>,
       ),
     });
   } catch (err) {

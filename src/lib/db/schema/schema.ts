@@ -118,8 +118,10 @@ export const detailBarItems = sqliteTable(
     field: text("field").notNull(),
     /** Card id, stable and client-facing. */
     id: text("id").notNull(),
-    /** Only one level: an ad's campaign. */
+    /** Parent row id; null for a root card. */
     parentId: text("parent_id"),
+    /** Immutable order key; newest cards have the highest value. */
+    seq: integer("seq").notNull().default(0),
     /** User-owned state: pending, completed, ignored, error. */
     status: text("status"),
     /** The card itself, without its children. */
@@ -139,7 +141,7 @@ export const detailBarItems = sqliteTable(
       table.sessionId,
       table.field,
       table.parentId,
-      table.updatedAt,
+      table.seq,
       table.id,
     ),
     index("idx_detail_bar_items_status").on(
@@ -147,6 +149,7 @@ export const detailBarItems = sqliteTable(
       table.field,
       table.status,
     ),
+    index("idx_detail_bar_items_parent").on(table.sessionId, table.parentId),
   ],
 );
 

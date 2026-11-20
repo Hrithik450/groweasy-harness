@@ -31,6 +31,11 @@ export const SKILL_REGISTRY = {
     category: "account",
     path: "src/lib/skills/campaign-health/SKILL.md",
   },
+  "ads-classifier": {
+    name: "ads-classifier",
+    category: "account",
+    path: "src/lib/skills/ads-classifier/SKILL.md",
+  },
   alerts: {
     name: "alerts",
     category: "account",
@@ -50,11 +55,6 @@ export const SKILL_REGISTRY = {
     name: "business-profile",
     category: "account",
     path: "src/lib/skills/business-profile/SKILL.md",
-  },
-  "campaign-builder": {
-    name: "campaign-builder",
-    category: "meta",
-    path: "src/lib/skills/campaign-builder/SKILL.md",
   },
   ideas: {
     name: "ideas",

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/auth/session";
 import { exchangeMetaCodeForToken } from "@/lib/auth/meta";
 import { syncMetaConnector } from "@/lib/connectors/meta.ads";
-import { syncCampaignsBar } from "@/lib/bar/sync/campaigns";
+import { syncCampaignsDetailBar } from "@/lib/detail.bar/external/meta.campaigns";
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl;
@@ -57,13 +57,17 @@ export async function GET(req: NextRequest) {
     });
 
     // The Campaigns tab is Meta's: fill it as soon as the account connects.
-    await syncCampaignsBar(user.id, { force: true }).catch((err) =>
+    await syncCampaignsDetailBar(user.id).catch((err) =>
       console.error("[Meta OAuth] Campaign sync failed:", err),
     );
 
-    return NextResponse.redirect(
-      new URL(`${safeReturnTo}${separator}meta_connected=true`, origin),
+    const returnUrl = new URL(
+      `${safeReturnTo}${separator}meta_connected=true`,
+      origin,
     );
+    // Re-open the Meta modal so it can consume the OAuth return.
+    returnUrl.searchParams.set("open_connector", "metaAds");
+    return NextResponse.redirect(returnUrl);
   } catch (err: unknown) {
     console.error("[Meta OAuth Callback Error]", err);
     return NextResponse.redirect(

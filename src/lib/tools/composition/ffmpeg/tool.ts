@@ -15,6 +15,7 @@ import {
   isFfmpegInstalled,
   getResolvedFfmpegPath,
 } from "./probe";
+import { parseCommandArgs } from "./utils";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
 
 export const ffmpegToolDefinition = {

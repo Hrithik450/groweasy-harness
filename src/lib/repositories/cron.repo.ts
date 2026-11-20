@@ -5,12 +5,9 @@ import {
   type CronJob,
   type NewCronJob,
 } from "@/lib/db";
-import { eq, and, lte, sql, inArray } from "drizzle-orm";
+import { eq, and, lte, sql } from "drizzle-orm";
 import { sanitizeUserId } from "@/lib/utils/utils";
-import {
-  RETIRED_DEFAULT_CRON_JOB_NAMES,
-  type DefaultCronJobConfig,
-} from "./defaults";
+import { type DefaultCronJobConfig } from "./defaults";
 import { uuidv7 } from "@/lib/utils/uuid";
 
 /**
@@ -63,32 +60,7 @@ export function ensureDefaultCronJobsByUserId(
       return;
     }
 
-    const retiredNames = new Set(RETIRED_DEFAULT_CRON_JOB_NAMES);
-    const seededSessionIds = new Set<string>();
-
     for (const job of jobsList) {
-      const session = userSessions.find((s) => s.slug === job.sessionSlug);
-      if (session) seededSessionIds.add(session.id);
-    }
-
-    // Park retired default names; user-created jobs keep their status.
-    if (seededSessionIds.size > 0 && retiredNames.size > 0) {
-      tx.update(cronJobs)
-        .set({ status: "inactive", nextRunAt: null })
-        .where(
-          and(
-            eq(cronJobs.userId, safeUserId),
-            inArray(cronJobs.sessionId, [...seededSessionIds]),
-            inArray(cronJobs.name, [...retiredNames]),
-          ),
-        )
-        .run();
-    }
-
-    for (const job of jobsList) {
-      // A retired default must never be re-inserted under its old name.
-      if (retiredNames.has(job.name)) continue;
-
       const session = userSessions.find((s) => s.slug === job.sessionSlug);
       if (!session) continue;
 
@@ -157,9 +129,6 @@ export function activateCronJobsByRequires(
     )
     .all();
 
-  // A freshly admitted job runs once straight away — the user just connected
-  // the capability — then the worker schedules it from its own expression.
-  // Jobs on one session are staggered a minute apart so they do not collide.
   let changes = 0;
   let offsetMinutes = 0;
   for (const job of due) {

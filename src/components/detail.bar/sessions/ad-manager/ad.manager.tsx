@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import type {
+  Alert,
   DetailBarComponentProps,
   AdManagerDetailBarData,
+  Suggestion,
 } from "@/lib/detail.bar/types";
+import { useBarPager } from "@/hooks/use.bar.pager";
 import { DetailBarHeader } from "../../common";
 import { AlertsTab, CampaignsTab, SuggestionsTab } from "./tabs";
 
@@ -27,26 +30,28 @@ const BADGE_CLASS: Partial<Record<TabKey, string>> = {
 
 export function AdManagerDetailBar({
   session,
-  detailBar,
   isStreaming,
   handleSubmit,
   handleUpdateData,
   handleNavigation,
 }: DetailBarComponentProps<AdManagerDetailBarData>) {
   const [activeTab, setActiveTab] = useState<TabKey>("campaigns");
-  const barData = detailBar.data;
+
+  // Header badges read the same live pages as the tabs.
+  const alerts = useBarPager<Alert>(session?.id, "alerts").items;
+  const suggestions = useBarPager<Suggestion>(
+    session?.id,
+    "suggestions",
+  ).items;
 
   const badgeCount: Record<string, number> = {
-    alerts: (barData.alerts ?? []).filter(
-      (alert) => alert.status === "pending",
-    ).length,
-    suggestions: (barData.suggestions ?? []).filter(
+    alerts: alerts.filter((alert) => alert.status === "pending").length,
+    suggestions: suggestions.filter(
       (suggestion) => (suggestion.status ?? "pending") !== "completed",
     ).length,
   };
 
   const shared = {
-    data: barData,
     session,
     isStreaming,
     handleSubmit,

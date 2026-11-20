@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getSessionViewByUserIdAndSessionId } from "@/lib/services";
 import { getSessionFromCookies } from "@/lib/auth/session.server";
-import { readBarItemForSession } from "@/lib/bar/service";
+import { readBarItemForSession } from "@/lib/detail.bar/service";
 import { GenerativeUIRenderer } from "@/components/generative.ui/renderer";
 import type { DailyReport } from "@/lib/detail.bar/types";
 import { reportDateLabels } from "@/lib/utils/report.date";

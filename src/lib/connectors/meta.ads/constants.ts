@@ -40,6 +40,19 @@ export enum MetaCampaignStatus {
   ARCHIVED = "ARCHIVED",
 }
 
+export enum MetaAdSetStatus {
+  ACTIVE = "ACTIVE",
+  PAUSED = "PAUSED",
+  DELETED = "DELETED",
+  ARCHIVED = "ARCHIVED",
+}
+
+export enum MetaAdStatus {
+  ACTIVE = "ACTIVE",
+  PAUSED = "PAUSED",
+  ARCHIVED = "ARCHIVED",
+}
+
 /**
  * Official Meta Special Ad Categories
  * https://developers.facebook.com/docs/marketing-api/reference/ad-campaign-group#fields
@@ -171,6 +184,17 @@ export enum MetaCallToActionType {
   VOTE_NOW = "VOTE_NOW",
   WATCH_MORE = "WATCH_MORE",
   WHATSAPP_MESSAGE = "WHATSAPP_MESSAGE",
+}
+
+/**
+ * Official Meta Ad Set Bid Strategies
+ * https://developers.facebook.com/docs/marketing-api/bidding/overview
+ */
+export enum MetaBidStrategy {
+  LOWEST_COST_WITHOUT_CAP = "LOWEST_COST_WITHOUT_CAP",
+  LOWEST_COST_WITH_BID_CAP = "LOWEST_COST_WITH_BID_CAP",
+  COST_CAP = "COST_CAP",
+  MINIMUM_ROAS = "MINIMUM_ROAS",
 }
 
 /**

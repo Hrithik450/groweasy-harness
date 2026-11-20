@@ -66,7 +66,7 @@ export const DEFAULT_CRON_JOBS: readonly DefaultCronJobConfig[] = [
     sessionSlug: "adManager",
     name: CAMPAIGN_HEALTH_JOB_NAME,
     prompt:
-      "Classify every synced ad: load the `campaign-health` skill, read the current ads with `readCampaignAds`, and save one verdict per ad with `updateCampaignAds`.",
+      "Classify every synced ad: load the `ads-classifier` skill, read the live ads with `fetchMetaAds`, and save one verdict plus its computed metrics per ad with `upsertAdsClassified`.",
     timing: { kind: "cron", expression: "0 */6 * * *" },
     requires: "metaAds",
   },
@@ -111,16 +111,6 @@ export const DEFAULT_CRON_JOBS: readonly DefaultCronJobConfig[] = [
     requires: "metaAds",
   },
 ];
-
-/**
- * Default names retired from the seed registry. Reconciliation parks them so
- * re-seeding an existing user cannot leave them running.
- */
-export const RETIRED_DEFAULT_CRON_JOB_NAMES: readonly string[] = [
-  "Daily Diagnostic Audit",
-  "Daily Market Winning Ads Scan",
-  "Daily Account Winning Ads Scan",
-] as const;
 
 /** Meta-only subset of the default registry (used when Meta connects). */
 export const DEFAULT_META_CRON_JOBS: readonly DefaultCronJobConfig[] =

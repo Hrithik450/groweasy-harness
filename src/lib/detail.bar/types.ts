@@ -1,5 +1,5 @@
 import type React from "react";
-import type { BarField, BarStatus } from "@/lib/detail.bar/fields";
+import type { DetailBarField, BarStatus } from "@/lib/detail.bar/fields";
 import type {
   DetailBarRegistry,
   DetailBarComponentProps,
@@ -9,7 +9,6 @@ import type { MetaCampaign } from "@/lib/connectors/meta.ads/types";
 
 /** Props one tab receives from its bar: the payload is already unwrapped. */
 export interface DetailBarTabProps<TData = unknown> {
-  data: TData;
   session?: import("@/lib/core/session/view").SessionView;
   isStreaming?: boolean;
   handleSubmit?: (
@@ -20,10 +19,11 @@ export interface DetailBarTabProps<TData = unknown> {
    * Update the bar: always applies `newData` locally; when `item` is given the
    * row patch is also persisted and the server merges it.
    */
-  handleUpdateData?: (
-    newData: Partial<TData>,
-    item?: { kind: BarField; id: string; patch: Record<string, unknown> },
-  ) => Promise<void>;
+  handleUpdateData?: (item: {
+    kind: DetailBarField;
+    id: string;
+    patch: Record<string, unknown>;
+  }) => Promise<void>;
   handleNavigation?: (turnId: string) => void;
 }
 
@@ -62,7 +62,7 @@ export type DetailBarSlug = keyof DetailBarDataMap;
 export type DetailBarType = DetailBarSlug | "default";
 
 /** Card shape each tab stores. */
-export interface BarFieldItemMap {
+export interface DetailBarFieldItemMap {
   campaigns: Campaign;
   alerts: Alert;
   suggestions: Suggestion;
@@ -73,8 +73,8 @@ export interface BarFieldItemMap {
   campaignBriefs: CampaignBrief;
 }
 
-export type BarFieldItem<F extends BarField> = BarFieldItemMap[F];
-
+export type DetailBarFieldItem<F extends keyof DetailBarFieldItemMap> =
+  DetailBarFieldItemMap[F];
 
 export interface BarRowRef {
   id: string;
@@ -92,15 +92,21 @@ export interface CampaignChips {
   potential?: number;
 }
 
-export type AdCategory =
-  | "winner"
-  | "scaler"
-  | "potential"
-  | "loser"
-  | "untested";
+export const AD_CATEGORIES = [
+  "winner",
+  "scaler",
+  "potential",
+  "loser",
+  "untested",
+] as const;
+
+export type AdCategory = (typeof AD_CATEGORIES)[number];
 
 /** What the user did with the card's action; every action card carries one. */
 export type ActionStatus = BarStatus;
+
+/** Wire-only row state merged by `rowToItem`; never stored in `data`. */
+export type BarCard<T> = T & { status?: BarStatus };
 
 /** The numbers printed under an ad's name, all derived from Meta. */
 export interface CampaignAdMetrics {
@@ -115,7 +121,7 @@ export interface CampaignAdMetrics {
   roas?: string;
 }
 
-/** The move recommended for one ad; its status lives with it, not on the card. */
+/** The move recommended for one ad; the user's decision lives on the row. */
 export interface CampaignAdAction {
   /** Recommendation sentence, e.g. "Pause it and move ₹400/day to the winner." */
   fix: string;
@@ -123,8 +129,6 @@ export interface CampaignAdAction {
   before?: string;
   /** Preview drawer: what the move changes. */
   after?: string;
-  /** Whether the user completed or ignored the move; defaults to pending. */
-  status: ActionStatus;
 }
 
 /** One ad; the campaign's inner panel groups these by category. */
@@ -140,7 +144,7 @@ export interface CampaignAd {
   metrics?: CampaignAdMetrics;
   /** Metric against the other ads in its ad set, max 5-6 words. */
   siblingComparison?: string;
-  /** Metric line with the day it is judged on, max 5-6 words. */
+  /** This ad's share of results vs its ad set, campaign, or account. */
   resultShare?: string;
   /** Expected gain from taking the action, one string metric. */
   value?: string;
@@ -193,7 +197,6 @@ export interface Alert extends BarRowRef {
   action: AlertAction;
   meta: AlertMeta;
   chart?: Record<string, unknown>;
-  status: AlertStatus;
   note?: string;
 }
 

@@ -8,10 +8,6 @@ import {
   MetaSpecialAdCategory,
 } from "./constants";
 
-// ============================================================================
-// LEVEL 4: Ad & Creative Layer (Execution Atomic Assets)
-// ============================================================================
-
 export const MetaAdCreativeSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
@@ -34,15 +30,46 @@ export const MetaAdSchema = z.object({
   name: z.string().optional(),
   status: z.enum(["ACTIVE", "PAUSED", "ARCHIVED"]).optional(),
   creative: MetaAdCreativeSchema.optional(),
+  adSetId: z.string().optional(),
+  creativeId: z.string().optional(),
   createdTime: z.string().optional(),
   updatedTime: z.string().optional(),
 });
 
 export type MetaAd = z.infer<typeof MetaAdSchema>;
 
-// ============================================================================
-// LEVEL 3: Ad Set Layer (Targeting, Budget & Distribution)
-// ============================================================================
+export const MetaCreativeParamsSchema = z.object({
+  adAccountId: z.string(),
+  /** Optional only when the account manages exactly one Page. */
+  pageId: z.string().optional(),
+  name: z.string(),
+  type: z.enum(["image", "video"]),
+  headline: z.string(),
+  primaryText: z.string(),
+  description: z.string().optional(),
+  callToAction: z.string().optional(),
+  destinationUrl: z.string(),
+  imageHash: z.string().optional(),
+  videoId: z.string().optional(),
+});
+
+export type MetaCreativeParams = z.infer<typeof MetaCreativeParamsSchema>;
+
+export type MetaCreative = MetaCreativeParams & {
+  pageId: string;
+  creativeId: string;
+  callToAction: string;
+};
+
+export const MetaAdParamsSchema = z.object({
+  adAccountId: z.string(),
+  adSetId: z.string(),
+  name: z.string(),
+  status: z.enum(["PAUSED", "ACTIVE"]).optional(),
+  creativeId: z.string(),
+});
+
+export type MetaAdParams = z.infer<typeof MetaAdParamsSchema>;
 
 export const MetaAdSetTargetingSchema = z.object({
   geoLocations: z
@@ -69,6 +96,18 @@ export const MetaAdSetTargetingSchema = z.object({
       z.array(z.string()),
     ])
     .optional(),
+  behaviors: z
+    .union([
+      z.array(z.object({ id: z.string(), name: z.string() })),
+      z.array(z.string()),
+    ])
+    .optional(),
+  publisherPlatforms: z.array(z.string()).optional(),
+  devicePlatforms: z.array(z.string()).optional(),
+  languages: z.array(z.number()).optional(),
+  locales: z.array(z.number()).optional(),
+  customAudiences: z.array(z.object({ id: z.string() })).optional(),
+  excludedCustomAudiences: z.array(z.object({ id: z.string() })).optional(),
 });
 
 export type MetaAdSetTargeting = z.infer<typeof MetaAdSetTargetingSchema>;
@@ -83,7 +122,29 @@ export const MetaAdSetSchema = z.object({
   billingEvent: z.string().optional(),
   optimizationGoal: z.string().optional(),
   bidAmount: z.number().optional(),
+  bidStrategy: z.string().optional(),
+  bidConstraints: z
+    .object({ roasAverageFloor: z.number().optional() })
+    .optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
   targeting: MetaAdSetTargetingSchema.optional(),
+  /** Conversion destination, e.g. WEBSITE. */
+  destinationType: z.string().optional(),
+  /** Destination object for the optimization goal. */
+  promotedObject: z
+    .object({
+      pixelId: z.string().optional(),
+      customEventType: z.string().optional(),
+      applicationId: z.string().optional(),
+      objectStoreUrl: z.string().optional(),
+      productCatalogId: z.string().optional(),
+      productSetId: z.string().optional(),
+      pageId: z.string().optional(),
+      leadFormId: z.string().optional(),
+    })
+    .optional(),
+  frequencyControlSpecs: z.array(z.record(z.string(), z.unknown())).optional(),
   campaignId: z.string().optional(),
   campaignName: z.string().optional(),
   createdTime: z.string().optional(),
@@ -92,13 +153,20 @@ export const MetaAdSetSchema = z.object({
 });
 
 export type MetaAdSet = z.infer<typeof MetaAdSetSchema>;
-export type MetaAdSetParams = MetaAdSet;
 
-export const CreateMetaCampaignParamsSchema = z.object({
+export interface MetaAdSetParams extends MetaAdSet {
+  campaignId: string;
+  adAccountId: string;
+}
+
+export const MetaCampaignParamsSchema = z.object({
   name: z.string(),
   objective: z.nativeEnum(MetaCampaignObjective).or(z.string()),
   status: z.nativeEnum(MetaCampaignStatus).or(z.string()).optional(),
   dailyBudget: z.number().optional(),
+  lifetimeBudget: z.number().optional(),
+  startTime: z.string().optional(),
+  stopTime: z.string().optional(),
   specialAdCategories: z
     .array(z.nativeEnum(MetaSpecialAdCategory).or(z.string()))
     .optional(),
@@ -109,9 +177,7 @@ export const CreateMetaCampaignParamsSchema = z.object({
   userId: z.string().optional(),
 });
 
-export type CreateMetaCampaignParams = z.infer<
-  typeof CreateMetaCampaignParamsSchema
->;
+export type MetaCampaignParams = z.infer<typeof MetaCampaignParamsSchema>;
 
 export const CreateMetaCampaignResultSchema = z.object({
   success: z.boolean(),

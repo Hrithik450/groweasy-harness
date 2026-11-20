@@ -9,12 +9,12 @@ export const fetchMetaAdSetsToolDefinition = {
     "Fetch advertising Ad Sets from Meta Ads Manager using free-form Meta Graph API queries (v22.0).\n\n" +
     "Target Endpoint: `GET /v22.0/{ad_account_id}/adsets`, `GET /v22.0/{campaign_id}/adsets`, or `GET /v22.0/{ad_set_id}`\n\n" +
     "Supported Query Parameters:\n" +
-    "- `fields`: Comma-separated fields (e.g. `id,name,status,effective_status,campaign_id,campaign{id,name},daily_budget,lifetime_budget,bid_amount,billing_event,optimization_goal,targeting,created_time,updated_time,start_time,end_time,learning_stage_info,issues_info`)\n" +
+    "- `fields`: Comma-separated fields (e.g. `id,name,status,effective_status,campaign_id,campaign{id,name},daily_budget,lifetime_budget,bid_strategy,bid_amount,bid_constraints,billing_event,optimization_goal,destination_type,promoted_object,frequency_control_specs,targeting,start_time,end_time,created_time,updated_time,learning_stage_info,issues_info`)\n" +
     '- `filtering`: JSON array of filter objects (e.g. `[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED"]}]`)\n' +
     "- `date_preset`: `today`, `yesterday`, `this_month`, `last_7d`, `last_30d`, `maximum`\n" +
     '- `time_range`: `{"since":"YYYY-MM-DD","until":"YYYY-MM-DD"}`\n' +
-    "- `limit`: Max records to return (e.g. `limit=25`)\n\n" +
-    "Supports plural queries (max 5 parallel queries at a time) inside `queries` array. Provide full relative path and parameters except accessToken, which is securely injected on the backend.",
+    "- `limit`: Max records to return (e.g. `limit=25`).\n\n" +
+    "Full field reference: https://developers.facebook.com/docs/marketing-api/reference/ad-campaign/.",
   parameters: {
     type: "object",
     properties: {

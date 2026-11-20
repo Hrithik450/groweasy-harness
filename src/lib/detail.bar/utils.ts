@@ -1,7 +1,6 @@
 import type { DetailBarType } from "./types";
 export { formatAlertTimestamp } from "@/lib/utils/date";
 
-
 /**
  * Resolves the detail-bar type for a session from its canonical slug.
  *
@@ -17,4 +16,3 @@ export function resolveDetailBarType(
 
   return "default";
 }
-

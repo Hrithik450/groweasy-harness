@@ -7,7 +7,8 @@ import {
   BaseManagerModalFooter,
 } from "../base.modal";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { OAUTH_RETURN_PARAMS } from "@/lib/utils/utils";
 import { LogOut, Loader2 } from "lucide-react";
 import type { MetaAdAccount } from "@/lib/connectors/meta.ads/types";
 import { MetaAdAccountsTab, MetaSettingsTab } from "./tabs";
@@ -32,6 +33,27 @@ export function MetaAdsManagerModal({
   // Server-owned: the disconnect write comes back on the session stream.
   const isConnected = connector.status === "connected";
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+
+  // The OAuth return lands with `meta_connected=true`; consume it here once
+  // the stream has delivered the connected connector.
+  useEffect(() => {
+    if (connector.status !== "connected") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("meta_connected") !== "true") return;
+
+    const url = new URL(window.location.href);
+    for (const name of OAUTH_RETURN_PARAMS) url.searchParams.delete(name);
+    const query = url.searchParams.toString();
+    // Facebook returns `#_=_`; it is OAuth noise, not app state.
+    const hash = /^[#_=]+$/.test(url.hash) ? "" : url.hash;
+    window.history.replaceState(
+      {},
+      "",
+      `${url.pathname}${query ? `?${query}` : ""}${hash}`,
+    );
+
+    toast.success("Meta Ads connected");
+  }, [connector.status]);
 
   const handleDisconnect = async () => {
     setIsDisconnecting(true);

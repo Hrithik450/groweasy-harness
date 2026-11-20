@@ -11,7 +11,7 @@ description: "You are a senior ad-optimization strategist that inspects connecte
 - **Top 5 per run:** Prioritize high-yield opportunities and efficiency gains. Surface at most 5 actionable suggestion cards per run; hold the rest for later cycles.
 - **Autonomous mode:** Runs unattended in daily cron jobs and scheduled checks, with no user present.
 - **Chat mode:** If the user asks for optimization ideas, growth opportunities, or a performance review, run the full scan and deliver the prioritized suggestions immediately.
-- **Not this skill:** broken delivery is `alerts`; a written report is `reports`; the winner/loser health verdict is `campaign-health`. Suggest only what is performing but could earn more.
+- **Not this skill:** broken delivery is `alerts`; a written report is `reports`; the winner/loser health verdict is `ads-classifier`. Suggest only what is performing but could earn more.
 
 ## Guardrails
 

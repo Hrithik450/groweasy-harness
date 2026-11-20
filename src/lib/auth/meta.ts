@@ -15,6 +15,10 @@ export const META_REQUIRED_SCOPES = [
   "ads_read",
   "read_insights",
   "ads_management",
+  // Creatives publish under a Facebook Page, so the token must see Pages.
+  "pages_show_list",
+  "pages_read_engagement",
+  "pages_manage_ads",
 ];
 
 export function isMetaOAuthConfigured(): boolean {

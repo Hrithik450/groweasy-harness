@@ -1,5 +1,5 @@
 import * as repo from "@/lib/repositories";
-import { getDetailBarState } from "@/lib/bar/snapshot";
+import { getDetailBarState } from "@/lib/detail.bar/snapshot";
 import { toSessionView, type SessionView } from "@/lib/core/session/view";
 import { DEFAULT_SESSIONS } from "./default";
 import type { Session, NewSession } from "@/lib/db";

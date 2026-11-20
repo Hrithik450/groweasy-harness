@@ -43,9 +43,7 @@ export async function upsertConnector(
 ): Promise<Response<Connector>> {
   try {
     const result = repo.upsertConnector(data);
-    // Connector availability is what admits gated jobs to the schedule.
-    syncCronJobsForConnector(result.userId, result.slug, result.status);
-    // Every write — tool, route, disconnect — reaches open clients from here.
+
     publish(userKey(result.userId), {
       event: SESSION_CONNECTOR_EVENT,
       data: {

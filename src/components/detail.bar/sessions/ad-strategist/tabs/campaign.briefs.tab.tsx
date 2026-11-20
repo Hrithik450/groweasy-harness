@@ -29,14 +29,9 @@ function briefDate(brief: CampaignBrief): string | undefined {
 /** Saved campaign briefs; only briefs written in this session are jumpable. */
 export function CampaignBriefsTab({
   session,
-  data,
   handleNavigation,
 }: DetailBarTabProps<AdStrategistDetailBarData>) {
-  const pager = useBarPager(
-    session?.id ?? "",
-    "campaignBriefs",
-    data?.campaignBriefs ?? [],
-  );
+  const pager = useBarPager<CampaignBrief>(session?.id, "campaignBriefs");
 
   if (pager.items.length === 0) {
     return (

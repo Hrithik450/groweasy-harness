@@ -16,13 +16,171 @@ import {
   type MetaAdSet,
   type MetaAd,
   type MetaAdSetParams,
-  type CreateMetaCampaignParams,
+  type MetaAdParams,
+  type MetaCreative,
+  type MetaCreativeParams,
+  type MetaCampaignParams,
   MetaAdAccountStatus,
+  MetaBidStrategy,
+  MetaBillingEvent,
+  MetaCampaignObjective,
   MetaCampaignStatus,
+  MetaOptimizationGoal,
   MetaAdAccountSchema,
   validateMetaConnector,
   parseMetaConnector,
 } from "./types";
+
+/** Meta's detailed error: message, code, subcode, and blamed fields. */
+function metaErrorMessage(payload: unknown, fallback: string): string {
+  const error = (payload as { error?: Record<string, unknown> } | null)?.error;
+  if (!error) return fallback;
+
+  const parts: string[] = [];
+  for (const key of ["error_user_msg", "error_user_title", "message"]) {
+    const value = error[key];
+    if (typeof value === "string" && value.trim()) parts.push(value.trim());
+  }
+  if (error.code !== undefined) parts.push(`code ${String(error.code)}`);
+  if (error.error_subcode !== undefined) {
+    parts.push(`subcode ${String(error.error_subcode)}`);
+  }
+  const data = error.error_data as
+    | { blame_field_specs?: unknown }
+    | undefined;
+  if (data?.blame_field_specs) {
+    parts.push(`fields ${JSON.stringify(data.blame_field_specs)}`);
+  }
+  // Meta sometimes returns only "Invalid parameter"; keep the raw payload.
+  if (error.code === undefined && error.error_subcode === undefined) {
+    parts.push(`raw ${JSON.stringify(error)}`);
+  }
+  return parts.join(" · ") || fallback;
+}
+
+/** Objective → optimization goals Meta accepts for its ad sets. */
+const GOALS_BY_OBJECTIVE: Partial<
+  Record<MetaCampaignObjective, readonly MetaOptimizationGoal[]>
+> = {
+  [MetaCampaignObjective.OUTCOME_SALES]: [
+    MetaOptimizationGoal.OFFSITE_CONVERSIONS,
+    MetaOptimizationGoal.VALUE,
+  ],
+  [MetaCampaignObjective.OUTCOME_LEADS]: [
+    MetaOptimizationGoal.OFFSITE_CONVERSIONS,
+    MetaOptimizationGoal.LEAD_GENERATION,
+    MetaOptimizationGoal.QUALITY_LEAD,
+    MetaOptimizationGoal.CONVERSATIONS,
+  ],
+  [MetaCampaignObjective.OUTCOME_TRAFFIC]: [
+    MetaOptimizationGoal.LINK_CLICKS,
+    MetaOptimizationGoal.LANDING_PAGE_VIEWS,
+    MetaOptimizationGoal.IMPRESSIONS,
+    MetaOptimizationGoal.REACH,
+  ],
+  [MetaCampaignObjective.OUTCOME_AWARENESS]: [
+    MetaOptimizationGoal.REACH,
+    MetaOptimizationGoal.IMPRESSIONS,
+    MetaOptimizationGoal.AD_RECALL_LIFT,
+  ],
+  [MetaCampaignObjective.OUTCOME_ENGAGEMENT]: [
+    MetaOptimizationGoal.POST_ENGAGEMENT,
+    MetaOptimizationGoal.PAGE_LIKES,
+    MetaOptimizationGoal.EVENT_RESPONSES,
+    MetaOptimizationGoal.CONVERSATIONS,
+    MetaOptimizationGoal.THRUPLAY,
+    MetaOptimizationGoal.VISIT_INSTAGRAM_PROFILE,
+    MetaOptimizationGoal.MESSAGING_PURCHASE_CONVERSION,
+    MetaOptimizationGoal.MESSAGING_DEEP_CONVERSATION_AND_FOLLOW,
+  ],
+  [MetaCampaignObjective.OUTCOME_APP_PROMOTION]: [
+    MetaOptimizationGoal.APP_INSTALLS,
+    MetaOptimizationGoal.OFFSITE_CONVERSIONS,
+    MetaOptimizationGoal.VALUE,
+  ],
+};
+
+/** Optimization goal → billing events Meta accepts. */
+const BILLING_BY_GOAL: Partial<
+  Record<MetaOptimizationGoal, readonly MetaBillingEvent[]>
+> = {
+  [MetaOptimizationGoal.LINK_CLICKS]: [
+    MetaBillingEvent.LINK_CLICKS,
+    MetaBillingEvent.IMPRESSIONS,
+  ],
+  [MetaOptimizationGoal.IMPRESSIONS]: [MetaBillingEvent.IMPRESSIONS],
+  [MetaOptimizationGoal.REACH]: [MetaBillingEvent.IMPRESSIONS],
+  [MetaOptimizationGoal.OFFSITE_CONVERSIONS]: [MetaBillingEvent.IMPRESSIONS],
+  [MetaOptimizationGoal.VALUE]: [MetaBillingEvent.IMPRESSIONS],
+  [MetaOptimizationGoal.APP_INSTALLS]: [MetaBillingEvent.IMPRESSIONS],
+  [MetaOptimizationGoal.POST_ENGAGEMENT]: [
+    MetaBillingEvent.IMPRESSIONS,
+    MetaBillingEvent.POST_ENGAGEMENT,
+  ],
+  [MetaOptimizationGoal.THRUPLAY]: [
+    MetaBillingEvent.IMPRESSIONS,
+    MetaBillingEvent.THRUPLAY,
+  ],
+  [MetaOptimizationGoal.LEAD_GENERATION]: [MetaBillingEvent.IMPRESSIONS],
+  [MetaOptimizationGoal.QUALITY_LEAD]: [MetaBillingEvent.IMPRESSIONS],
+  [MetaOptimizationGoal.CONVERSATIONS]: [MetaBillingEvent.IMPRESSIONS],
+  [MetaOptimizationGoal.PAGE_LIKES]: [MetaBillingEvent.IMPRESSIONS],
+  [MetaOptimizationGoal.LANDING_PAGE_VIEWS]: [MetaBillingEvent.IMPRESSIONS],
+};
+
+/** Precise, pre-flight reason an ad set is invalid for its campaign. */
+function adSetComboError(
+  objective: string,
+  goal: string,
+  billing: string,
+  params: MetaAdSetParams | undefined,
+  campaignBidStrategy = "",
+): string | null {
+  const allowed = GOALS_BY_OBJECTIVE[objective as MetaCampaignObjective];
+  if (allowed && !allowed.includes(goal as MetaOptimizationGoal)) {
+    return `optimizationGoal "${goal}" is not valid for a ${objective} campaign. Use one of: ${allowed.join(", ")}.`;
+  }
+
+  const billings = BILLING_BY_GOAL[goal as MetaOptimizationGoal];
+  if (billings && !billings.includes(billing as MetaBillingEvent)) {
+    return `billingEvent "${billing}" is not valid with optimizationGoal "${goal}". Use one of: ${billings.join(", ")}.`;
+  }
+
+  const bidStrategy = params?.bidStrategy || campaignBidStrategy;
+
+  if (
+    params?.bidAmount !== undefined &&
+    params?.bidStrategy &&
+    params.bidStrategy !== MetaBidStrategy.LOWEST_COST_WITH_BID_CAP
+  ) {
+    return 'bidAmount requires bidStrategy "LOWEST_COST_WITH_BID_CAP".';
+  }
+  if (
+    bidStrategy === MetaBidStrategy.LOWEST_COST_WITH_BID_CAP &&
+    params?.bidAmount === undefined
+  ) {
+    return 'The campaign uses "LOWEST_COST_WITH_BID_CAP"; provide bidAmount (bid cap) or set a different bidStrategy.';
+  }
+  if (bidStrategy === MetaBidStrategy.COST_CAP && params?.bidAmount === undefined) {
+    return 'bidStrategy "COST_CAP" requires bidAmount (average target cost).';
+  }
+  if (
+    bidStrategy === MetaBidStrategy.MINIMUM_ROAS &&
+    params?.bidConstraints?.roasAverageFloor === undefined
+  ) {
+    return 'bidStrategy "MINIMUM_ROAS" requires bidConstraints.roasAverageFloor.';
+  }
+  if (goal === "APP_INSTALLS" && !params?.promotedObject?.applicationId) {
+    return 'optimizationGoal "APP_INSTALLS" requires promotedObject.applicationId.';
+  }
+  if (
+    (goal === "OFFSITE_CONVERSIONS" || goal === "VALUE") &&
+    !params?.promotedObject?.pixelId
+  ) {
+    return `${goal} requires promotedObject.pixelId (and customEventType); query a pixel with queryMeta first.`;
+  }
+  return null;
+}
 
 export async function verifyMetaToken(
   token: string,
@@ -483,7 +641,7 @@ export async function fetchMetaAdSets(
     ]);
 
     const targetNode = campaignId || actId;
-    const url = `https://graph.facebook.com/v19.0/${targetNode}/adsets?fields=id,name,status,daily_budget,lifetime_budget,optimization_goal,billing_event,bid_amount,created_time,targeting,campaign_id,campaign{id,name}&filtering=${encodeURIComponent(
+    const url = `https://graph.facebook.com/v19.0/${targetNode}/adsets?fields=id,name,status,daily_budget,lifetime_budget,optimization_goal,billing_event,bid_strategy,bid_amount,bid_constraints,start_time,end_time,destination_type,promoted_object,frequency_control_specs,created_time,targeting,campaign_id,campaign{id,name}&filtering=${encodeURIComponent(
       filter,
     )}&limit=${limit}&access_token=${token}`;
 
@@ -493,7 +651,7 @@ export async function fetchMetaAdSets(
     });
 
     if (!res.ok) {
-      const fallbackUrl = `https://graph.facebook.com/v19.0/${targetNode}/adsets?fields=id,name,status,daily_budget,lifetime_budget,optimization_goal,billing_event,bid_amount,created_time,targeting,campaign_id,campaign{id,name}&limit=${limit}&access_token=${token}`;
+      const fallbackUrl = `https://graph.facebook.com/v19.0/${targetNode}/adsets?fields=id,name,status,daily_budget,lifetime_budget,optimization_goal,billing_event,bid_strategy,bid_amount,bid_constraints,start_time,end_time,destination_type,promoted_object,frequency_control_specs,created_time,targeting,campaign_id,campaign{id,name}&limit=${limit}&access_token=${token}`;
       const fallbackRes = await fetch(fallbackUrl, {
         headers: { Accept: "application/json" },
         signal: AbortSignal.timeout(12000),
@@ -534,8 +692,63 @@ export async function fetchMetaAdSets(
         budgetFormatted,
         optimizationGoal: s.optimization_goal,
         billingEvent: s.billing_event,
+        bidStrategy: s.bid_strategy,
         bidAmount: s.bid_amount ? Number(s.bid_amount) / 100 : undefined,
-        targeting: s.targeting,
+        bidConstraints: s.bid_constraints
+          ? { roasAverageFloor: s.bid_constraints.roas_average_floor }
+          : undefined,
+        startTime: s.start_time,
+        endTime: s.end_time,
+        destinationType: s.destination_type,
+        promotedObject: s.promoted_object
+          ? {
+              pixelId: s.promoted_object.pixel_id,
+              customEventType: s.promoted_object.custom_event_type,
+              applicationId: s.promoted_object.application_id,
+              objectStoreUrl: s.promoted_object.object_store_url,
+              productCatalogId: s.promoted_object.product_catalog_id,
+              productSetId: s.promoted_object.product_set_id,
+              pageId: s.promoted_object.page_id,
+            }
+          : undefined,
+        frequencyControlSpecs: s.frequency_control_specs,
+        targeting: s.targeting
+          ? {
+              geoLocations: s.targeting.geo_locations
+                ? {
+                    countries: s.targeting.geo_locations.countries,
+                    regions: s.targeting.geo_locations.regions,
+                    cities: Array.isArray(s.targeting.geo_locations.cities)
+                      ? s.targeting.geo_locations.cities.map((city: any) => ({
+                          key: city.key,
+                          radius: city.radius,
+                          distanceUnit: city.distance_unit,
+                        }))
+                      : undefined,
+                  }
+                : undefined,
+              ageMin: s.targeting.age_min,
+              ageMax: s.targeting.age_max,
+              genders: s.targeting.genders,
+              publisherPlatforms: s.targeting.publisher_platforms,
+              devicePlatforms: s.targeting.device_platforms,
+              languages: s.targeting.languages,
+              locales: s.targeting.locales,
+              customAudiences: s.targeting.custom_audiences,
+              excludedCustomAudiences:
+                s.targeting.excluded_custom_audiences,
+              interests: Array.isArray(s.targeting.flexible_spec)
+                ? s.targeting.flexible_spec.flatMap((spec: any) =>
+                    Array.isArray(spec.interests) ? spec.interests : [],
+                  )
+                : undefined,
+              behaviors: Array.isArray(s.targeting.flexible_spec)
+                ? s.targeting.flexible_spec.flatMap((spec: any) =>
+                    Array.isArray(spec.behaviors) ? spec.behaviors : [],
+                  )
+                : undefined,
+            }
+          : undefined,
         campaignId: s.campaign_id || s.campaign?.id,
         campaignName: s.campaign?.name,
         createdTime: s.created_time,
@@ -811,26 +1024,60 @@ export async function updateMetaCampaign(
   }
 }
 
+export interface UploadMetaImageParams {
+  adAccountId: string;
+  image: Buffer;
+  filename?: string;
+}
+
 /**
- * Uploads an image creative to Meta Ad Account to get an image hash.
+ * Uploads an image to the Meta ad account and returns its image hash.
  */
 export async function uploadImageCreative(
-  adAccountId: string,
-  imageBuffer: Buffer,
-  filename: string,
-  token: string,
+  input: ConnectorInput<UploadMetaImageParams>,
 ): Promise<ConnectorOutput<{ hash: string; url?: string }>> {
   try {
+    const { params, context } = input;
+    const userId = context.userId;
+    if (!userId) {
+      return connectorError(
+        "User context required to upload a Meta image.",
+        "AUTH_REQUIRED",
+      );
+    }
+
+    const rawActId = params?.adAccountId?.trim();
+    if (!rawActId || !params?.image) {
+      return connectorError(
+        "adAccountId and image are required to upload an image.",
+        "INVALID_INPUT",
+      );
+    }
+    const actId = rawActId.startsWith("act_") ? rawActId : `act_${rawActId}`;
+    const filename = params.filename?.trim() || "ad-image.png";
+
+    const connectorRes = await getConnectorByUserIdAndProviderSlug(
+      userId,
+      "metaAds",
+    );
+    const token = context.accessToken ?? connectorRes?.data?.accessToken;
+    if (!token) {
+      return connectorError(
+        "Meta Ads connector is not connected. Missing access token.",
+        "AUTH_REQUIRED",
+      );
+    }
+
     const form = new FormData();
     form.append(
       "filename",
-      new Blob([new Uint8Array(imageBuffer)], { type: "image/png" }),
+      new Blob([new Uint8Array(params.image)], { type: "image/png" }),
       filename,
     );
     form.append("access_token", token);
 
     const res = await fetch(
-      `https://graph.facebook.com/v19.0/${adAccountId}/adimages`,
+      `https://graph.facebook.com/v19.0/${actId}/adimages`,
       {
         method: "POST",
         body: form,
@@ -841,7 +1088,7 @@ export async function uploadImageCreative(
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       return connectorError(
-        err?.error?.message || `Image upload failed (${res.status})`,
+        metaErrorMessage(err, `Image upload failed (${res.status})`),
         "UPSTREAM_ERROR",
       );
     }
@@ -861,23 +1108,54 @@ export async function uploadImageCreative(
   }
 }
 
+export interface UploadMetaVideoParams {
+  adAccountId: string;
+  video: Buffer;
+  filename?: string;
+}
+
 /**
- * Uploads a video creative to Meta Ad Account to get a video ID.
+ * Uploads a video to the Meta ad account and returns its video id.
  */
 export async function uploadVideoCreative(
-  adAccountId: string,
-  videoBuffer: Buffer,
-  filename: string,
-  token: string,
+  input: ConnectorInput<UploadMetaVideoParams>,
 ): Promise<ConnectorOutput<{ id: string }>> {
   try {
-    const actId = adAccountId.startsWith("act_")
-      ? adAccountId
-      : `act_${adAccountId}`;
+    const { params, context } = input;
+    const userId = context.userId;
+    if (!userId) {
+      return connectorError(
+        "User context required to upload a Meta video.",
+        "AUTH_REQUIRED",
+      );
+    }
+
+    const rawActId = params?.adAccountId?.trim();
+    if (!rawActId || !params?.video) {
+      return connectorError(
+        "adAccountId and video are required to upload a video.",
+        "INVALID_INPUT",
+      );
+    }
+    const actId = rawActId.startsWith("act_") ? rawActId : `act_${rawActId}`;
+    const filename = params.filename?.trim() || "ad-video.mp4";
+
+    const connectorRes = await getConnectorByUserIdAndProviderSlug(
+      userId,
+      "metaAds",
+    );
+    const token = context.accessToken || connectorRes?.data?.accessToken;
+    if (!token) {
+      return connectorError(
+        "Meta Ads connector is not connected. Missing access token.",
+        "AUTH_REQUIRED",
+      );
+    }
+
     const form = new FormData();
     form.append(
       "source",
-      new Blob([new Uint8Array(videoBuffer)], { type: "video/mp4" }),
+      new Blob([new Uint8Array(params.video)], { type: "video/mp4" }),
       filename,
     );
     form.append("access_token", token);
@@ -894,7 +1172,7 @@ export async function uploadVideoCreative(
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       return connectorError(
-        err?.error?.message || `Video upload failed (${res.status})`,
+        metaErrorMessage(err, `Video upload failed (${res.status})`),
         "UPSTREAM_ERROR",
       );
     }
@@ -912,16 +1190,11 @@ export async function uploadVideoCreative(
   }
 }
 
-export interface CreateMetaAdSetParams extends MetaAdSetParams {
-  campaignId: string;
-  adAccountId: string;
-}
-
 /**
  * Creates an Ad Set under a Campaign.
  */
 export async function createMetaAdSet(
-  input: ConnectorInput<CreateMetaAdSetParams>,
+  input: ConnectorInput<MetaAdSetParams>,
 ): Promise<ConnectorOutput<{ id: string }>> {
   try {
     const { params, context } = input;
@@ -965,32 +1238,166 @@ export async function createMetaAdSet(
       );
     }
 
+    // A campaign with CBO rejects an ad-set budget outright.
+    const budgetRes = await fetch(
+      `https://graph.facebook.com/v19.0/${campaignId}?fields=objective,bid_strategy,daily_budget,lifetime_budget&access_token=${token}`,
+      { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000) },
+    );
+    let campaignHasBudget = false;
+    let campaignObjective = "";
+    let campaignBidStrategy = "";
+    if (budgetRes.ok) {
+      const budgetJson = (await budgetRes.json().catch(() => ({}))) as {
+        objective?: string;
+        bid_strategy?: string;
+        daily_budget?: string;
+        lifetime_budget?: string;
+      };
+      campaignObjective = String(budgetJson.objective ?? "").toUpperCase();
+      campaignBidStrategy = String(budgetJson.bid_strategy ?? "");
+      campaignHasBudget = Boolean(
+        budgetJson.daily_budget || budgetJson.lifetime_budget,
+      );
+      if (
+        campaignHasBudget &&
+        ((params?.dailyBudget ?? 0) > 0 || (params?.lifetimeBudget ?? 0) > 0)
+      ) {
+        return connectorError(
+          "This campaign already has a budget. Omit the ad set's dailyBudget/lifetimeBudget (CBO).",
+          "INVALID_INPUT",
+        );
+      }
+    }
+
+    const goal = params?.optimizationGoal || "LINK_CLICKS";
+    const billingEvent = params?.billingEvent || "IMPRESSIONS";
+    const comboError = adSetComboError(
+      campaignObjective,
+      goal,
+      billingEvent,
+      params,
+      campaignBidStrategy,
+    );
+    if (comboError) {
+      return connectorError(comboError, "INVALID_INPUT");
+    }
+
     const form = new FormData();
     form.append("name", params?.name || "Target Audience - Main");
     form.append("campaign_id", campaignId);
     form.append("status", params?.status || "PAUSED");
 
-    const goal = params?.optimizationGoal || "LINK_CLICKS";
-    form.append("optimization_goal", goal);
-    form.append("billing_event", params?.billingEvent || "IMPRESSIONS");
+    if (params?.startTime) form.append("start_time", params.startTime);
+    if (params?.endTime) form.append("end_time", params.endTime);
 
-    // Bid amount cap (₹2/click default if LINK_CLICKS to satisfy Meta requirement)
-    const bidValParam = params?.bidAmount;
-    if (goal === "LINK_CLICKS") {
-      const bidVal = bidValParam ? Math.round(bidValParam * 100) : 200;
-      form.append("bid_amount", String(bidVal));
+    form.append("optimization_goal", goal);
+    form.append("billing_event", billingEvent);
+
+    if (params?.destinationType) {
+      form.append("destination_type", params.destinationType);
     }
 
-    // Daily budget if specified at ad set level
-    const setDailyBudget = params?.dailyBudget;
-    if (setDailyBudget && setDailyBudget > 0) {
-      form.append("daily_budget", String(Math.round(setDailyBudget * 100)));
+    if (params?.promotedObject) {
+      const promoted = {
+        ...(params.promotedObject.pixelId
+          ? { pixel_id: params.promotedObject.pixelId }
+          : {}),
+        ...(params.promotedObject.customEventType
+          ? { custom_event_type: params.promotedObject.customEventType }
+          : {}),
+        ...(params.promotedObject.applicationId
+          ? { application_id: params.promotedObject.applicationId }
+          : {}),
+        ...(params.promotedObject.objectStoreUrl
+          ? { object_store_url: params.promotedObject.objectStoreUrl }
+          : {}),
+        ...(params.promotedObject.productCatalogId
+          ? { product_catalog_id: params.promotedObject.productCatalogId }
+          : {}),
+        ...(params.promotedObject.productSetId
+          ? { product_set_id: params.promotedObject.productSetId }
+          : {}),
+        ...(params.promotedObject.pageId
+          ? { page_id: params.promotedObject.pageId }
+          : {}),
+      };
+      if (Object.keys(promoted).length > 0) {
+        form.append("promoted_object", JSON.stringify(promoted));
+      }
+    }
+
+    if (params?.bidStrategy) {
+      form.append("bid_strategy", params.bidStrategy);
+    }
+    if (params?.bidAmount !== undefined) {
+      form.append("bid_amount", String(Math.round(params.bidAmount * 100)));
+    }
+    if (params?.bidConstraints) {
+      form.append(
+        "bid_constraints",
+        JSON.stringify({
+          ...(params.bidConstraints.roasAverageFloor !== undefined
+            ? { roas_average_floor: params.bidConstraints.roasAverageFloor }
+            : {}),
+        }),
+      );
+    }
+    if (params?.frequencyControlSpecs?.length) {
+      form.append(
+        "frequency_control_specs",
+        JSON.stringify(params.frequencyControlSpecs),
+      );
+    }
+
+    const hasDaily = (params?.dailyBudget ?? 0) > 0;
+    const hasLifetime = (params?.lifetimeBudget ?? 0) > 0;
+    if (hasDaily && hasLifetime) {
+      return connectorError(
+        "An ad set takes exactly one of dailyBudget or lifetimeBudget, not both.",
+        "INVALID_INPUT",
+      );
+    }
+    if (!hasDaily && !hasLifetime && !campaignHasBudget) {
+      return connectorError(
+        "An ad set needs a dailyBudget or lifetimeBudget unless the campaign owns the budget (CBO).",
+        "INVALID_INPUT",
+      );
+    }
+    if (hasDaily) {
+      form.append("daily_budget", String(Math.round(params!.dailyBudget! * 100)));
+    }
+    if (hasLifetime) {
+      if (!params?.startTime || !params?.endTime) {
+        return connectorError(
+          "A lifetime budget needs startTime and endTime.",
+          "INVALID_INPUT",
+        );
+      }
+      form.append(
+        "lifetime_budget",
+        String(Math.round(params!.lifetimeBudget! * 100)),
+      );
     }
 
     // Targeting
-    const targetingLocations = params?.targeting?.geoLocations || {
-      countries: ["IN"],
-    };
+    const geo = params?.targeting?.geoLocations;
+    const targetingLocations = geo
+      ? {
+          ...(geo.countries ? { countries: geo.countries } : {}),
+          ...(geo.regions ? { regions: geo.regions } : {}),
+          ...(geo.cities
+            ? {
+                cities: geo.cities.map((city) => ({
+                  key: city.key,
+                  ...(city.radius !== undefined ? { radius: city.radius } : {}),
+                  ...(city.distanceUnit
+                    ? { distance_unit: city.distanceUnit }
+                    : {}),
+                })),
+              }
+            : {}),
+        }
+      : { countries: ["IN"] };
     const ageMin = params?.targeting?.ageMin ?? 18;
     const ageMax = params?.targeting?.ageMax ?? 65;
 
@@ -999,14 +1406,46 @@ export async function createMetaAdSet(
       age_min: ageMin,
       age_max: ageMax,
     };
-    if (params?.targeting?.genders && params.targeting.genders.length > 0) {
+    if (params?.targeting?.genders?.length) {
       targeting.genders = params.targeting.genders;
     }
-    if (params?.targeting?.interests && params.targeting.interests.length > 0) {
-      const interestList = params.targeting.interests.map((it: any) =>
-        typeof it === "string" ? { name: it, id: it } : it,
-      );
-      targeting.flexible_spec = [{ interests: interestList }];
+    if (params?.targeting?.publisherPlatforms?.length) {
+      targeting.publisher_platforms = params.targeting.publisherPlatforms;
+    }
+    if (params?.targeting?.devicePlatforms?.length) {
+      targeting.device_platforms = params.targeting.devicePlatforms;
+    }
+    if (params?.targeting?.languages?.length) {
+      targeting.languages = params.targeting.languages;
+    }
+    if (params?.targeting?.locales?.length) {
+      targeting.locales = params.targeting.locales;
+    }
+    if (params?.targeting?.customAudiences?.length) {
+      targeting.custom_audiences = params.targeting.customAudiences;
+    }
+    if (params?.targeting?.excludedCustomAudiences?.length) {
+      targeting.excluded_custom_audiences =
+        params.targeting.excludedCustomAudiences;
+    }
+
+    const flexible: Record<string, unknown>[] = [];
+    if (params?.targeting?.interests?.length) {
+      flexible.push({
+        interests: params.targeting.interests.map((it) =>
+          typeof it === "string" ? { name: it, id: it } : it,
+        ),
+      });
+    }
+    if (params?.targeting?.behaviors?.length) {
+      flexible.push({
+        behaviors: params.targeting.behaviors.map((it) =>
+          typeof it === "string" ? { name: it, id: it } : it,
+        ),
+      });
+    }
+    if (flexible.length > 0) {
+      targeting.flexible_spec = flexible;
     }
     form.append("targeting", JSON.stringify(targeting));
     form.append("access_token", token);
@@ -1023,7 +1462,7 @@ export async function createMetaAdSet(
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       return connectorError(
-        err?.error?.message || `AdSet creation failed (${res.status})`,
+        metaErrorMessage(err, `AdSet creation failed (${res.status})`),
         "UPSTREAM_ERROR",
       );
     }
@@ -1042,7 +1481,7 @@ export async function createMetaAdSet(
  * Creates a new campaign in the connected Meta Ad Account with optional Ad Set and Creative.
  */
 export async function createMetaCampaign(
-  input: ConnectorInput<CreateMetaCampaignParams>,
+  input: ConnectorInput<MetaCampaignParams>,
 ): Promise<ConnectorOutput<MetaCampaign>> {
   try {
     const { params, context } = input;
@@ -1088,14 +1527,25 @@ export async function createMetaCampaign(
     formData.append("name", params.name);
     formData.append("objective", params.objective);
     formData.append("status", params.status || "PAUSED");
+    if (params.startTime) formData.append("start_time", params.startTime);
+    if (params.stopTime) formData.append("stop_time", params.stopTime);
     const specialCategories = params.specialAdCategories || [];
     formData.append("special_ad_categories", JSON.stringify(specialCategories));
 
     const dailyBudget = params.dailyBudget;
     const numDailyBudget = dailyBudget ? Number(dailyBudget) : undefined;
+    const lifetimeBudget = params.lifetimeBudget;
+    const numLifetimeBudget = lifetimeBudget
+      ? Number(lifetimeBudget)
+      : undefined;
+
     if (numDailyBudget && numDailyBudget > 0) {
-      const budgetSubunits = Math.round(numDailyBudget * 100);
-      formData.append("daily_budget", String(budgetSubunits));
+      formData.append("daily_budget", String(Math.round(numDailyBudget * 100)));
+    } else if (numLifetimeBudget && numLifetimeBudget > 0) {
+      formData.append(
+        "lifetime_budget",
+        String(Math.round(numLifetimeBudget * 100)),
+      );
     } else {
       formData.append("is_adset_budget_sharing_enabled", "false");
     }
@@ -1113,8 +1563,10 @@ export async function createMetaCampaign(
     if (!res.ok) {
       const errJson = await res.json().catch(() => ({}));
       return connectorError(
-        errJson?.error?.message ||
+        metaErrorMessage(
+          errJson,
           `Meta campaign creation failed: ${res.statusText}`,
+        ),
         "UPSTREAM_ERROR",
       );
     }
@@ -1272,12 +1724,13 @@ export async function updateMetaAdSet(
 
     if (!res.ok) {
       const errJson = await res.json().catch(() => ({}));
-      const detailedMsg =
-        errJson?.error?.error_user_msg ||
-        errJson?.error?.error_user_title ||
-        errJson?.error?.message ||
-        `Failed to update Meta ad set: ${res.statusText}`;
-      return connectorError(detailedMsg, "UPSTREAM_ERROR");
+      return connectorError(
+        metaErrorMessage(
+          errJson,
+          `Failed to update Meta ad set: ${res.statusText}`,
+        ),
+        "UPSTREAM_ERROR",
+      );
     }
 
     const adSetData = await res.json();
@@ -1288,6 +1741,83 @@ export async function updateMetaAdSet(
   } catch (err) {
     return connectorError(
       err instanceof Error ? err.message : "Error updating Meta ad set",
+      "NETWORK_ERROR",
+    );
+  }
+}
+
+export interface UpdateMetaAdParams {
+  adId: string;
+  name?: string;
+  status?: string;
+}
+
+/**
+ * Updates an Ad on Meta. Creative is immutable; use a new ad for that.
+ */
+export async function updateMetaAd(
+  input: ConnectorInput<UpdateMetaAdParams>,
+): Promise<ConnectorOutput<MetaAd>> {
+  try {
+    const { params, context } = input;
+    const userId = context.userId;
+
+    if (!userId) {
+      return connectorError(
+        "User context required to update Meta ad.",
+        "AUTH_REQUIRED",
+      );
+    }
+
+    const adId = params?.adId?.trim();
+    if (!adId || !params) {
+      return connectorError(
+        "Ad ID (adId) is strictly required to update an ad.",
+        "INVALID_INPUT",
+      );
+    }
+
+    const connectorRes = await getConnectorByUserIdAndProviderSlug(
+      userId,
+      "metaAds",
+    );
+    const connector = connectorRes?.data;
+    const token = context.accessToken || connector?.accessToken;
+
+    if (!token) {
+      return connectorError(
+        "Meta Ads connector is not connected. Missing access token.",
+        "AUTH_REQUIRED",
+      );
+    }
+
+    const bodyParams = new URLSearchParams();
+    if (params.name) bodyParams.set("name", params.name);
+    if (params.status) bodyParams.set("status", params.status);
+
+    const url = `https://graph.facebook.com/v19.0/${adId}?access_token=${token}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: bodyParams.toString(),
+      signal: AbortSignal.timeout(12000),
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      const detailedMsg =
+        errJson?.error?.error_user_msg ||
+        errJson?.error?.error_user_title ||
+        errJson?.error?.message ||
+        `Failed to update Meta ad: ${res.statusText}`;
+      return connectorError(detailedMsg, "UPSTREAM_ERROR");
+    }
+
+    const data = await res.json();
+    return connectorSuccess<MetaAd>({ id: data.id || adId, ...data });
+  } catch (err) {
+    return connectorError(
+      err instanceof Error ? err.message : "Error updating Meta ad",
       "NETWORK_ERROR",
     );
   }
@@ -1370,41 +1900,191 @@ export interface MetaGraphQueryResult {
   error?: string;
 }
 
-export interface CreateMetaAdParams {
-  adAccountId: string;
-  adSetId: string;
-  name: string;
-  status?: "PAUSED" | "ACTIVE";
-  creative: {
-    type: "image" | "video";
-    name?: string;
-    mediaUrl: string;
-    headline: string;
-    primaryText: string;
-    description?: string;
-    callToAction?: string;
-    destinationUrl: string;
-    pageId?: string;
-    imageHash?: string;
-    videoId?: string;
-  };
+/**
+ * Creates an AdCreative in the ad account. Its content is immutable after
+ * creation; changing media, copy, page, or CTA means a new creative.
+ */
+export async function createMetaCreative(
+  input: ConnectorInput<MetaCreativeParams>,
+): Promise<ConnectorOutput<MetaCreative>> {
+  try {
+    const { params, context } = input;
+    const userId = context.userId;
+
+    if (!userId) {
+      return connectorError(
+        "User context required to create a Meta creative.",
+        "AUTH_REQUIRED",
+      );
+    }
+    if (!params) {
+      return connectorError(
+        "Creative parameters are required.",
+        "INVALID_INPUT",
+      );
+    }
+
+    if (
+      !params.name ||
+      !params.headline ||
+      !params.primaryText ||
+      !params.destinationUrl
+    ) {
+      return connectorError(
+        "name, headline, primaryText, and destinationUrl are required to create a creative.",
+        "INVALID_INPUT",
+      );
+    }
+
+    const rawActId = params.adAccountId?.trim();
+    if (!rawActId) {
+      return connectorError(
+        "Ad Account ID (adAccountId) is strictly required to create a creative.",
+        "INVALID_INPUT",
+      );
+    }
+    const actId = rawActId.startsWith("act_") ? rawActId : `act_${rawActId}`;
+
+    const connectorRes = await getConnectorByUserIdAndProviderSlug(
+      userId,
+      "metaAds",
+    );
+    const connector = connectorRes?.data;
+    const token = context.accessToken || connector?.accessToken;
+
+    if (!token) {
+      return connectorError(
+        "Meta Ads connector is not connected. Missing access token.",
+        "AUTH_REQUIRED",
+      );
+    }
+
+    let pageId = params.pageId?.trim();
+    if (!pageId) {
+      const pageRes = await fetch(
+        `https://graph.facebook.com/v22.0/me/accounts?fields=id,name&limit=25&access_token=${token}`,
+        { headers: { Accept: "application/json" } },
+      );
+      const pageJson = pageRes.ok ? await pageRes.json().catch(() => ({})) : {};
+      const pages: Array<{ id?: string }> = Array.isArray(pageJson?.data)
+        ? pageJson.data
+        : [];
+
+      if (pages.length === 0) {
+        return connectorError(
+          "No Facebook Page was returned for this Meta connection. Tell the user to create at least one Facebook Page in their Meta account, then disconnect the Meta connector from our application and reconnect it before retrying.",
+          "INVALID_INPUT",
+        );
+      }
+      if (pages.length > 1) {
+        return connectorError(
+          "The account manages several Facebook Pages. Fetch them with fetchMetaPages and pass pageId explicitly.",
+          "INVALID_INPUT",
+        );
+      }
+
+      pageId = pages[0]?.id;
+      if (!pageId) {
+        return connectorError(
+          "Could not resolve the Facebook Page id.",
+          "UPSTREAM_ERROR",
+        );
+      }
+    }
+
+    if (params.type === "video" && !params.videoId) {
+      return connectorError(
+        "Video creatives need videoId; upload the video first.",
+        "INVALID_INPUT",
+      );
+    }
+    if (params.type === "image" && !params.imageHash) {
+      return connectorError(
+        "Image creatives need imageHash; upload the image first.",
+        "INVALID_INPUT",
+      );
+    }
+
+    const storySpec: Record<string, unknown> = { page_id: pageId };
+
+    if (params.type === "video") {
+      storySpec.video_data = {
+        video_id: params.videoId,
+        message: params.primaryText,
+        title: params.headline,
+        link_description: params.description || "",
+        call_to_action: {
+          type: params.callToAction || "LEARN_MORE",
+          value: { link: params.destinationUrl },
+        },
+      };
+    } else {
+      storySpec.link_data = {
+        link: params.destinationUrl,
+        message: params.primaryText,
+        name: params.headline,
+        description: params.description || "",
+        image_hash: params.imageHash,
+        call_to_action: {
+          type: params.callToAction || "LEARN_MORE",
+          value: { link: params.destinationUrl },
+        },
+      };
+    }
+
+    const form = new FormData();
+    form.append("name", params.name);
+    form.append("object_story_spec", JSON.stringify(storySpec));
+    form.append("access_token", token);
+
+    const res = await fetch(
+      `https://graph.facebook.com/v22.0/${actId}/adcreatives`,
+      {
+        method: "POST",
+        body: form,
+        signal: AbortSignal.timeout(15000),
+      },
+    );
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.id) {
+      return connectorError(
+        metaErrorMessage(
+          json,
+          `Failed to create AdCreative on Meta (${res.status})`,
+        ),
+        "UPSTREAM_ERROR",
+      );
+    }
+
+    return connectorSuccess({
+      creativeId: json.id as string,
+      adAccountId: actId,
+      pageId,
+      name: params.name,
+      type: params.type,
+      headline: params.headline,
+      primaryText: params.primaryText,
+      ...(params.description ? { description: params.description } : {}),
+      callToAction: params.callToAction || "LEARN_MORE",
+      destinationUrl: params.destinationUrl,
+      ...(params.imageHash ? { imageHash: params.imageHash } : {}),
+      ...(params.videoId ? { videoId: params.videoId } : {}),
+    });
+  } catch (err) {
+    return connectorError(
+      err instanceof Error ? err.message : "Error creating Meta creative",
+      "NETWORK_ERROR",
+    );
+  }
 }
 
 /**
- * Creates an AdCreative and corresponding Ad under an AdSet in Meta Ads Manager.
- * Supports static image creative and motion/video creative.
+ * Creates an Ad that references an existing creative.
  */
 export async function createMetaAd(
-  input: ConnectorInput<CreateMetaAdParams>,
-): Promise<
-  ConnectorOutput<{
-    id: string;
-    name: string;
-    status: string;
-    creativeId: string;
-    adSetId: string;
-  }>
-> {
+  input: ConnectorInput<MetaAdParams>,
+): Promise<ConnectorOutput<MetaAd>> {
   try {
     const { params, context } = input;
     const userId = context.userId;
@@ -1415,7 +2095,6 @@ export async function createMetaAd(
         "AUTH_REQUIRED",
       );
     }
-
     if (!params) {
       return connectorError("Ad parameters are required.", "INVALID_INPUT");
     }
@@ -1437,6 +2116,14 @@ export async function createMetaAd(
       );
     }
 
+    const creativeId = params.creativeId?.trim();
+    if (!creativeId) {
+      return connectorError(
+        "Creative ID (creativeId) is required to create an ad.",
+        "INVALID_INPUT",
+      );
+    }
+
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       userId,
       "metaAds",
@@ -1451,92 +2138,6 @@ export async function createMetaAd(
       );
     }
 
-    const creative = params.creative;
-    if (!creative) {
-      return connectorError(
-        "Creative parameters are required.",
-        "INVALID_INPUT",
-      );
-    }
-
-    // Resolve Page ID if not provided
-    let pageId = creative.pageId?.trim();
-    if (!pageId) {
-      const pageRes = await fetch(
-        `https://graph.facebook.com/v22.0/me/accounts?fields=id,name&limit=1&access_token=${token}`,
-        { headers: { Accept: "application/json" } },
-      );
-      if (pageRes.ok) {
-        const pageJson = await pageRes.json().catch(() => ({}));
-        pageId = pageJson?.data?.[0]?.id;
-      }
-    }
-
-    // Step 1: Create AdCreative
-    const storySpec: Record<string, unknown> = {};
-    if (pageId) {
-      storySpec.page_id = pageId;
-    }
-
-    if (creative.type === "video") {
-      storySpec.video_data = {
-        video_id:
-          creative.videoId ||
-          (/^\d+$/.test(creative.mediaUrl) ? creative.mediaUrl : undefined),
-        message: creative.primaryText,
-        title: creative.headline,
-        link_description: creative.description || "",
-        image_url: creative.mediaUrl,
-        call_to_action: {
-          type: creative.callToAction || "LEARN_MORE",
-          value: { link: creative.destinationUrl },
-        },
-      };
-    } else {
-      const linkData: Record<string, unknown> = {
-        link: creative.destinationUrl,
-        message: creative.primaryText,
-        name: creative.headline,
-        description: creative.description || "",
-        picture: creative.mediaUrl,
-        call_to_action: {
-          type: creative.callToAction || "LEARN_MORE",
-          value: { link: creative.destinationUrl },
-        },
-      };
-      if (creative.imageHash) {
-        linkData.image_hash = creative.imageHash;
-      }
-      storySpec.link_data = linkData;
-    }
-
-    const creativeForm = new FormData();
-    creativeForm.append("name", creative.name || `${params.name} Creative`);
-    creativeForm.append("object_story_spec", JSON.stringify(storySpec));
-    creativeForm.append("access_token", token);
-
-    const creativeRes = await fetch(
-      `https://graph.facebook.com/v22.0/${actId}/adcreatives`,
-      {
-        method: "POST",
-        body: creativeForm,
-        signal: AbortSignal.timeout(15000),
-      },
-    );
-
-    const creativeJson = await creativeRes.json().catch(() => ({}));
-    if (!creativeRes.ok || !creativeJson.id) {
-      const errObj = creativeJson.error as Record<string, unknown> | undefined;
-      const errorMsg =
-        (errObj?.error_user_msg as string) ||
-        (errObj?.message as string) ||
-        `Failed to create AdCreative on Meta (${creativeRes.status})`;
-      return connectorError(errorMsg, "UPSTREAM_ERROR");
-    }
-
-    const creativeId = creativeJson.id as string;
-
-    // Step 2: Create Ad
     const adForm = new FormData();
     adForm.append("name", params.name);
     adForm.append("adset_id", adSetId);
@@ -1552,12 +2153,10 @@ export async function createMetaAd(
 
     const adJson = await adRes.json().catch(() => ({}));
     if (!adRes.ok || !adJson.id) {
-      const errObj = adJson.error as Record<string, unknown> | undefined;
-      const errorMsg =
-        (errObj?.error_user_msg as string) ||
-        (errObj?.message as string) ||
-        `Failed to create Ad on Meta (${adRes.status})`;
-      return connectorError(errorMsg, "UPSTREAM_ERROR");
+      return connectorError(
+        metaErrorMessage(adJson, `Failed to create Ad on Meta (${adRes.status})`),
+        "UPSTREAM_ERROR",
+      );
     }
 
     return connectorSuccess({
@@ -1605,7 +2204,6 @@ export async function executeMetaGraphQuery(
       );
     }
 
-    // Determine queries list (up to 5 in parallel)
     const rawQueries = (params?.queries || [])
       .filter((q) => typeof q === "string" && q.trim().length > 0)
       .map((q) => q.trim());
@@ -1689,7 +2287,6 @@ export async function executeMetaGraphQuery(
       }
     };
 
-    // Execute in parallel (max 5)
     const results = await Promise.all(activeQueries.map((q) => executeOne(q)));
 
     return connectorSuccess<Record<string, unknown>>({

@@ -63,9 +63,27 @@ import {
   fetchMetaAdsToolDefinition,
   FetchMetaAdsArgs,
   executeFetchMetaAdsTool,
-  createMetaCampaignsToolDefinition,
-  CreateMetaCampaignsArgs,
-  executeCreateMetaCampaignsTool,
+  fetchMetaPagesToolDefinition,
+  FetchMetaPagesArgs,
+  executeFetchMetaPagesTool,
+  uploadMetaAssetToolDefinition,
+  UploadMetaAssetArgs,
+  executeUploadMetaAssetTool,
+  upsertMetaCampaignToolDefinition,
+  UpsertMetaCampaignArgs,
+  executeUpsertMetaCampaignTool,
+  upsertMetaAdSetToolDefinition,
+  UpsertMetaAdSetArgs,
+  executeUpsertMetaAdSetTool,
+  upsertMetaAdToolDefinition,
+  UpsertMetaAdArgs,
+  executeUpsertMetaAdTool,
+  createMetaCreativeToolDefinition,
+  MetaCreativeParams,
+  executeCreateMetaCreativeTool,
+  fetchMetaCreativesToolDefinition,
+  FetchMetaCreativesArgs,
+  executeFetchMetaCreativesTool,
   queryMetaToolDefinition,
   QueryMetaArgs,
   executeQueryMetaTool,
@@ -96,10 +114,8 @@ import {
   updateCompetitorResearchToolDefinition,
   UpdateCompetitorResearchArgs,
   executeUpdateCompetitorResearchTool,
-  readCampaignAdsToolDefinition,
-  executeReadCampaignAdsTool,
-  updateCampaignAdsToolDefinition,
-  executeUpdateCampaignAdsTool,
+  upsertAdsClassifiedToolDefinition,
+  executeUpsertAdsClassifiedTool,
   updateIdeasToolDefinition,
   UpdateIdeasArgs,
   executeUpdateIdeasTool,
@@ -112,12 +128,12 @@ import {
   updateCampaignBriefsToolDefinition,
   UpdateCampaignBriefsArgs,
   executeUpdateCampaignBriefsTool,
-} from "./session.projections";
+} from "./detail.bar";
 import {
   fetchDetailBarToolDefinition,
   FetchDetailBarArgs,
   executeFetchDetailBarTool,
-} from "./session.projections/fetch.projections/tool";
+} from "./detail.bar/fetch.projections/tool";
 import { skillTool } from "@/lib/skills/tool";
 import {
   renderUIBlockToolDefinition,
@@ -144,7 +160,7 @@ export * from "./video";
 export * from "./composition";
 export * from "./meta";
 export * from "./business.profile";
-export * from "./session.projections";
+export * from "./detail.bar";
 export * from "./web";
 
 export interface ToolDefinition {
@@ -303,23 +319,46 @@ export const TOOL_REGISTRY: Record<
     execute: (input) =>
       executeFetchMetaAdsTool(input as ToolInput<FetchMetaAdsArgs>),
   },
-  createMetaCampaigns: {
-    definition: createMetaCampaignsToolDefinition,
-    execute: async (input) => {
-      try {
-        return {
-          success: true,
-          data: await executeCreateMetaCampaignsTool({
-            args: input.args as CreateMetaCampaignsArgs,
-          }),
-        };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
-    },
+  fetchMetaPages: {
+    definition: fetchMetaPagesToolDefinition,
+    execute: (input) =>
+      executeFetchMetaPagesTool(input as ToolInput<FetchMetaPagesArgs>),
+  },
+  uploadMetaAsset: {
+    definition: uploadMetaAssetToolDefinition,
+    execute: (input) =>
+      executeUploadMetaAssetTool(input as ToolInput<UploadMetaAssetArgs>),
+  },
+  upsertMetaCampaign: {
+    definition: upsertMetaCampaignToolDefinition,
+    execute: (input) =>
+      executeUpsertMetaCampaignTool(
+        input as ToolInput<UpsertMetaCampaignArgs>,
+      ),
+  },
+  upsertMetaAdSet: {
+    definition: upsertMetaAdSetToolDefinition,
+    execute: (input) =>
+      executeUpsertMetaAdSetTool(input as ToolInput<UpsertMetaAdSetArgs>),
+  },
+  upsertMetaAd: {
+    definition: upsertMetaAdToolDefinition,
+    execute: (input) =>
+      executeUpsertMetaAdTool(input as ToolInput<UpsertMetaAdArgs>),
+  },
+  createMetaCreative: {
+    definition: createMetaCreativeToolDefinition,
+    execute: (input) =>
+      executeCreateMetaCreativeTool(
+        input as ToolInput<MetaCreativeParams>,
+      ),
+  },
+  fetchMetaCreatives: {
+    definition: fetchMetaCreativesToolDefinition,
+    execute: (input) =>
+      executeFetchMetaCreativesTool(
+        input as ToolInput<FetchMetaCreativesArgs>,
+      ),
   },
   queryMeta: {
     definition: queryMetaToolDefinition,
@@ -341,13 +380,9 @@ export const TOOL_REGISTRY: Record<
     execute: (input) =>
       executeUpdateAlertTool(input as ToolInput<UpdateAlertArgs>),
   },
-  readCampaignAds: {
-    definition: readCampaignAdsToolDefinition,
-    execute: (input) => executeReadCampaignAdsTool(input),
-  },
-  updateCampaignAds: {
-    definition: updateCampaignAdsToolDefinition,
-    execute: (input) => executeUpdateCampaignAdsTool(input),
+  upsertAdsClassified: {
+    definition: upsertAdsClassifiedToolDefinition,
+    execute: (input) => executeUpsertAdsClassifiedTool(input),
   },
   updateSuggestions: {
     definition: updateSuggestionsToolDefinition,

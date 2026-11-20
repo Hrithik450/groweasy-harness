@@ -20,9 +20,9 @@ const FILTERS: { id: CreativeFilter; label: string }[] = [
 ];
 
 /** Generated creatives for an ad-creator session. */
-export function CreativesTab({ data, session }: AdCreatorTabProps) {
+export function CreativesTab({ session }: AdCreatorTabProps) {
   const [filter, setFilter] = useState<CreativeFilter>("all");
-  const pager = useBarPager(session?.id ?? "", "creatives", data?.creatives ?? []);
+  const pager = useBarPager<Creative>(session?.id, "creatives");
 
   const creatives = pager.items.filter(
     (creative) => filter === "all" || creative.type === filter,

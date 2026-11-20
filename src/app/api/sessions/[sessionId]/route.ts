@@ -5,7 +5,7 @@ import { getSessionFromRequest } from "@/lib/auth/session";
 import type { Session } from "@/lib/db";
 import { toSessionView } from "@/lib/core/session/view";
 import type { DetailBarState } from "@/lib/detail.bar/state";
-import { getDetailBarState } from "@/lib/bar/snapshot";
+import { getDetailBarState } from "@/lib/detail.bar/snapshot";
 
 /**
  * GET /api/sessions/[sessionId]

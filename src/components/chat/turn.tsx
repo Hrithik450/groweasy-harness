@@ -226,17 +226,21 @@ function ToolCallRow({ node }: { node: ToolCallChatNode }) {
         : "text-success";
 
   return (
-    <div className="flex items-start gap-2 text-[11px] text-muted-foreground min-w-0">
-      <Wrench className="w-3 h-3 mt-0.5 shrink-0" />
-      <span className="font-mono break-all">{node.name}</span>
-      <span className={statusClass}>{node.status}</span>
-      {node.durationMs !== undefined && node.durationMs > 0 && (
-        <span className="font-mono shrink-0">
-          {(node.durationMs / 1000).toFixed(1)}s
-        </span>
-      )}
+    <div className="flex flex-col gap-1 text-[11px] text-muted-foreground min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
+        <Wrench className="w-3 h-3 shrink-0" />
+        <span className="font-mono break-all min-w-0">{node.name}</span>
+        <span className={`shrink-0 ${statusClass}`}>{node.status}</span>
+        {node.durationMs !== undefined && node.durationMs > 0 && (
+          <span className="font-mono shrink-0">
+            {(node.durationMs / 1000).toFixed(1)}s
+          </span>
+        )}
+      </div>
       {node.error !== undefined && (
-        <span className="text-destructive break-words">{node.error}</span>
+        <p className="pl-5 text-destructive break-words line-clamp-2 leading-relaxed">
+          {node.error}
+        </p>
       )}
     </div>
   );
@@ -349,7 +353,7 @@ export function TurnView({
             className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer w-fit"
           >
             <ChevronDown
-              className={`w-3.5 h-3.5 transition-transform duration-300 ease-out ${
+              className={`w-3.5 h-3.5 -ml-[7px] shrink-0 transition-transform duration-300 ease-out ${
                 isProcessCollapsed ? "-rotate-90" : "rotate-0"
               }`}
             />

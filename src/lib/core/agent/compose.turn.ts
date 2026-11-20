@@ -24,7 +24,7 @@ export interface TurnComposition {
 /** Tabs a surface owns, and the tool plus skill that fills each one. */
 const SURFACE_TABS: Record<string, ReadonlyArray<string>> = {
   adManager: [
-    "Campaigns — synced from Meta, metrics derived by the app; classify each ad with `updateCampaignAds`",
+    "Campaigns — synced from Meta, metrics derived by the app; classify each ad with `upsertAdsClassified`",
     "Alerts — `updateAlerts` (max 5 per run, only new or changed)",
     "Suggestions — `updateSuggestions` (max 5 per run, ranked by money)",
   ],

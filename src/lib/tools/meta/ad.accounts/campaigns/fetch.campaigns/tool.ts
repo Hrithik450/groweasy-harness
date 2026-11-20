@@ -16,7 +16,7 @@ export const fetchMetaCampaignsToolDefinition = {
     "- `date_preset`: `today`, `yesterday`, `this_month`, `last_7d`, `last_30d`, `maximum`\n" +
     '- `time_range`: `{"since":"YYYY-MM-DD","until":"YYYY-MM-DD"}`\n' +
     "- `limit`: Max records to return (e.g. `limit=25`)\n\n" +
-    "Supports plural queries (max 5 parallel queries at a time) inside `queries` array. Provide full relative path and parameters except accessToken, which is securely injected on the backend.",
+    "Full field reference: https://developers.facebook.com/docs/marketing-api/reference/ad-campaign-group/.",
   parameters: {
     type: "object",
     properties: {

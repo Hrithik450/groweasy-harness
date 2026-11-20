@@ -12,8 +12,8 @@ export const fetchMetaAdAccountsToolDefinition = {
     "- `fields`: Comma-separated fields (e.g. `id,account_id,name,account_status,currency,timezone_name,amount_spent,spend_cap,balance,business,capabilities,created_time,disable_reason,min_daily_budget`)\n" +
     '- `filtering`: JSON array of filter objects (e.g. `[{"field":"account_status","operator":"IN","value":[1]}]` where 1=ACTIVE, 2=DISABLED, 3=UNSETTLED, 7=PENDING_RISK_REVIEW)\n' +
     "- `limit`: Max records to return (e.g. `limit=25`)\n" +
-    "- `sort`: Sort criteria (e.g. `['name_ascending']`)\n\n" +
-    "Supports plural queries (max 5 parallel queries at a time) inside `queries` array. Provide full relative path and parameters except accessToken, which is securely injected on the backend.",
+    "- `sort`: Sort criteria (e.g. `['name_ascending']`).\n\n" +
+    "Full field reference: https://developers.facebook.com/docs/marketing-api/reference/ad-account/.",
   parameters: {
     type: "object",
     properties: {

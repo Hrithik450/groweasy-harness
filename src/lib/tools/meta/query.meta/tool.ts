@@ -14,7 +14,7 @@ export const queryMetaToolDefinition = {
     "- `act_123/insights?level=campaign&fields=campaign_name,spend,purchases,actions&date_preset=last_7d`\n" +
     "- `campaign_123/ads?fields=id,name,status,creative{id,name,image_url,video_id}&limit=50`\n" +
     "- `act_123?fields=name,currency,amount_spent,balance`\n\n" +
-    "Useful parameters: `fields`, `filtering` (JSON array with operators IN/NOT_IN/GREATER_THAN/LESS_THAN), `date_preset` (today, yesterday, last_7d, last_30d, maximum), `time_range` (`{\"since\":\"YYYY-MM-DD\",\"until\":\"YYYY-MM-DD\"}`), `time_increment`, `breakdowns` (age, gender, region, placement), `level`, `limit`. The access token is injected on the backend.",
+    'Useful parameters: `fields`, `filtering` (JSON array with operators IN/NOT_IN/GREATER_THAN/LESS_THAN), `date_preset` (today, yesterday, last_7d, last_30d, maximum), `time_range` (`{"since":"YYYY-MM-DD","until":"YYYY-MM-DD"}`), `time_increment`, `breakdowns` (age, gender, region, placement), `level`, `limit`. The access token is injected on the backend.',
   parameters: {
     type: "object",
     properties: {

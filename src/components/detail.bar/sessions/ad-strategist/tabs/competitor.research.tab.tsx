@@ -21,7 +21,6 @@ import {
 } from "@/components/detail.bar/common";
 
 export function CompetitorResearchTab({
-  data,
   session,
   handleNavigation,
 }: DetailBarTabProps<AdStrategistDetailBarData>) {
@@ -29,11 +28,9 @@ export function CompetitorResearchTab({
   const brandUrl = (connector?.metadata as { url?: string })?.url;
   const isConnected = connector?.status === "connected" && Boolean(brandUrl);
 
-  const researches: CompetitorResearchItem[] = data?.competitorResearches ?? [];
-  const pager = useBarPager(
-    session?.id ?? "",
+  const pager = useBarPager<CompetitorResearchItem>(
+    session?.id,
     "competitorResearches",
-    researches,
   );
   const items = pager.items;
 

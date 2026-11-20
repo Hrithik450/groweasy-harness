@@ -1,6 +1,5 @@
 import * as cronRepo from "@/lib/repositories/cron.repo";
-import { CAMPAIGN_HEALTH_JOB_NAME } from "@/lib/repositories/defaults";
-import { syncCampaignsBar } from "@/lib/bar/sync/campaigns";
+
 import * as sessionsRepo from "@/lib/repositories/sessions.repo";
 import { MessageId } from "@/lib/llm/llm/brand";
 import { randomUUID } from "@/lib/utils/uuid";
@@ -191,13 +190,6 @@ export async function executeJob(
     // Delivery is the prompt entering the session, before the loop waits for
     // the model; it stays observable even when the turn produces nothing.
     cronRepo.updateCronJob(jobId, { lastDeliveryAt: deliveredAt });
-
-    // The health skill reads synced ads; refresh the snapshot first.
-    if (job.name === CAMPAIGN_HEALTH_JOB_NAME) {
-      await syncCampaignsBar(job.userId, { force: true }).catch((err) =>
-        console.error("[CronService] Campaign sync failed:", err),
-      );
-    }
 
     // Same warm agent the chat uses: a scheduled turn queues behind a human
     // one instead of racing it for the session log.

@@ -325,7 +325,8 @@ export async function executeSearchAdLibraryTool(
                 dateRange,
                 ads: cachedAds,
                 excludeCount: permanentExcludeIds.size,
-                notice: "The live scan was unavailable; these are previously verified ads.",
+                notice:
+                  "The live scan was unavailable; these are previously verified ads.",
               }),
             },
           ],

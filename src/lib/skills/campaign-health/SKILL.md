@@ -6,9 +6,9 @@ description: "Classifies every ad in the Ad Manager Campaigns tab as winner, sca
 ## Rules
 
 - **Ads only:** campaign rows, spend, results, CPA, ROAS, impressions, clicks, CTR and frequency are synced from Meta by the app. Never restate or recompute them; never write campaign fields. This skill writes one verdict per ad.
-- **Read first:** call `readCampaignAds` once; it returns every ad with its campaign, ad set, metrics and current verdict.
-- **One write per run:** call `updateCampaignAds` once with every ad you judged. A run ends when that call returns.
-- **Grounded in the read:** classify only from the numbers `readCampaignAds` returned. A signal the read does not carry leaves the ad `untested`, never guessed.
+- **Read first:** `fetchMetaAdAccounts` → `fetchMetaCampaigns` → `fetchMetaAds` with `insights` fields; use the returned ids, ad sets, and metrics.
+- **One write per run:** call `upsertAdsClassified` once with every ad you judged. A run ends when that call returns.
+- **Grounded in the read:** classify only from the numbers the Meta fetch tools returned. A signal the read does not carry leaves the ad `untested`, never guessed.
 - **Not this skill:** delivery and billing problems are `alerts`; growth ideas are `suggestions`; a written narrative is `reports`; changing a live campaign is `updateMetaCampaign` / `deleteMetaCampaign`.
 
 ## Guardrails

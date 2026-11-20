@@ -24,7 +24,6 @@ const CONTENT: Record<
 
 export function AdCreatorDetailBar({
   session,
-  detailBar,
   isStreaming,
   handleSubmit,
   handleNavigation,
@@ -37,7 +36,6 @@ export function AdCreatorDetailBar({
     tabs[0]?.key as AdCreatorTabKey,
   );
 
-  const barData = detailBar.data;
   const Body = CONTENT[activeTab];
 
   return (
@@ -74,7 +72,6 @@ export function AdCreatorDetailBar({
       {/* Main Tab Content */}
       <div className="flex-1 overflow-y-auto no-scrollbar p-4">
         <Body
-          data={barData}
           session={session}
           isStreaming={isStreaming}
           handleSubmit={handleSubmit}
