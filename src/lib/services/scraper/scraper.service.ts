@@ -23,14 +23,11 @@ export async function getAdsByQuery(
   dateRange?: { startDate?: string; endDate?: string },
 ): Promise<Response<ScrapedAdRecord[]>> {
   try {
-    // Read a few pages' worth so window filtering still fills the request.
     const rows = repo.getAdsByQuery(
       searchQuery,
       excludeIds,
       limit && limit > 0 ? limit * 3 : undefined,
     );
-    // The window is applied here: a cached ad outside the launch window is
-    // not "fresh" for this search, so it must not be delivered.
     const inWindow = dateRange
       ? rows.filter((row) => {
           if (!row.startDate) return true;

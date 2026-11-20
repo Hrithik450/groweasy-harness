@@ -9,9 +9,7 @@ import {
 export type { ScrapedAdRecord, NewScrapedAdRecord };
 
 /** Retrieve a scraped ad record by libraryId. */
-export function getScrapedAd(
-  libraryId: string,
-): ScrapedAdRecord | undefined {
+export function getScrapedAd(libraryId: string): ScrapedAdRecord | undefined {
   return scraperDb
     .select()
     .from(scrapedAds)

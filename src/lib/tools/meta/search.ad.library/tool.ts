@@ -1,7 +1,12 @@
 import type { ToolInput, ToolOutput } from "@/lib/tools/types";
+import { toolFailure as failure } from "@/lib/tools/utils";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
-import { executeAlternateWebSearchTool } from "@/lib/tools/web/search/tool";
-import { getCompetitorResearches } from "@/lib/services/sessions.service";
+import { executeWebSearchTool } from "@/lib/tools/web/search/tool";
+import {
+  getDetailBarPage,
+  resolveDetailBarSession,
+} from "@/lib/detail.bar/service";
+import type { CompetitorResearchItem } from "@/lib/detail.bar/types";
 import {
   computeContentHash,
   extractAdIdFromReference,
@@ -19,14 +24,14 @@ export const searchAdLibraryToolDefinition = {
   type: "function" as const,
   name: "searchAdLibrary",
   description:
-    "Searches the Meta Ad Library for fresh competitor creatives, winning hooks, and active campaigns.",
+    "Searches the Meta Ad Library for fresh competitor creatives, winning hooks, or active campaigns.",
   parameters: {
     type: "object",
     properties: {
       query: {
         type: "string",
         description:
-          "Broad keyword phrase, product/service phrase, category or competitor brand name to search for (e.g. 'WhatsApp automation', 'Pabbly').",
+          "Broad keyword phrase, product/service phrase, category or competitor brand name to search or combination of brand name + keywords phrases. (e.g. 'WhatsApp automation', 'Pabbly whatsapp').",
       },
       targetCount: {
         type: "number",
@@ -228,14 +233,7 @@ export async function executeSearchAdLibraryTool(
   const context = input.context;
 
   if (!query) {
-    const errorMsg = "The 'query' parameter is required.";
-    return {
-      success: false,
-      data: {
-        contentParts: [{ type: "input_text", text: `Error: ${errorMsg}` }],
-      },
-      error: errorMsg,
-    };
+    return failure("The 'query' parameter is required.");
   }
 
   const targetCount = Math.max(1, input.args?.targetCount ?? 10);
@@ -249,18 +247,17 @@ export async function executeSearchAdLibraryTool(
       endDate: input.args?.endDate,
     });
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    return {
-      success: false,
-      data: {
-        contentParts: [{ type: "input_text", text: `Error: ${errorMsg}` }],
-      },
-      error: errorMsg,
-    };
+    return failure(err instanceof Error ? err.message : String(err));
   }
 
   // Every researched ad id is excluded, whichever brand it came from.
-  const researches = await getCompetitorResearches(input.context?.userId);
+  const session = input.context?.userId
+    ? resolveDetailBarSession(input.context.userId, "competitorResearches")
+    : null;
+  const researches = session
+    ? (getDetailBarPage(session.id, "competitorResearches")
+        .items as unknown as CompetitorResearchItem[])
+    : [];
 
   const permanentExcludeIds = new Set<string>();
   for (const r of researches) {
@@ -335,7 +332,7 @@ export async function executeSearchAdLibraryTool(
   const probeDepth = resolveProbeDepth(depth);
 
   const crawl = (d: CrawlDepth) =>
-    executeAlternateWebSearchTool({
+    executeWebSearchTool({
       args: {
         url: targetUrl,
         scanFullPage: true,
@@ -348,7 +345,7 @@ export async function executeSearchAdLibraryTool(
     });
 
   const readText = (
-    res: Awaited<ReturnType<typeof executeAlternateWebSearchTool>>,
+    res: Awaited<ReturnType<typeof executeWebSearchTool>>,
   ): string =>
     (res.data?.contentParts ?? [])
       .map((part) => (part as { text?: string }).text ?? "")
@@ -383,15 +380,9 @@ export async function executeSearchAdLibraryTool(
       };
     }
 
-    const errorMsg =
-      scrapeRes.error || `Failed to scrape Meta Ad Library for "${query}".`;
-    return {
-      success: false,
-      data: {
-        contentParts: [{ type: "input_text", text: `Error: ${errorMsg}` }],
-      },
-      error: errorMsg,
-    };
+    return failure(
+      scrapeRes.error || `Failed to scrape Meta Ad Library for "${query}".`,
+    );
   }
 
   let fullText = readText(scrapeRes);

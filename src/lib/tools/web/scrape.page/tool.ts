@@ -7,7 +7,8 @@ export const scrapeWebPageToolDefinition = {
   type: "function" as const,
   name: "scrapeWebPage",
   description:
-    "Scrapes and deeply inspects any live website, landing page, or web asset URL using Firecrawl with direct-asset fallback. Automatically handles HTML pages (extracting markdown and design tokens) as well as direct SVG/image assets (extracting vector XML, colors, and dimensions).",
+    "Scrapes any live website, landing page, or web asset URL using Firecrawl with direct-asset fallback." +
+    "Automatically handles HTML pages and direct SVG/image assets. Set `brand: true` only when inspecting a brand's own site: it runs the deep scan and returns brand tokens (title, description, theme color, favicon, OpenGraph image, keywords). Leave `brand` false for normal pages so the response stays minimal.",
   parameters: {
     type: "object",
     properties: {
@@ -21,6 +22,11 @@ export const scrapeWebPageToolDefinition = {
         description:
           "Whether to only return main content or full page structure including headers/footers (default false).",
       },
+      brand: {
+        type: "boolean",
+        description:
+          "Set true only for a brand's own website. Runs a deep scan and extracts brand tokens (title, description, theme color, favicon, OpenGraph image, keywords). Leave false/omit for normal pages; the response then stays minimal.",
+      },
     },
     required: ["url"],
   },
@@ -29,6 +35,8 @@ export const scrapeWebPageToolDefinition = {
 export interface ScrapeWebPageArgs {
   url: string;
   onlyMainContent?: boolean;
+  /** Deep brand scrape; adds metadata tokens and scans the full page. */
+  brand?: boolean;
 }
 
 /**
@@ -133,7 +141,7 @@ export async function executeScrapeWebPageTool(
     };
   }
 
-  const { url, onlyMainContent = false } = input.args || {};
+  const { url, onlyMainContent = false, brand = false } = input.args || {};
   if (!url || typeof url !== "string") {
     return {
       success: false,
@@ -144,15 +152,15 @@ export async function executeScrapeWebPageTool(
     };
   }
 
-  const cleanUrl = url.trim();
+  const normUrl = url.trim();
 
   // 1. Pre-check: If the URL is explicitly an SVG, image, or stylesheet, handle via direct fetch directly
   const isDirectAsset = /\.(svg|png|jpe?g|webp|gif|ico|avif|css)(\?.*)?$/i.test(
-    cleanUrl,
+    normUrl,
   );
 
   if (isDirectAsset) {
-    const directResult = await handleDirectAssetFetch(cleanUrl);
+    const directResult = await handleDirectAssetFetch(normUrl);
     return {
       success: directResult.success,
       data: {
@@ -171,9 +179,10 @@ export async function executeScrapeWebPageTool(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        url: cleanUrl,
+        url: normUrl,
         formats: ["markdown"],
-        onlyMainContent,
+        // Brand inspection needs the full page for metadata tokens.
+        onlyMainContent: brand ? false : onlyMainContent,
       }),
     });
 
@@ -191,7 +200,7 @@ export async function executeScrapeWebPageTool(
           errorMsg.includes("content type") ||
           errorMsg.includes("image"))
       ) {
-        const directResult = await handleDirectAssetFetch(cleanUrl);
+        const directResult = await handleDirectAssetFetch(normUrl);
         return {
           success: directResult.success,
           data: {
@@ -226,23 +235,27 @@ export async function executeScrapeWebPageTool(
       favicon: metadata.favicon,
       ogImage:
         metadata.ogImage || metadata["og:image"] || metadata["twitter:image"],
-      sourceUrl: metadata.sourceURL || metadata.url || cleanUrl,
+      sourceUrl: metadata.sourceURL || metadata.url || normUrl,
       keywords: metadata.keywords,
       language: metadata.language,
     };
 
-    let responseText = `### Successfully Scraped: ${cleanUrl}\n\n`;
-    responseText += `**Brand & Metadata Tokens:**\n`;
-    responseText += `- **Page Title**: ${brandTokens.title || "N/A"}\n`;
-    responseText += `- **Meta Description**: ${brandTokens.description || "N/A"}\n`;
-    responseText += `- **Theme / Brand Color**: ${brandTokens.themeColor || "Not specified in meta"}\n`;
-    responseText += `- **Favicon / Logo Asset**: ${brandTokens.favicon || "N/A"}\n`;
-    responseText += `- **OpenGraph / Brand Image**: ${brandTokens.ogImage || "N/A"}\n`;
-    if (brandTokens.keywords) {
-      responseText += `- **Keywords**: ${brandTokens.keywords}\n`;
+    let responseText = `### Successfully Scraped: ${normUrl}\n\n`;
+
+    if (brand) {
+      responseText += `**Brand & Metadata Tokens:**\n`;
+      responseText += `- **Page Title**: ${brandTokens.title || "N/A"}\n`;
+      responseText += `- **Meta Description**: ${brandTokens.description || "N/A"}\n`;
+      responseText += `- **Theme / Brand Color**: ${brandTokens.themeColor || "Not specified in meta"}\n`;
+      responseText += `- **Favicon / Logo Asset**: ${brandTokens.favicon || "N/A"}\n`;
+      responseText += `- **OpenGraph / Brand Image**: ${brandTokens.ogImage || "N/A"}\n`;
+      if (brandTokens.keywords) {
+        responseText += `- **Keywords**: ${brandTokens.keywords}\n`;
+      }
+      responseText += `\n`;
     }
 
-    responseText += `\n**Rendered Page Content (Markdown):**\n\n`;
+    responseText += `**Rendered Page Content (Markdown):**\n\n`;
     responseText += markdown.slice(0, 25000);
 
     return {
@@ -260,7 +273,7 @@ export async function executeScrapeWebPageTool(
     const errorMsg = err instanceof Error ? err.message : String(err);
 
     // Network level fallback to direct fetch
-    const directResult = await handleDirectAssetFetch(cleanUrl);
+    const directResult = await handleDirectAssetFetch(normUrl);
     if (directResult.success) {
       return {
         success: true,

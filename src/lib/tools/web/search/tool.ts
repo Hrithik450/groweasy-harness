@@ -1,4 +1,5 @@
 import { ToolInput, ToolOutput } from "@/lib/tools/types";
+import { toolFailure as failure } from "@/lib/tools/utils";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
 
 export const webSearchToolDefinition = {
@@ -42,20 +43,25 @@ export const webSearchToolDefinition = {
   },
 };
 
+/** Model-facing inputs. */
 export interface WebSearchArgs {
   url: string;
   scanFullPage?: boolean;
-  maxScrollSteps?: number;
-  scrollDelay?: number;
-  delayBeforeSnapshot?: number;
   waitForSelector?: string;
   processIframes?: boolean;
   cssSelector?: string | string[];
+}
+
+/** Internal crawl tuning, derived by the caller (never sent by the model). */
+export interface WebSearchCrawlArgs extends WebSearchArgs {
+  maxScrollSteps?: number;
+  scrollDelay?: number;
+  delayBeforeSnapshot?: number;
   pageTimeout?: number;
 }
 
-export async function executeAlternateWebSearchTool(
-  input: ToolInput<WebSearchArgs>,
+export async function executeWebSearchTool(
+  input: ToolInput<WebSearchCrawlArgs>,
 ): Promise<ToolOutput<{ contentParts: Array<InputContentParam> }>> {
   const {
     url,
@@ -70,13 +76,7 @@ export async function executeAlternateWebSearchTool(
   } = input.args || {};
 
   if (!url || typeof url !== "string") {
-    return {
-      success: false,
-      data: {
-        contentParts: [{ type: "input_text", text: "Error: URL is required." }],
-      },
-      error: "URL is required.",
-    };
+    return failure("URL is required.");
   }
 
   const normUrl = url.trim();
@@ -181,19 +181,8 @@ export async function executeAlternateWebSearchTool(
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
 
-    console.warn(`Web searchr failed (${errorMsg})`);
+    console.warn(`Web-Search failed (${errorMsg})`);
 
-    return {
-      success: false,
-      data: {
-        contentParts: [
-          {
-            type: "input_text",
-            text: `Alternate Web Scrape Error: ${errorMsg}`,
-          },
-        ],
-      },
-      error: errorMsg,
-    };
+    return failure(errorMsg);
   }
 }

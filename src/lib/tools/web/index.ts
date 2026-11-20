@@ -7,7 +7,8 @@ export interface AnchoredMediaGroup {
   images: string[];
 }
 
-export interface WebSearchArgs {
+/** Internal executor inputs; the model-facing schema is in `web/search/tool.ts`. */
+export interface WebSearchToolArgs {
   url: string;
   scanFullPage?: boolean;
   maxScrollSteps?: number;

@@ -431,19 +431,9 @@ export const TOOL_REGISTRY: Record<
     definition: webSearchToolDefinition,
     execute: async (input) => {
       try {
-        const args = input.args as {
-          maxScrollSteps?: number;
-          scrollSteps?: number;
-        };
         return {
           success: true,
-          data: await webSearchTool.execute(
-            {
-              ...input.args,
-              maxScrollSteps: args.maxScrollSteps ?? args.scrollSteps,
-            },
-            {},
-          ),
+          data: await webSearchTool.execute(input.args, {}),
         };
       } catch (error) {
         return {

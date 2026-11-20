@@ -1,16 +1,9 @@
 import * as repo from "@/lib/repositories";
-import { getDetailBarState } from "@/lib/detail.bar/snapshot";
 import { toSessionView, type SessionView } from "@/lib/core/session/view";
 import { DEFAULT_SESSIONS } from "./default";
 import type { Session, NewSession } from "@/lib/db";
 import type { Response } from "./types";
 import type { SessionSlug, DefaultSessionConfig } from "@/lib/db";
-import type { CompetitorResearchItem } from "@/lib/detail.bar";
-
-/** Saved competitor research, including the brand URL stored by its tool. */
-type CompetitorResearchItemWithBrand = CompetitorResearchItem & {
-  brandUrl?: string;
-};
 
 /**
  * Creates a new session strictly scoped to the authenticated user.
@@ -211,30 +204,3 @@ export async function ensureDefaultSessions(
   }
 }
 
-/**
- * Retrieves all saved competitor research reports across the user's adStrategist session
- * (optionally scoped to a brand domain).
- */
-export async function getCompetitorResearches(
-  userId?: string,
-): Promise<CompetitorResearchItem[]> {
-  const researches: CompetitorResearchItem[] = [];
-  if (!userId) return researches;
-
-  try {
-    const session = repo.getSessionByUserIdAndSlug(userId, "adStrategist");
-    if (!session) return researches;
-
-    const detailBar = await getDetailBarState(session.id);
-
-    const allResearches: CompetitorResearchItemWithBrand[] =
-      (detailBar.adStrategist?.competitorResearches ??
-        []) as CompetitorResearchItemWithBrand[];
-
-    researches.push(...allResearches);
-  } catch (err) {
-    console.warn("Failed to get competitor researches:", err);
-  }
-
-  return researches;
-}
