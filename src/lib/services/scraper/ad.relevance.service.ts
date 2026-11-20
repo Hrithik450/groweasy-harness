@@ -1,4 +1,7 @@
-import { getOpenAIClient, getOpenAIEmbeddingModel } from "@/lib/core/agent/client";
+import {
+  getOpenAIClient,
+  getOpenAIEmbeddingModel,
+} from "@/lib/core/agent/client";
 
 /**
  * Strips raw URLs, markdown images, and markdown links on the fly for semantic embedding.
@@ -68,11 +71,9 @@ export async function getBatchEmbeddings(
     );
   }
 
-  // One card can carry a whole landing page of text; the embeddings API
-  // rejects any single input above 8192 tokens, so cap it well below that.
   const MAX_EMBEDDING_CHARS = 6000;
   const cleanedTexts = texts.map((text) => {
-    const cleaned = stripUrlsForEmbedding(text) || " ";
+    const cleaned = stripUrlsForEmbedding(text) ?? " ";
     return cleaned.length > MAX_EMBEDDING_CHARS
       ? cleaned.slice(0, MAX_EMBEDDING_CHARS)
       : cleaned;

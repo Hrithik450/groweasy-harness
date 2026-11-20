@@ -8,10 +8,9 @@
  */
 
 import type {
-  AdQueryRelevanceRecord,
-  NewAdQueryRelevanceRecord,
-  NewScrapedAdRecord,
   ScrapedAdRecord,
+  NewScrapedAdRecord,
+  NewAdQueryRelevanceRecord,
 } from "@/lib/db";
 
 /**
