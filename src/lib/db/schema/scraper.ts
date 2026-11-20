@@ -11,7 +11,6 @@ export const scrapedAds = sqliteTable(
   "scraped_ads",
   {
     libraryId: text("library_id").notNull(),
-    searchQuery: text("search_query").notNull(),
     adUrl: text("ad_url").notNull(),
     content: text("content").notNull(),
     contentHash: text("content_hash").notNull(),
@@ -27,8 +26,6 @@ export const scrapedAds = sqliteTable(
   },
   (table) => [
     primaryKey({ columns: [table.libraryId] }),
-    index("idx_scraped_ads_query").on(table.searchQuery, table.relevanceScore),
+    index("idx_scraped_ads_relevance").on(table.relevanceScore),
   ],
 );
-
-// Row types are inferred in `@/lib/db/types`.

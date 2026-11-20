@@ -152,9 +152,7 @@ export async function ingestScrapedAds(
       }
 
       // Relevant unchanged ad -> bump timestamp and skip re-scoring
-      await touchScrapedAds([
-        { libraryId: card.libraryId, searchQuery },
-      ]);
+      await touchScrapedAds([{ libraryId: card.libraryId }]);
       allProcessed.push({
         libraryId: card.libraryId,
         adUrl: existingAd.adUrl || card.adUrl,
@@ -186,7 +184,7 @@ export async function ingestScrapedAds(
       ({ card, contentHash, createdAt, wasKnown }, index) => {
         const relevance = dotProduct(queryVec, embeddings[index]);
         toUpsert.push(
-          buildRecord(card, searchQuery, contentHash, relevance, createdAt),
+          buildRecord(card, contentHash, relevance, createdAt),
         );
 
         const isRelevant = relevance >= minRelevanceThreshold;
@@ -247,14 +245,12 @@ export async function ingestScrapedAds(
 /** Build a fully-populated scraped-ad row for an upsert. */
 function buildRecord(
   card: RawScrapedAdCard,
-  searchQuery: string,
   contentHash: string,
   relevanceScore: number,
   createdAt: number,
 ): ScrapedAdRecord {
   return {
     libraryId: card.libraryId,
-    searchQuery,
     adUrl: card.adUrl,
     content: card.content,
     contentHash,

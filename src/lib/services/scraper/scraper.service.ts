@@ -100,11 +100,11 @@ export async function upsertScrapedAds(
  * Updates the updatedAt timestamp for ads (single or multiple).
  */
 export async function touchScrapedAds(
-  items: Array<{ libraryId: string; searchQuery: string }>,
+  items: Array<{ libraryId: string }>,
 ): Promise<Response<void>> {
   try {
     for (const item of items) {
-      repo.touchScrapedAd(item.libraryId, item.searchQuery);
+      repo.touchScrapedAd(item.libraryId);
     }
     return { success: true };
   } catch (error) {

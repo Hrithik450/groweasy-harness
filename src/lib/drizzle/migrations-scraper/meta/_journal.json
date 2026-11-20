@@ -15,6 +15,13 @@
       "when": 1795177267845,
       "tag": "0001_scraped_ads_by_library_id",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1795177486105,
+      "tag": "0002_scraped_ads_drop_search_query",
+      "breakpoints": true
     }
   ]
 }
