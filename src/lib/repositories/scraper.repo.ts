@@ -29,6 +29,7 @@ export function upsertScrapedAd(ad: NewScrapedAdRecord): void {
     .insert(scrapedAds)
     .values({
       libraryId: ad.libraryId,
+      searchQuery: ad.searchQuery.trim(),
       adUrl: ad.adUrl,
       content: ad.content,
       contentHash: ad.contentHash,
@@ -41,6 +42,7 @@ export function upsertScrapedAd(ad: NewScrapedAdRecord): void {
     .onConflictDoUpdate({
       target: [scrapedAds.libraryId],
       set: {
+        searchQuery: ad.searchQuery.trim(),
         adUrl: ad.adUrl,
         content: ad.content,
         contentHash: ad.contentHash,
@@ -56,11 +58,11 @@ export function upsertScrapedAd(ad: NewScrapedAdRecord): void {
 /**
  * Updates the updatedAt timestamp when an ad is seen again unchanged (still active).
  */
-export function touchScrapedAd(libraryId: string): void {
+export function touchScrapedAd(libraryId: string, searchQuery: string): void {
   const now = Math.floor(Date.now() / 1000);
   scraperDb
     .update(scrapedAds)
-    .set({ updatedAt: now })
+    .set({ searchQuery: searchQuery.trim(), updatedAt: now })
     .where(eq(scrapedAds.libraryId, libraryId))
     .run();
 }
@@ -70,11 +72,14 @@ export function touchScrapedAd(libraryId: string): void {
  * Natively pushes NOT IN (excludeIds) and LIMIT down into the SQLite engine.
  */
 export function getAdsByQuery(
-  _searchQuery: string,
+  searchQuery: string,
   excludeIds?: Set<string>,
   limit?: number,
 ): ScrapedAdRecord[] {
-  const conditions = [gte(scrapedAds.relevanceScore, 0.5)];
+  const conditions = [
+    eq(scrapedAds.searchQuery, searchQuery.trim()),
+    gte(scrapedAds.relevanceScore, 0.5),
+  ];
 
   if (excludeIds && excludeIds.size > 0) {
     conditions.push(notInArray(scrapedAds.libraryId, Array.from(excludeIds)));

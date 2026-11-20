@@ -22,6 +22,13 @@
       "when": 1795177486105,
       "tag": "0002_scraped_ads_drop_search_query",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1795177818391,
+      "tag": "0003_scraped_ads_cache_query",
+      "breakpoints": true
     }
   ]
 }
