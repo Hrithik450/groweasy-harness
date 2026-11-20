@@ -19,25 +19,6 @@ export const webSearchToolDefinition = {
         description:
           "Auto-scrolls the entire page from top to bottom. Recommended for infinite-scroll feeds like Meta Ad Library or product catalogs.",
       },
-      maxScrollSteps: {
-        type: "number",
-        description:
-          "Maximum number of scroll steps during full page scan (e.g. 5 to 15).",
-      },
-      scrollSteps: {
-        type: "number",
-        description: "Alias for maxScrollSteps; prefer maxScrollSteps.",
-      },
-      scrollDelay: {
-        type: "number",
-        description:
-          "Pause between scroll steps in seconds to allow content hydration. format: floating point. Default: 2.0",
-      },
-      delayBeforeSnapshot: {
-        type: "number",
-        description:
-          "Delay in seconds after page load before taking the DOM snapshot, allowing media and dynamic signed URLs to hydrate. format: floating point. Default: 2.0",
-      },
       waitForSelector: {
         type: "string",
         description:
@@ -55,11 +36,6 @@ export const webSearchToolDefinition = {
           { type: "string" },
           { type: "array", items: { type: "string" } },
         ],
-      },
-      pageTimeout: {
-        type: "number",
-        description:
-          "Total navigation and crawl timeout in milliseconds (e.g. 60000 for 60 seconds, 120000 for 2 minutes). Increase when executing many scroll steps or crawling heavy dynamic pages. Default: 60000.",
       },
     },
     required: ["url"],
