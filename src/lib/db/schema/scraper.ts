@@ -25,6 +25,11 @@ export const scrapedAds = sqliteTable(
     embeddingModel: text("embedding_model"),
     /** Hash of `embedding_model + canonical text` that produced the embedding. */
     embeddingHash: text("embedding_hash"),
+    /** Creative URLs; never hashed/embedded. Stored as JSON by Drizzle. */
+    media: text("media", { mode: "json" }).$type<{
+      videos: string[];
+      images: string[];
+    } | null>(),
     startDate: text("start_date"),
     status: text("status").notNull().default("active"),
     firstSeenAt: integer("first_seen_at").notNull(),

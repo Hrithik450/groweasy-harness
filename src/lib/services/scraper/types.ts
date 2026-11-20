@@ -13,6 +13,12 @@ import type {
   NewAdQueryRelevanceRecord,
 } from "@/lib/db";
 
+/** Creative URLs for one ad. Never hashed or embedded; they expire. */
+export interface AdMedia {
+  videos: string[];
+  images: string[];
+}
+
 /**
  * One durable ad fact as the services consume it: the inferred table row, with
  * the JSON text embedding decoded to a vector at the repository boundary.

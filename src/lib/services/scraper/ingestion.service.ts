@@ -109,6 +109,7 @@ export async function ingestScrapedAds(
     embedding: scored.embedding,
     embeddingModel: scored.embeddingModel,
     embeddingHash: scored.embeddingHash,
+    media: scored.media,
     startDate: scored.card.startDate ?? null,
     status: scored.card.status ?? "active",
     firstSeenAt:
@@ -135,6 +136,7 @@ export async function ingestScrapedAds(
       embedding: scored.embedding,
       embeddingModel: scored.embeddingModel,
       embeddingHash: scored.embeddingHash,
+      media: scored.media,
       startDate: scored.card.startDate ?? null,
       status: scored.card.status ?? "active",
       firstSeenAt:

@@ -5,7 +5,7 @@
  * @module @/lib/services/scraper/pipeline
  */
 
-import type { ScrapedAd } from "./types";
+import type { AdMedia, ScrapedAd } from "./types";
 import {
   crispAdCardContent,
   isAvatarMediaUrl,
@@ -49,12 +49,12 @@ const MAX_CREATIVE_URLS_PER_AD = 5;
  * This display content is deliberately *not* used for hashing or embedding —
  * media URLs carry expiring signatures.
  */
-export function attachMediaToCardContent(
+export function selectMedia(
   content: string,
   media?: AnchoredMedia,
   nowMs: number = Date.now(),
-): string {
-  if (!media) return content;
+): AdMedia | null {
+  if (!media) return null;
 
   const isFresh = (src: string | undefined): src is string =>
     typeof src === "string" &&
@@ -63,17 +63,28 @@ export function attachMediaToCardContent(
     !isMediaUrlExpired(src, nowMs);
 
   const videos = media.videos
-    .filter(isFresh)
+    .filter((src) => isFresh(src))
     .slice(0, MAX_CREATIVE_URLS_PER_AD);
   const images = media.images
     .filter((src) => isFresh(src) && !isAvatarMediaUrl(src))
     .slice(0, MAX_CREATIVE_URLS_PER_AD);
 
-  if (videos.length === 0 && images.length === 0) return content;
+  return videos.length === 0 && images.length === 0
+    ? null
+    : { videos, images };
+}
+
+export function attachMediaToCardContent(
+  content: string,
+  media?: AnchoredMedia,
+  nowMs: number = Date.now(),
+): string {
+  const selected = selectMedia(content, media, nowMs);
+  if (!selected) return content;
 
   const lines = [
-    ...videos.map((src) => `Video: ${src}`),
-    ...images.map((src) => `Image: ${src}`),
+    ...selected.videos.map((src) => `Video: ${src}`),
+    ...selected.images.map((src) => `Image: ${src}`),
   ];
   return `${content.trimEnd()}\n\n${lines.join("\n")}`;
 }
@@ -82,6 +93,8 @@ export interface CanonicalAdCard {
   card: ScrapedAdCard;
   /** Markdown shown to the model, including attached media lines. */
   displayContent: string;
+  /** Creative URLs stored for the card; deliberately outside the hash. */
+  media: AdMedia | null;
   canonicalText: string;
   contentHash: string;
 }
@@ -100,12 +113,14 @@ export function canonicalizeCardBatch(
 
   return cards.map((card) => {
     const canonicalText = canonicalizeAdText(card.content);
+    const anchored = mediaByLibraryId.get(card.libraryId);
     return {
       card,
       displayContent: attachMediaToCardContent(
         crispAdCardContent(card.content),
-        mediaByLibraryId.get(card.libraryId),
+        anchored,
       ),
+      media: selectMedia(card.content, anchored),
       canonicalText,
       contentHash: sha256Hex(canonicalText),
     };

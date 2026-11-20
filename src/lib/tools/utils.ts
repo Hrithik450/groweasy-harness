@@ -7,7 +7,6 @@
  * @module @/lib/tools/utils
  */
 
-import type { InputContentParam } from "openai/resources/beta/agents/agents";
 import type { ToolOutput } from "@/lib/tools/types";
 
 /**

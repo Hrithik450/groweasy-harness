@@ -48,6 +48,7 @@ function toScrapedAd(row: ScrapedAdRecord): ScrapedAd {
     embedding,
     embeddingModel: row.embeddingModel,
     embeddingHash: row.embeddingHash,
+    media: row.media ?? null,
     startDate: row.startDate,
     status: row.status,
     firstSeenAt: row.firstSeenAt,
@@ -63,6 +64,7 @@ function toEmbedding(
     ? null
     : JSON.stringify(Array.from(embedding));
 }
+
 
 /**
  * Retrieve scraped ads by their libraryIds in a single query.
@@ -114,6 +116,7 @@ export function persistScrapedAds(
         embedding: toEmbedding(ad.embedding),
         embeddingModel: ad.embeddingModel ?? null,
         embeddingHash: ad.embeddingHash ?? null,
+        media: ad.media ?? null,
         startDate: ad.startDate ?? null,
         status: ad.status ?? "active",
         firstSeenAt: ad.firstSeenAt ?? now,
@@ -130,6 +133,7 @@ export function persistScrapedAds(
             embedding: row.embedding,
             embeddingModel: row.embeddingModel,
             embeddingHash: row.embeddingHash,
+            media: row.media,
             startDate: row.startDate,
             status: row.status,
             lastSeenAt: now,
