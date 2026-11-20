@@ -71,7 +71,7 @@ export async function getBatchEmbeddings(
     );
   }
 
-  const MAX_EMBEDDING_CHARS = 6000;
+  const MAX_EMBEDDING_CHARS = 20000;
   const cleanedTexts = texts.map((text) => {
     const cleaned = stripUrlsForEmbedding(text) ?? " ";
     return cleaned.length > MAX_EMBEDDING_CHARS
