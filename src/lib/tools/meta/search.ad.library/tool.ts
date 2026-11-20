@@ -102,9 +102,8 @@ function resolveCrawlDepth(params: {
     };
   }
 
-  const isSpecificBrandQuery = /^[A-Z][a-zA-Z0-9\s]{2,}$/.test(params.query);
   return {
-    maxScrollSteps: isSpecificBrandQuery ? 10 : 15,
+    maxScrollSteps: 15,
     scrollDelay: 2.5,
     delayBeforeSnapshot: 3.5,
     pageTimeout: 90000,
@@ -325,9 +324,6 @@ export async function executeSearchAdLibraryTool(
     mediaType,
   });
 
-  // Depth comes from intent: validation checks stop after the first cards,
-  // collection crawls start shallow and only pay for the deep scan when the
-  // opening feed cannot cover the remaining target.
   const depth = resolveCrawlDepth({ targetCount, query });
   const probeDepth = resolveProbeDepth(depth);
 
