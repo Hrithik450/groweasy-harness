@@ -7,7 +7,7 @@ export interface AnchoredMediaGroup {
   images: string[];
 }
 
-export interface AlternateWebSearchArgs {
+export interface WebSearchArgs {
   url: string;
   scanFullPage?: boolean;
   maxScrollSteps?: number;
@@ -61,7 +61,7 @@ export function associateMediaByAnchor(
     anchorRe = new RegExp(anchorPattern, "gi");
   } catch {
     console.warn(
-      `[alternateWebSearch] Ignoring invalid mediaAnchorPattern: ${anchorPattern}`,
+      `[webSearch] Ignoring invalid mediaAnchorPattern: ${anchorPattern}`,
     );
     return [];
   }
@@ -147,7 +147,7 @@ function normalizeWaitForSelector(value?: string): string | undefined {
   if (!trimmed) return undefined;
   if (/^(?:js|xpath)\s*:/i.test(trimmed)) {
     console.warn(
-      `[alternateWebSearch] Ignoring non-CSS waitForSelector: ${trimmed}`,
+      `[webSearch] Ignoring non-CSS waitForSelector: ${trimmed}`,
     );
     return undefined;
   }
@@ -234,8 +234,8 @@ function resolveCrawlAbortMs(budget: {
   );
 }
 
-export const alternateWebSearchTool = defineTool({
-  name: "alternateWebSearch",
+export const webSearchTool = defineTool({
+  name: "webSearch",
   description:
     "High-performance self-hosted web searcher/scraper with native media extraction. Scrapes dynamic websites, single-page applications, and media-rich pages, capturing LLM-ready markdown.",
   timeoutMs: 90000,
@@ -335,7 +335,7 @@ export const alternateWebSearchTool = defineTool({
   presentCall: (args) => ({
     card: "generic",
     kind: "fetch",
-    title: `Alternate web scrape: ${args.url}`,
+    title: `Web search: ${args.url}`,
     locations: [{ path: args.url }],
     rawInput: args,
   }),
@@ -417,14 +417,14 @@ export const alternateWebSearchTool = defineTool({
         if (!res.ok) {
           const errText = await res.text().catch(() => "");
           throw new Error(
-            `Alternative scraper failed (HTTP ${res.status}): ${errText}`,
+            `Web search failed (HTTP ${res.status}): ${errText}`,
           );
         }
 
         return (await res.json()) as Awaited<ReturnType<typeof launchCrawl>>;
       } catch (err) {
         if (timedOut) {
-          throw new Error(`Alternate web scrape timed out after ${abortAfterMs}ms`, {
+          throw new Error(`Web search timed out after ${abortAfterMs}ms`, {
             cause: err,
           });
         }
@@ -501,4 +501,4 @@ export const alternateWebSearchTool = defineTool({
 });
 
 // Real search/scrape implementations live in their own modules.
-export * from "./scrape/tool";
+export * from "./scrape.page/tool";

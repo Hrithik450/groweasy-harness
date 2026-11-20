@@ -141,8 +141,8 @@ import {
   type RenderUIBlockArgs,
 } from "./generative.ui/render.ui.block/tool";
 import type { ModelToolSchema } from "@/lib/llm/llm/driver";
-import { alternateWebSearchToolDefinition } from "./web/alternate.scrape/tool";
-import { alternateWebSearchTool } from "./web";
+import { webSearchToolDefinition } from "./web/search/tool";
+import { webSearchTool } from "./web";
 import {
   fetchShopifyCollectionsToolDefinition,
   executeFetchShopifyCollectionsTool,
@@ -427,8 +427,8 @@ export const TOOL_REGISTRY: Record<
     execute: (input) =>
       executeScrapeWebPageTool(input as ToolInput<ScrapeWebPageArgs>),
   },
-  alternateWebSearch: {
-    definition: alternateWebSearchToolDefinition,
+  webSearch: {
+    definition: webSearchToolDefinition,
     execute: async (input) => {
       try {
         const args = input.args as {
@@ -437,7 +437,7 @@ export const TOOL_REGISTRY: Record<
         };
         return {
           success: true,
-          data: await alternateWebSearchTool.execute(
+          data: await webSearchTool.execute(
             {
               ...input.args,
               maxScrollSteps: args.maxScrollSteps ?? args.scrollSteps,
@@ -530,7 +530,7 @@ export function getToolDefinitionsForSlug(
   if (slug === "businessProfile") {
     return [
       scrapeWebPageToolDefinition,
-      alternateWebSearchToolDefinition,
+      webSearchToolDefinition,
       searchAdLibraryToolDefinition,
       fetchImageTypesToolDefinition,
       readImagesToolDefinition,

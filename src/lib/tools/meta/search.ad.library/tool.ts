@@ -1,6 +1,6 @@
 import type { ToolInput, ToolOutput } from "@/lib/tools/types";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
-import { executeAlternateWebSearchTool } from "@/lib/tools/web/alternate.scrape/tool";
+import { executeAlternateWebSearchTool } from "@/lib/tools/web/search/tool";
 import { getCompetitorResearches } from "@/lib/services/sessions.service";
 import {
   computeContentHash,
@@ -64,6 +64,52 @@ export interface SearchAdLibraryArgs {
   startDate?: string;
   endDate?: string;
   mediaType?: "all" | "image" | "video";
+}
+
+interface CrawlDepth {
+  maxScrollSteps: number;
+  scrollDelay: number;
+  delayBeforeSnapshot: number;
+  pageTimeout: number;
+}
+
+/** Requests at or below this count only ask "does this phrase have ads?". */
+const VALIDATION_TARGET_COUNT = 2;
+/** Cheap first-pass steps; Meta renders a full page before any scroll. */
+const PROBE_SCROLL_STEPS = 3;
+
+/**
+ * Crawl depth from intent, ported from the legacy harness.
+ * Validation checks need only the first cards; collection crawls go deeper.
+ */
+function resolveCrawlDepth(params: {
+  targetCount: number;
+  query: string;
+}): CrawlDepth {
+  const targetCount = Math.max(1, params.targetCount);
+
+  if (targetCount <= VALIDATION_TARGET_COUNT) {
+    return {
+      maxScrollSteps: PROBE_SCROLL_STEPS,
+      scrollDelay: 1.2,
+      delayBeforeSnapshot: 1.2,
+      pageTimeout: 45000,
+    };
+  }
+
+  const isSpecificBrandQuery = /^[A-Z][a-zA-Z0-9\s]{2,}$/.test(params.query);
+  return {
+    maxScrollSteps: isSpecificBrandQuery ? 10 : 15,
+    scrollDelay: 2.5,
+    delayBeforeSnapshot: 3.5,
+    pageTimeout: 90000,
+  };
+}
+
+/** Shallow first pass; validation depths are returned unchanged. */
+function resolveProbeDepth(depth: CrawlDepth): CrawlDepth {
+  if (depth.maxScrollSteps <= PROBE_SCROLL_STEPS) return depth;
+  return { ...depth, maxScrollSteps: PROBE_SCROLL_STEPS };
 }
 
 /**
@@ -282,30 +328,33 @@ export async function executeSearchAdLibraryTool(
     mediaType,
   });
 
-  // Roughly seventeen results per scroll on the Ad Library grid, with a page
-  // showing about twenty-nine; enough steps to reach the wanted rows.
-  const RESULTS_PER_SCROLL = 17;
-  const RESULTS_ON_FIRST_VIEW = 29;
-  const MAX_SCROLL_STEPS = 100;
-  const targetWindow = shortage + excludeIds.size + 30;
-  const calculatedScrollSteps = Math.min(
-    MAX_SCROLL_STEPS,
-    Math.max(
-      0,
-      Math.ceil((targetWindow - RESULTS_ON_FIRST_VIEW) / RESULTS_PER_SCROLL),
-    ),
-  );
+  // Depth comes from intent: validation checks stop after the first cards,
+  // collection crawls start shallow and only pay for the deep scan when the
+  // opening feed cannot cover the remaining target.
+  const depth = resolveCrawlDepth({ targetCount, query });
+  const probeDepth = resolveProbeDepth(depth);
 
-  const scanFullPage = calculatedScrollSteps > 0;
-  const scrapeRes = await executeAlternateWebSearchTool({
-    args: {
-      url: targetUrl,
-      scanFullPage,
-      maxScrollSteps: scanFullPage ? calculatedScrollSteps : undefined,
-      pageTimeout: 180000,
-    },
-    context: input.context,
-  });
+  const crawl = (d: CrawlDepth) =>
+    executeAlternateWebSearchTool({
+      args: {
+        url: targetUrl,
+        scanFullPage: true,
+        maxScrollSteps: d.maxScrollSteps,
+        scrollDelay: d.scrollDelay,
+        delayBeforeSnapshot: d.delayBeforeSnapshot,
+        pageTimeout: d.pageTimeout,
+      },
+      context: input.context,
+    });
+
+  const readText = (
+    res: Awaited<ReturnType<typeof executeAlternateWebSearchTool>>,
+  ): string =>
+    (res.data?.contentParts ?? [])
+      .map((part) => (part as { text?: string }).text ?? "")
+      .join("\n");
+
+  const scrapeRes = await crawl(probeDepth);
 
   if (!scrapeRes.success || !scrapeRes.data?.contentParts) {
     if (cachedAds.length > 0) {
@@ -345,9 +394,22 @@ export async function executeSearchAdLibraryTool(
     };
   }
 
-  const fullText = scrapeRes.data.contentParts
-    .map((p: any) => p.text || "")
-    .join("\n");
+  let fullText = readText(scrapeRes);
+
+  // Second pass only when the shallow pass fell short of the target.
+  const foundIds = new Set(
+    [...fullText.matchAll(/Library ID:\s*(\d+)/g)].map((m) => m[1]),
+  );
+  const remaining = Math.max(0, targetCount - cachedAds.length);
+  if (
+    probeDepth.maxScrollSteps < depth.maxScrollSteps &&
+    foundIds.size < remaining
+  ) {
+    const deepRes = await crawl(depth);
+    if (deepRes.success && deepRes.data?.contentParts) {
+      fullText = [fullText, readText(deepRes)].filter(Boolean).join("\n\n");
+    }
+  }
 
   const isUpstreamMetaError =
     /your request couldn't be processed|sorry!? (?:something went wrong|we're having trouble)|there's an issue and the page could not be loaded/i.test(

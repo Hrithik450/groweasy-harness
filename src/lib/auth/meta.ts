@@ -25,6 +25,7 @@ export function isMetaOAuthConfigured(): boolean {
   return Boolean(getMetaAppId() && getMetaAppSecret());
 }
 
+
 /**
  * Builds Meta OAuth 2.0 authorization URL for standard redirect callback flow.
  */

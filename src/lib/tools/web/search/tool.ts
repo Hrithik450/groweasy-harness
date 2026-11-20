@@ -1,9 +1,9 @@
 import { ToolInput, ToolOutput } from "@/lib/tools/types";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
 
-export const alternateWebSearchToolDefinition = {
+export const webSearchToolDefinition = {
   type: "function" as const,
-  name: "alternateWebSearch",
+  name: "webSearch",
   description:
     "High-performance self-hosted web searcher/scraper with native media extraction. Scrapes dynamic websites, single-page applications, and media-rich pages, capturing LLM-ready markdown.",
   parameters: {
@@ -66,7 +66,7 @@ export const alternateWebSearchToolDefinition = {
   },
 };
 
-export interface AlternateWebSearchArgs {
+export interface WebSearchArgs {
   url: string;
   scanFullPage?: boolean;
   maxScrollSteps?: number;
@@ -79,7 +79,7 @@ export interface AlternateWebSearchArgs {
 }
 
 export async function executeAlternateWebSearchTool(
-  input: ToolInput<AlternateWebSearchArgs>,
+  input: ToolInput<WebSearchArgs>,
 ): Promise<ToolOutput<{ contentParts: Array<InputContentParam> }>> {
   const {
     url,
@@ -205,7 +205,7 @@ export async function executeAlternateWebSearchTool(
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
 
-    console.warn(`Alternate web scraper failed (${errorMsg})`);
+    console.warn(`Web searchr failed (${errorMsg})`);
 
     return {
       success: false,
