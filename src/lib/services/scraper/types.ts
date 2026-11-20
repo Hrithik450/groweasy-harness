@@ -7,49 +7,41 @@
  * @module @/lib/services/scraper/types
  */
 
-/** One durable ad fact as the services consume it. */
-export interface ScrapedAd {
-  libraryId: string;
-  adUrl: string;
-  /** Scraped card markdown used for display/telemetry (includes media lines). */
-  content: string;
-  /** Hash of the canonicalized card text; defines "the same ad version". */
-  contentHash: string;
-  embedding: Float32Array | null;
-  embeddingModel: string | null;
-  /** Hash of `embeddingModel + canonical text` the embedding was computed from. */
-  embeddingHash: string | null;
-  startDate: string | null;
-  status: string;
-  firstSeenAt: number;
-  lastSeenAt: number;
-}
+import type {
+  AdQueryRelevanceRecord,
+  NewAdQueryRelevanceRecord,
+  NewScrapedAdRecord,
+  ScrapedAdRecord,
+} from "@/lib/db";
 
-/** Insert shape for one ad; optionality mirrors the DB defaults. */
-export interface NewScrapedAd {
-  libraryId: string;
-  adUrl: string;
-  content: string;
-  contentHash: string;
+/**
+ * One durable ad fact as the services consume it: the inferred table row, with
+ * the JSON text embedding decoded to a vector at the repository boundary.
+ */
+export type ScrapedAd = Omit<ScrapedAdRecord, "embedding"> & {
+  embedding: Float32Array | null;
+};
+
+/** Insert shape for one ad; timestamps default in the repository. */
+export type NewScrapedAd = Omit<
+  NewScrapedAdRecord,
+  "embedding" | "firstSeenAt" | "lastSeenAt"
+> & {
   embedding?: Float32Array | null;
-  embeddingModel?: string | null;
-  embeddingHash?: string | null;
-  startDate?: string | null;
-  status?: string | null;
   firstSeenAt?: number;
   lastSeenAt?: number;
-}
+};
 
 /** Insert shape for one `(query, ad)` relevance row. */
-export interface NewAdQueryRelevance {
-  libraryId: string;
-  searchQuery: string;
-  relevanceScore: number;
+export type NewAdQueryRelevance = Omit<
+  NewAdQueryRelevanceRecord,
+  "firstSeenAt" | "lastSeenAt"
+> & {
   firstSeenAt?: number;
   lastSeenAt?: number;
-}
+};
 
-/** A stored ad joined to its relevance for the query being served. */
-export interface ScoredScrapedAd extends ScrapedAd {
+/** A stored relation with its relevance score exposed for callers. */
+export type ScoredScrapedAd = ScrapedAd & {
   relevanceScore: number;
-}
+};
