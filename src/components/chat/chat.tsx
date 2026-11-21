@@ -392,11 +392,13 @@ export function Chat({
             )}
 
             {pagination.isLoadingInitial ? (
-              <BotDollLoader
-                variant="center"
-                avatarVariant={botVariantForRole(initialSession.slug)}
-                text="Loading conversation"
-              />
+              <div className="flex min-h-[calc(100dvh-15rem)] items-center justify-center">
+                <BotDollLoader
+                  variant="center"
+                  avatarVariant={botVariantForRole(initialSession.slug)}
+                  text="Loading conversation"
+                />
+              </div>
             ) : turnGroups.length === 0 ? (
               <ChatEmptyState
                 onSelectPrompt={handleSendMessage}

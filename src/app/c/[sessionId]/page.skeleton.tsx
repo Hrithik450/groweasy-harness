@@ -1,11 +1,13 @@
 import { BotDollLoader } from "@/components/bot.doll.loader";
 
-/** Matches `DetailBar`'s default width so the fallback does not jump. */
+/** Matches `DetailBar`'s desktop width so the fallback does not jump. */
 const DETAIL_BAR_WIDTH = 420;
 
 /**
- * Fallback for a session page: the main column plus the detail bar it will
- * adopt, so the layout does not reflow when the real turn arrives.
+ * Fallback for a session page. Mirrors the real breakpoints:
+ * - mobile: full-width chat, no persistent detail column
+ * - tablet: sidebar persists, detail is an overlay only
+ * - desktop >=1280: persistent detail column appears
  */
 export function ChatSkeleton() {
   return (
@@ -13,12 +15,19 @@ export function ChatSkeleton() {
       {/* Main Conversation Column */}
       <div className="flex-1 flex flex-col h-full min-w-0 relative">
         <header className="h-14 shrink-0 flex items-center justify-between border-b border-border bg-card px-3 sm:px-4">
-          <div className="flex items-center gap-2">
+          {/* Mobile navigation */}
+          <div className="flex items-center gap-1.5 min-w-[40px]">
+            <div className="h-8 w-8 bg-secondary rounded-none animate-pulse md:hidden" />
+          </div>
+
+          {/* Title */}
+          <div className="flex items-center justify-center min-w-0">
             <div className="h-5 w-28 bg-secondary rounded-none animate-pulse" />
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-none bg-secondary animate-pulse" />
-            <div className="h-8 w-8 rounded-none bg-secondary animate-pulse" />
+
+          {/* Mobile/tablet details trigger; desktop has the column instead */}
+          <div className="flex items-center justify-end min-w-[40px]">
+            <div className="h-8 w-8 bg-secondary rounded-none animate-pulse xl:hidden" />
           </div>
         </header>
 
@@ -38,10 +47,10 @@ export function ChatSkeleton() {
         </div>
       </div>
 
-      {/* Detail Bar Column */}
+      {/* Persistent detail column only at the real desktop breakpoint. */}
       <aside
         style={{ width: DETAIL_BAR_WIDTH }}
-        className="hidden lg:flex flex-col h-full shrink-0 border-l border-border-subtle bg-card"
+        className="hidden xl:flex flex-col h-full shrink-0 border-l border-border-subtle bg-card"
       >
         {/* Tab strip */}
         <div className="h-14 shrink-0 flex items-center gap-5 border-b border-border px-5">

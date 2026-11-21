@@ -238,7 +238,7 @@ export function DetailBar({
           onClick={toggleRightCollapsed}
           title="Open details"
           aria-label="Open details"
-          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-card hover:bg-muted border border-r-0 border-border-strong hover:border-brand/40 shadow-sm hover:shadow-md rounded-l-xl py-3 px-1.5 flex flex-col items-center gap-2 text-muted-foreground hover:text-brand transition-all cursor-pointer group active:scale-95"
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 hidden xl:flex bg-card hover:bg-muted border border-r-0 border-border-strong hover:border-brand/40 shadow-sm hover:shadow-md rounded-l-xl py-3 px-1.5 flex-col items-center gap-2 text-muted-foreground hover:text-brand transition-all cursor-pointer group active:scale-95"
         >
           <ChevronLeft className="w-4 h-4 text-muted-2 group-hover:text-brand group-hover:-translate-x-0.5 transition-transform" />
           <span className="[writing-mode:vertical-rl] text-[9.5px] font-bold tracking-wider uppercase text-muted-2 group-hover:text-brand select-none rotate-180">
@@ -250,7 +250,7 @@ export function DetailBar({
       <aside
         id="detailbar"
         style={{ width: isRightCollapsed ? 0 : `${rightWidth}px` }}
-        className={`relative bg-card h-full select-none shrink-0 ${
+        className={`relative hidden xl:block bg-card h-full select-none shrink-0 ${
           isRightCollapsed
             ? "border-l-0 pointer-events-none opacity-0 overflow-hidden"
             : "border-l border-border-subtle opacity-100"

@@ -4,6 +4,8 @@ import { exchangeMetaCodeForToken } from "@/lib/auth/meta";
 import { getPublicOrigin } from "@/lib/auth/public.origin";
 import { syncMetaConnector } from "@/lib/connectors/meta.ads";
 import { syncCampaignsDetailBar } from "@/lib/detail.bar/external/meta.campaigns";
+import { ensureMetaCronSchedule, metaUserId } from "@/lib/cron/activation";
+import { getConnectorByUserIdAndProviderSlug } from "@/lib/services";
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl;
@@ -53,9 +55,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const { accessToken } = await exchangeMetaCodeForToken(code, origin);
+    const previous = await getConnectorByUserIdAndProviderSlug(user.id, "meta");
+    const previousMetaUserId = metaUserId(previous.data?.metadata);
+
     await syncMetaConnector({
       context: { userId: user.id, providerSlug: "meta", accessToken },
     });
+    await ensureMetaCronSchedule(user.id, previousMetaUserId);
 
     // The Campaigns tab is Meta's: fill it as soon as the account connects.
     await syncCampaignsDetailBar(user.id).catch((err) =>

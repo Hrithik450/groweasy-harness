@@ -395,7 +395,7 @@ export function ChatInputForm({
                   ? "Please complete the questions above to continue..."
                   : placeholder
             }
-            className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:outline-none text-foreground placeholder:text-muted-foreground placeholder:truncate px-2.5 sm:px-4 py-1.5 text-[13.5px] sm:text-[15px] leading-5 sm:leading-6 min-h-[36px] resize-none overflow-y-auto"
+            className="flex-1 min-w-0 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:outline-none text-foreground placeholder:text-muted-foreground placeholder:truncate placeholder-shown:whitespace-nowrap placeholder-shown:overflow-hidden placeholder-shown:text-ellipsis placeholder-shown:h-[36px] placeholder-shown:min-h-[36px] placeholder-shown:max-h-[36px] px-2.5 sm:px-4 py-1.5 text-[13.5px] sm:text-[15px] leading-5 sm:leading-6 min-h-[36px] resize-none overflow-y-auto"
             style={{
               boxShadow: "none",
               border: "none",

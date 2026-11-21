@@ -12,7 +12,11 @@ import type { ConnectorStatus } from "@/lib/db";
 import {
   activateCronJobsByRequires,
   deactivateCronJobsByRequires,
+  ensureDefaultCronJobsByUserId,
+  getCronJobsByUserId,
 } from "@/lib/repositories/cron.repo";
+import { DEFAULT_META_CRON_JOBS } from "@/lib/repositories/defaults";
+import { getConnectorByUserIdAndProviderSlug } from "@/lib/repositories/connectors.repo";
 
 /** Connector states that make gated jobs eligible. */
 const AVAILABLE: ReadonlySet<ConnectorStatus> = new Set<ConnectorStatus>([
@@ -66,4 +70,37 @@ export function syncCronJobsForConnector(
   if (status === null || UNAVAILABLE.has(status)) {
     deactivateCronJobsByRequires(userId, requires);
   }
+}
+
+/** The Meta user behind a connection, when the connector stored one. */
+export function metaUserId(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const userId = (metadata as { userId?: unknown }).userId;
+  return typeof userId === "string" && userId ? userId : null;
+}
+
+export async function ensureMetaCronSchedule(
+  userId: string,
+  previousMetaUserId: string | null,
+  immediate = true,
+): Promise<void> {
+  const latest = getConnectorByUserIdAndProviderSlug(userId, "meta");
+  const currentMetaUserId = metaUserId(latest?.metadata);
+  const jobs = getCronJobsByUserId(userId).filter(
+    (job) => job.requires === "metaAds",
+  );
+  const scheduled =
+    jobs.length > 0 && jobs.every((job) => job.status === "active");
+
+  if (
+    previousMetaUserId !== null &&
+    currentMetaUserId !== null &&
+    previousMetaUserId === currentMetaUserId &&
+    scheduled
+  ) {
+    return;
+  }
+
+  ensureDefaultCronJobsByUserId(userId, DEFAULT_META_CRON_JOBS);
+  activateCronJobsByRequires(userId, "metaAds", immediate);
 }
