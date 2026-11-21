@@ -422,10 +422,12 @@ export function Chat({
                   prompt.text.trim() ? (
                     <div
                       key={prompt.requestId}
-                      className="flex flex-col items-end gap-1.5 w-full mb-6"
+                      className="flex justify-end w-full min-w-0 mb-6"
                     >
-                      <div className="w-fit max-w-full bg-brand text-primary-foreground px-4 py-2.5 rounded-none font-normal text-[14.5px] leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word]">
-                        <UserMarkdown text={prompt.text} />
+                      <div className="max-w-[85%] sm:max-w-[75%] min-w-0 flex flex-col items-end gap-2">
+                        <div className="w-fit max-w-full bg-brand text-primary-foreground px-4 py-2.5 rounded-none font-normal text-[14.5px] leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word]">
+                          <UserMarkdown text={prompt.text} />
+                        </div>
                       </div>
                     </div>
                   ) : null,

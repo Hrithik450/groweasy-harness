@@ -370,8 +370,14 @@ export function BotDollAvatar({
           fill={palette.face}
         />
 
-        {/* Brows: flat bars except cream's slight tilt. */}
-        <g fill={palette.ink}>
+        {/* Brows: flat bars except cream's slight tilt; they follow the gaze
+            at reduced amplitude so they do not read as frozen. */}
+        <g
+          fill={palette.ink}
+          transform={`translate(${(render.eyeX * 0.5).toFixed(2)} ${(
+            render.eyeY * 0.5
+          ).toFixed(2)}) rotate(${(render.rotation * 0.35).toFixed(2)} ${FACE_CX} ${FACE_CY})`}
+        >
           {isCream ? (
             <>
               <rect
