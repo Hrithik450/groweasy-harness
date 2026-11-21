@@ -107,7 +107,8 @@ export function rebindUserWithGoogle(data: NewUserRecord): UserRecord {
   const userId = data.id?.trim();
 
   if (!userId) {
-    throw new Error("User ID is required to link Google account.");
+    // No anonymous row to rebind: resolve the Google account or create it.
+    return createUser(data).user;
   }
 
   return db.transaction((tx) => {
@@ -153,9 +154,26 @@ export function rebindUserWithGoogle(data: NewUserRecord): UserRecord {
           .get()!;
       }
 
-      // A different user account is already linked to this Google account.
+      // The Google account already owns a user row. Log into that row
+      // instead of failing when an anonymous session initiated the flow.
+      if (googleId && existingGoogleUser.googleId === googleId) {
+        return tx
+          .update(users)
+          .set({
+            name: data.name || existingGoogleUser.name,
+            picture: data.picture ?? existingGoogleUser.picture,
+            emailVerified:
+              data.emailVerified ?? existingGoogleUser.emailVerified,
+            updatedAt: now,
+          })
+          .where(eq(users.id, existingGoogleUser.id))
+          .returning()
+          .get()!;
+      }
+
+      // A different Google identity already owns this email address.
       throw new Error(
-        "This Google account is already linked to another user. Only one account can be connected to this Google account.",
+        "This email is already linked to another Google account.",
       );
     }
 

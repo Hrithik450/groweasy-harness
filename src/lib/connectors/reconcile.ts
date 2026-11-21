@@ -14,7 +14,7 @@ import { syncCronJobsForConnector } from "@/lib/cron/activation";
 import { upsertConnector } from "@/lib/repositories/connectors.repo";
 
 /** How long a `running` scan may stay silent before it is presumed dead. */
-export const STALE_SYNC_MS = 6 * 60 * 1000;
+export const STALE_SYNC_MS = 20 * 60 * 1000;
 
 /**
  * Return the row as the caller should see it, releasing a stale `running`

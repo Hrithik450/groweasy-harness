@@ -19,7 +19,7 @@ import {
   DEFAULT_BUSINESS_PROFILE_CRON_JOBS,
 } from "@/lib/services";
 
-const SCAN_TIMEOUT_MS = 6 * 60 * 1000;
+const SCAN_TIMEOUT_MS = 20 * 60 * 1000;
 
 /** One in-flight connect per analyzer session, across overlapping requests. */
 const activeScans = new Set<string>();
@@ -155,11 +155,11 @@ export async function POST(req: NextRequest) {
         metadata: {
           ...metadata,
           error:
-            "The analysis did not finish within 6 minutes. Please try again.",
+            "The analysis did not finish within 20 minutes. Please try again.",
         },
       });
       return NextResponse.json(
-        { error: "The analysis did not finish within 6 minutes." },
+        { error: "The analysis did not finish within 20 minutes." },
         { status: 504 },
       );
     }
