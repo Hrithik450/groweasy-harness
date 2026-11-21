@@ -42,7 +42,7 @@ export const metadata: Metadata = {
 export function LandingPage() {
   return (
     <div
-      className={`${syne.variable} ${spaceGrotesk.variable} ${jetBrainsMono.variable} flex-1 min-h-0 w-full overflow-y-auto scroll-smooth bg-background text-[18px] leading-[1.5] text-foreground [font-family:var(--font-space-grotesk)]`}
+      className={`${syne.variable} ${spaceGrotesk.variable} ${jetBrainsMono.variable} min-h-dvh w-full bg-background text-[18px] leading-[1.5] text-foreground [font-family:var(--font-space-grotesk)]`}
     >
       <Header />
       <main>

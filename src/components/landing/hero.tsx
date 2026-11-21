@@ -7,7 +7,7 @@ export function Hero() {
       <Container className="flex flex-col gap-[clamp(28px,4vw,40px)] pt-[clamp(40px,7vw,64px)] pb-[clamp(28px,4vw,40px)] max-[600px]:gap-7 max-[600px]:pt-9 max-[600px]:pb-7">
         <div className="flex min-w-0 flex-col gap-5">
           <Eyebrow>FOR PERFORMANCE MARKETERS ON META · APP INSTALLS · D2C</Eyebrow>
-          <h1 className="m-0 max-w-[1400px] break-words [font-family:var(--font-syne)] text-[clamp(54px,11vw,168px)] font-extrabold leading-[0.92] tracking-[-0.05em] [text-wrap:balance] max-[355px]:text-[48px]">
+          <h1 className="m-0 max-w-[1400px] break-words [font-family:var(--font-syne)] text-[clamp(34px,6.5vw,96px)] font-extrabold leading-[0.92] tracking-[-0.05em] [text-wrap:balance] max-[600px]:text-[34px] max-[355px]:text-[30px]">
             AI that finds <span className="text-accent">winning</span> ads.
           </h1>
         </div>

@@ -222,6 +222,7 @@ export function Sidebar({
               type="button"
               onClick={() => {
                 setIsUserMenuOpen(false);
+                closeMobile();
                 openSettingsModal();
               }}
               className="w-full flex items-center justify-between px-3 py-2 rounded-none text-xs text-brand-soft hover:text-primary-foreground hover:bg-brand-hover transition-colors cursor-pointer"
@@ -251,6 +252,8 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={() => {
+                  closeMobile();
+                  setIsUserMenuOpen(false);
                   const current =
                     typeof window !== "undefined"
                       ? `${window.location.pathname}${window.location.search}`
