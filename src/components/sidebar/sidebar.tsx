@@ -73,11 +73,14 @@ export function Sidebar({
         setIsUserMenuOpen(false);
       }
     };
-    if (isUserMenuOpen) {
+    // On mobile the drawer's own backdrop and modal layer own dismissal.
+    // A document-level mousedown can otherwise close the menu before the
+    // menu item's click fires.
+    if (isUserMenuOpen && !isMobileOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isUserMenuOpen]);
+  }, [isUserMenuOpen, isMobileOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -217,7 +220,10 @@ export function Sidebar({
       >
         {/* Floating Menu Popover */}
         {isUserMenuOpen && (
-          <div className="absolute bottom-[68px] left-3 right-3 bg-brand-surface border border-brand-border rounded-none p-1.5 z-50 space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <div
+            onMouseDown={(event) => event.stopPropagation()}
+            className="absolute bottom-[68px] left-3 right-3 bg-brand-surface border border-brand-border rounded-none p-1.5 z-50 space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150"
+          >
             <button
               type="button"
               onClick={() => {
@@ -332,13 +338,13 @@ export function Sidebar({
       {isMobileOpen && (
         <div
           onClick={closeMobile}
-          className="fixed inset-0 z-40 bg-foreground/60 md:hidden"
+          className="fixed inset-0 z-[60] bg-foreground/60 md:hidden"
         />
       )}
 
       {/* Mobile Drawer */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 bg-brand text-primary-foreground md:hidden transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-[70] bg-brand text-primary-foreground md:hidden transition-transform duration-300 ease-in-out ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{ width: `${Math.min(leftWidth, 300)}px` }}
