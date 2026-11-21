@@ -60,7 +60,13 @@ export function BusinessProfileAnalysisLoader() {
     <div className="w-full flex-1 flex flex-col items-center justify-center px-6 py-10 sm:px-8 sm:py-12 pb-16 sm:pb-20 text-center bg-card overflow-y-auto no-scrollbar animate-in fade-in duration-300">
       {/* Ball loader — no ring, just the sphere */}
       <div className="mb-4 sm:mb-5">
-        <BotDollAvatar size={64} withShadow={true} interactive={true} />
+        {/* Account/manager surface: red face. */}
+        <BotDollAvatar
+          size={64}
+          withShadow={true}
+          interactive={true}
+          variant="red"
+        />
       </div>
 
       {/* Main Announcement & Rotating Subtitle */}

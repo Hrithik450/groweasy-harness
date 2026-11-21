@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 94 96" width="94" height="96" role="img" aria-labelledby="bot-face-red-title">
+  <title id="bot-face-red-title">Red square bot face</title>
+
+  <!-- Cream offset backplate (hard shadow) -->
+  <rect x="14" y="16" width="76" height="76" rx="6" fill="#F4EBDD"/>
+
+  <!-- Main face -->
+  <rect x="4" y="6" width="76" height="76" rx="6" fill="#F06A45"/>
+  <g fill="#141210">
+    <rect x="21" y="27" width="16" height="6" rx="1"/>
+    <rect x="47" y="27" width="16" height="6" rx="1"/>
+    <circle cx="29" cy="42" r="7.2"/>
+    <circle cx="55" cy="42" r="7.2"/>
+    <rect x="32" y="61" width="20" height="5.5" rx="1.5"/>
+  </g>
+</svg>

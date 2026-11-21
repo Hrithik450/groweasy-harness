@@ -58,16 +58,19 @@ export function AppShell({
   }, []);
 
   return (
-    <main className="h-screen w-screen flex overflow-hidden bg-background">
-      <Sidebar initialUser={initialUser} initialSessions={initialSessions} />
+    <>
+      <main className="h-dvh w-full flex overflow-hidden bg-background">
+        <Sidebar initialUser={initialUser} initialSessions={initialSessions} />
 
-      <div className="flex-1 flex h-full min-w-0 bg-background overflow-hidden">
-        {children}
-      </div>
+        <div className="flex-1 flex h-full min-w-0 bg-background overflow-hidden">
+          {children}
+        </div>
+      </main>
 
+      {/* Modal roots portal to <body>; keep them outside the clipped shell. */}
       <SettingsModal />
       <ImageboxModal />
       <ConnectorsRuntime />
-    </main>
+    </>
   );
 }

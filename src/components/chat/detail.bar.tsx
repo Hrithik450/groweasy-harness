@@ -1,8 +1,8 @@
 "use client";
 
 import type { SessionView } from "@/lib/core/session/view";
-import React, { useRef, useState } from "react";
-import { Loader2, ChevronLeft } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Loader2, ChevronLeft, X } from "lucide-react";
 import { useSidebarStore } from "@/store/sidebar.store";
 import { DetailBarSlug } from "@/lib/detail.bar";
 import type { DetailBarState } from "@/lib/detail.bar/state";
@@ -45,9 +45,39 @@ export function DetailBar({
 }: DetailBarProps) {
   const [isDraggingRight, setIsDraggingRight] = useState(false);
   const [rightWidth, setRightWidth] = useState(DEFAULT_RIGHT_WIDTH);
+  const [isOverlay, setIsOverlay] = useState(false);
 
-  const { isRightCollapsed, toggleRightCollapsed } = useSidebarStore();
+  const {
+    isRightCollapsed,
+    toggleRightCollapsed,
+    isDetailDrawerOpen,
+    closeDetailDrawer,
+  } = useSidebarStore();
   const resetRightWidth = () => setRightWidth(DEFAULT_RIGHT_WIDTH);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 1279px)");
+    const sync = (): void => {
+      setIsOverlay(query.matches);
+      if (!query.matches) closeDetailDrawer();
+    };
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, [closeDetailDrawer]);
+
+  useEffect(() => {
+    closeDetailDrawer();
+  }, [session.id, closeDetailDrawer]);
+
+  useEffect(() => {
+    if (!isOverlay || !isDetailDrawerOpen) return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") closeDetailDrawer();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOverlay, isDetailDrawerOpen, closeDetailDrawer]);
 
   const handleStartResize = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -137,6 +167,65 @@ export function DetailBar({
     }
   }, [initialData, session?.id, type]);
 
+  const barContent =
+    !session || !DetailBarComponent ? (
+      <div className="h-full flex flex-col items-center justify-center p-8 space-y-3">
+        <Loader2 className="w-6 h-6 animate-spin text-brand" />
+        <p className="text-xs text-muted-2 font-medium">
+          Loading session data...
+        </p>
+      </div>
+    ) : (
+      <DetailBarComponent
+        session={session}
+        isStreaming={isStreaming}
+        handleSubmit={handleSubmit}
+        handleUpdateData={handleUpdateData}
+        handleNavigation={handleNavigation}
+      />
+    );
+
+  if (isOverlay) {
+    return (
+      <>
+        <DetailBarStream sessionId={session.id} />
+
+        {isDetailDrawerOpen && (
+          <div className="fixed inset-0 z-50 xl:hidden">
+            <div
+              onClick={closeDetailDrawer}
+              className="absolute inset-0 bg-foreground/60 backdrop-blur-xs"
+            />
+            <aside
+              role="dialog"
+              aria-modal="true"
+              aria-label="Details"
+              className="absolute inset-y-0 right-0 flex h-dvh w-full max-w-none flex-col overflow-hidden border-l border-border bg-card shadow-xl"
+            >
+              <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
+                <span className="text-xs font-semibold text-foreground">
+                  Details
+                </span>
+                <button
+                  type="button"
+                  onClick={closeDetailDrawer}
+                  title="Close details"
+                  aria-label="Close details"
+                  className="flex h-8 w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)] [&_[data-detail-bar-collapse]]:hidden">
+                {barContent}
+              </div>
+            </aside>
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       <DetailBarStream sessionId={session.id} />
@@ -193,22 +282,7 @@ export function DetailBar({
           style={{ width: `${rightWidth}px` }}
           className="flex flex-col h-full overflow-hidden"
         >
-          {!session || !DetailBarComponent ? (
-            <div className="h-full flex flex-col items-center justify-center p-8 space-y-3">
-              <Loader2 className="w-6 h-6 animate-spin text-brand" />
-              <p className="text-xs text-muted-2 font-medium">
-                Loading session data...
-              </p>
-            </div>
-          ) : (
-            <DetailBarComponent
-              session={session}
-              isStreaming={isStreaming}
-              handleSubmit={handleSubmit}
-              handleUpdateData={handleUpdateData}
-              handleNavigation={handleNavigation}
-            />
-          )}
+          {barContent}
         </div>
       </aside>
     </>

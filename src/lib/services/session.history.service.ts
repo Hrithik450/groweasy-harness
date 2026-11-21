@@ -16,6 +16,7 @@ import {
   type SessionMessage,
 } from "@/lib/session/derive/messages";
 import {
+  SESSION_JOURNAL_PAGE_BYTES,
   SESSION_JOURNAL_PAGE_TURNS,
   type SessionJournalChange,
 } from "@/lib/session/journal";
@@ -46,52 +47,27 @@ async function readDerived(
 }
 
 /**
- * One durable journal page: the last {@link SESSION_JOURNAL_PAGE_TURNS} turns,
- * however many events they hold.
+ * One durable journal page: up to {@link SESSION_JOURNAL_PAGE_TURNS} turns and
+ * {@link SESSION_JOURNAL_PAGE_BYTES} raw bytes, always starting on a
+ * `turn/start` so the client never receives half a turn.
  *
- * A page always starts on a `turn/start`, so the client never receives half a
- * turn. No cursor returns the newest page as `replace`; a cursor returns the
- * page immediately before it as `prepend`.
+ * No cursor returns the newest page as `replace`; a cursor returns the page
+ * immediately before it as `prepend`.
  */
 export async function getSessionJournal(
   sessionId: string,
   cursor?: string,
 ): Promise<Response<SessionJournalChange>> {
   try {
-    const events = await sessionEventsRepo.getEvents(sessionId);
-
-    let end = events.length;
-    if (cursor !== undefined && cursor !== "") {
-      const through = Number.parseInt(cursor, 10);
-      if (!Number.isFinite(through)) {
-        return { success: false, error: "Invalid journal cursor" };
-      }
-      const after = events.findIndex((event) => event.seq > through);
-      end = after < 0 ? events.length : after;
-    }
-
-    // Walk back to the start of the tenth turn before the window's end.
-    let start = 0;
-    let turns = 0;
-    for (let index = end - 1; index >= 0; index -= 1) {
-      if (events[index]!.type !== "turn/start") continue;
-      turns += 1;
-      if (turns === SESSION_JOURNAL_PAGE_TURNS) {
-        start = index;
-        break;
-      }
-    }
-
-    const entries = events.slice(start, end);
-    const page = {
-      entries,
-      cursor: start > 0 ? String(events[start - 1]!.seq) : null,
-    };
-    const hasMore = start > 0;
+    const window = await sessionEventsRepo.getJournalWindow(sessionId, cursor, {
+      maxTurns: SESSION_JOURNAL_PAGE_TURNS,
+      maxBytes: SESSION_JOURNAL_PAGE_BYTES,
+    });
+    const page = { entries: window.entries, cursor: window.cursor };
     const data: SessionJournalChange =
       cursor === undefined || cursor === ""
-        ? { type: "replace", page, hasMore }
-        : { type: "prepend", page, hasMore };
+        ? { type: "replace", page, hasMore: window.hasMore }
+        : { type: "prepend", page, hasMore: window.hasMore };
 
     return { success: true, data };
   } catch (error) {

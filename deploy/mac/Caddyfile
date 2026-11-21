@@ -31,6 +31,11 @@
 	# No `encode` here on purpose: the SSE session stream must not be buffered
 	# by a compressor. Cloudflare compresses text responses at the edge.
 
+	# Content-hashed assets never change; keep them out of the app and in the
+	# browser/Cloudflare cache.
+	@immutable path /_next/static/* /fonts/*
+	header @immutable >Cache-Control "public, max-age=31536000, immutable"
+
 	# Log viewer at /_logs/ (basic auth). Caddy is the only authentication
 	# here; the viewer binds 127.0.0.1 and must never be exposed directly.
 	# The imported snippet is either the basic_auth block or `respond 404`

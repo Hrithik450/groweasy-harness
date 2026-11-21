@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 94 96" width="94" height="96" role="img" aria-labelledby="bot-face-cream-title">
+  <title id="bot-face-cream-title">Cream square bot face</title>
+
+  <!-- Dark offset backplate (hard shadow) -->
+  <rect x="14" y="16" width="76" height="76" rx="6" fill="#171412"/>
+
+  <!-- Main face -->
+  <rect x="4" y="6" width="76" height="76" rx="6" fill="#F6F0E2"/>
+  <g fill="#141210">
+    <rect x="21" y="27.5" width="16" height="5.5" rx="1" transform="rotate(-7 29 30.25)"/>
+    <rect x="47" y="27.5" width="16" height="5.5" rx="1" transform="rotate(7 55 30.25)"/>
+    <circle cx="29" cy="42" r="7.2"/>
+    <circle cx="55" cy="42" r="7.2"/>
+  </g>
+  <path d="M34 63 Q42 69 50 63" fill="none" stroke="#141210" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Four-point star -->
+  <g transform="translate(80 10)">
+    <path d="M0 -8.5 L2.2 -2.2 L8.5 0 L2.2 2.2 L0 8.5 L-2.2 2.2 L-8.5 0 L-2.2 -2.2 Z" fill="#EF6A4A"/>
+  </g>
+</svg>

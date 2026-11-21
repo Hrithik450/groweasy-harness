@@ -171,6 +171,24 @@ launchctl kickstart -k gui/$(id -u)/com.hruthik.harness.app
 Rollback swaps the build, not the database. A destructive migration still
 needs a separate plan.
 
+## Keep the Mac awake
+
+The host is the server, so macOS idle sleep must be off. Run once:
+
+```zsh
+sudo pmset -a sleep 0 disksleep 0 displaysleep 10 powernap 0 standby 0 \
+  disablesleep 1 autorestart 1 womp 1 tcpkeepalive 1
+```
+
+- `disablesleep 1` keeps services running with the lid closed.
+- Keep the Mac on AC power. `disablesleep` will drain the battery.
+- `autorestart 1` restarts after a power failure.
+- `displaysleep 10` still lets the screen turn off.
+
+FileVault is on, so macOS disables auto-login. After a reboot, LaunchAgents do
+not start until someone logs in. Convert the services to LaunchDaemons (or
+accept manual login after every reboot) if the host must recover unattended.
+
 ## Known limits
 
 - Mac sleeps / reboots / power cut → site down until it comes back. `KeepAlive`

@@ -13,7 +13,10 @@ import {
   Video,
   type LucideIcon,
 } from "lucide-react";
-import { BotDollAvatar } from "@/components/bot.doll.loader";
+import {
+  BotDollAvatar,
+  botVariantForRole,
+} from "@/components/bot.doll.loader";
 import {
   suggestionsFor,
   type SuggestionIcon,
@@ -53,7 +56,11 @@ export function ChatEmptyState({ onSelectPrompt, slug }: ChatEmptyStateProps) {
     <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-8 overflow-y-auto w-full">
       <div className="w-full max-w-2xl flex flex-col items-center text-center">
         <div className="mb-4">
-          <BotDollAvatar size={56} withShadow />
+          <BotDollAvatar
+            size={56}
+            withShadow
+            variant={botVariantForRole(slug)}
+          />
         </div>
 
         <h2 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-8 sm:mb-9 tracking-tight">

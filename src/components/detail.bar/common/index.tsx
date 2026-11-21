@@ -47,6 +47,7 @@ export function DetailBarHeader({
         <button
           type="button"
           onClick={toggleRightCollapsed}
+          data-detail-bar-collapse
           title="Collapse details"
           aria-label="Collapse details"
           className="w-7 h-7 rounded-none text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center transition-colors cursor-pointer"

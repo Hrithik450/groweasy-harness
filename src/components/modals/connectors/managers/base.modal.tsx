@@ -6,6 +6,7 @@ import { getProviderFromSlug } from "@/lib/connectors/utils";
 import React, { useEffect, useState } from "react";
 import type { ManagerModalProps } from "./registry";
 import { toast } from "sonner";
+import { ModalPortal } from "../../modal.portal";
 
 /** Capability copy shown for a connected connector. */
 const DEFAULT_PERMISSIONS: string[] = [
@@ -104,18 +105,24 @@ export function BaseConnectorDialog({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 select-none animate-in fade-in duration-200">
+    <ModalPortal>
       <div
-        onClick={onClose}
-        className="fixed inset-0 bg-foreground/50 backdrop-blur-xs transition-opacity cursor-pointer"
-      />
-
-      <div
-        className={`relative z-10 w-full bg-card border border-border rounded-none flex flex-col overflow-hidden text-foreground ${MODAL_PANEL_SIZE[size]} ${className}`}
+        role="dialog"
+        aria-modal="true"
+        className="fixed inset-0 z-[110] flex items-center justify-center p-2.5 sm:p-4 select-none animate-in fade-in duration-200"
       >
-        {children}
+        <div
+          onClick={onClose}
+          className="fixed inset-0 bg-foreground/50 backdrop-blur-xs transition-opacity cursor-pointer"
+        />
+
+        <div
+          className={`relative z-10 w-full bg-card border border-border rounded-none flex flex-col overflow-hidden text-foreground ${MODAL_PANEL_SIZE[size]} ${className}`}
+        >
+          {children}
+        </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 }
 

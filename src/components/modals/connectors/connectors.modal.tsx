@@ -16,6 +16,7 @@ import type { Connector } from "@/lib/connectors/registry";
 import type { ConnectorSlug } from "@/lib/db";
 import { ConnectorManagerModal } from "./connector.manager.modal";
 import { MODAL_PANEL_SIZE } from "./managers/base.modal";
+import { ModalPortal } from "../modal.portal";
 
 function matches(connector: Connector, query: string): boolean {
   return (
@@ -148,7 +149,13 @@ export function ConnectorsModal() {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 select-none animate-in fade-in duration-200">
+      <ModalPortal>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Connectors"
+        className="fixed inset-0 z-[100] flex items-center justify-center p-2.5 sm:p-4 select-none animate-in fade-in duration-200"
+      >
         <div
           onClick={closeModal}
           className="fixed inset-0 bg-foreground/50 backdrop-blur-xs transition-opacity cursor-pointer"
@@ -221,6 +228,7 @@ export function ConnectorsModal() {
           </>
         </div>
       </div>
+      </ModalPortal>
 
       {/* Sub Manager Modal */}
       <ConnectorManagerModal />

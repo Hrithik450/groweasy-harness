@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useModalStore } from "@/store/modal.store";
 import { useUserStore } from "@/store/user.store";
+import { ModalPortal } from "./modal.portal";
 
 export function SettingsModal() {
   const {
@@ -35,7 +36,13 @@ export function SettingsModal() {
   if (!isSettingsModalOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 select-none animate-in fade-in duration-200">
+    <ModalPortal>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Settings"
+        className="fixed inset-0 z-[100] flex items-center justify-center p-2.5 sm:p-4 select-none animate-in fade-in duration-200"
+      >
       {/* Backdrop */}
       <div
         onClick={closeSettingsModal}
@@ -191,6 +198,7 @@ export function SettingsModal() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </ModalPortal>
   );
 }

@@ -31,7 +31,7 @@ import { DetailBar } from "./detail.bar";
 import { TurnView, UserMarkdown } from "./turn";
 import { ChatInputForm } from "./input.form";
 import { ChiefThinking } from "../chief.thinking";
-import { BotDollLoader } from "../bot.doll.loader";
+import { BotDollLoader, botVariantForRole } from "../bot.doll.loader";
 
 interface MainChatProps {
   initialSession: SessionView;
@@ -368,7 +368,7 @@ export function Chat({
   }, [isInitialScrolled, sessionId]);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground select-text">
+    <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground select-text">
       <div className="flex flex-col flex-1 h-full min-w-0 relative">
         <ChatHeader title={currentSession.title} />
 
@@ -386,12 +386,17 @@ export function Chat({
             {pagination.isLoadingOlder && (
               <BotDollLoader
                 variant="top-banner"
+                avatarVariant={botVariantForRole(initialSession.slug)}
                 text="Loading earlier turns"
               />
             )}
 
             {pagination.isLoadingInitial ? (
-              <BotDollLoader variant="center" text="Loading conversation" />
+              <BotDollLoader
+                variant="center"
+                avatarVariant={botVariantForRole(initialSession.slug)}
+                text="Loading conversation"
+              />
             ) : turnGroups.length === 0 ? (
               <ChatEmptyState
                 onSelectPrompt={handleSendMessage}
@@ -425,7 +430,10 @@ export function Chat({
                 )}
 
                 {isStreaming && (
-                  <ChiefThinking agentName={initialSession.title} />
+                  <ChiefThinking
+                    agentName={initialSession.title}
+                    avatarVariant={botVariantForRole(initialSession.slug)}
+                  />
                 )}
               </>
             )}

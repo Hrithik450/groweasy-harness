@@ -1,11 +1,7 @@
 "use client";
 
-import React from "react";
-import { Menu, Plus } from "lucide-react";
+import { Menu, PanelRight } from "lucide-react";
 import { useSidebarStore } from "@/store/sidebar.store";
-import { useRouter } from "next/navigation";
-import { useUserStore } from "@/store/user.store";
-import { toast } from "sonner";
 
 interface ChatHeaderProps {
   title?: string;
@@ -17,17 +13,8 @@ export function ChatHeader({
   title = "Chief 1.5",
   className = "bg-card border-b border-border",
 }: ChatHeaderProps) {
-  const { toggleMobile } = useSidebarStore();
-  const router = useRouter();
-  const { user } = useUserStore();
-
-  const handleNewChat = () => {
-    if (!user) {
-      toast.error("Please login before starting conversations");
-      return;
-    }
-    router.push("/");
-  };
+  const { toggleMobile, toggleDetailDrawer, isDetailDrawerOpen } =
+    useSidebarStore();
 
   return (
     <header
@@ -53,16 +40,21 @@ export function ChatHeader({
         </span>
       </div>
 
-      {/* Right: mobile quick new session */}
+      {/* Right: detail drawer toggle wherever the column is not used */}
       <div className="flex items-center justify-end gap-1.5 min-w-[40px]">
         <button
           type="button"
-          onClick={handleNewChat}
-          className="md:hidden p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-none transition-colors active:scale-95 cursor-pointer"
-          title="New session"
-          aria-label="New session"
+          onClick={toggleDetailDrawer}
+          className={`xl:hidden p-2 rounded-none transition-colors active:scale-95 cursor-pointer ${
+            isDetailDrawerOpen
+              ? "bg-secondary text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+          }`}
+          title={isDetailDrawerOpen ? "Close details" : "Open details"}
+          aria-label={isDetailDrawerOpen ? "Close details" : "Open details"}
+          aria-expanded={isDetailDrawerOpen}
         >
-          <Plus size={18} />
+          <PanelRight size={18} />
         </button>
       </div>
     </header>

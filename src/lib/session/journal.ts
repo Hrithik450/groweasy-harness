@@ -13,6 +13,9 @@ import type { AssistantStreamFrame } from "@/lib/core/agent/loop/types";
 /** Turns returned per journal page, whatever their event count. */
 export const SESSION_JOURNAL_PAGE_TURNS = 10;
 
+/** Raw byte ceiling per journal page; keeps one old megabyte turn off first paint. */
+export const SESSION_JOURNAL_PAGE_BYTES = 512 * 1024;
+
 /** SSE event name carrying every {@link SessionJournalChange}. */
 export const SESSION_JOURNAL_EVENT = "journal";
 

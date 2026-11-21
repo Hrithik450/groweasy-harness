@@ -12,6 +12,7 @@ import { composeInstructions } from "@/lib/core/agent/compose.turn";
 import { ensureAgent, hasAgent, type AgentSeed } from "@/lib/core/agent/registry";
 import { getSessionById } from "@/lib/repositories/sessions.repo";
 import { getToolDefinitionsForSlug } from "@/lib/tools";
+import { sessionEventsRepo } from "@/lib/session/persistence/events.repo";
 import { Session } from "@/lib/core/session/session";
 import {
   SESSION_FORMAT_VERSION,
@@ -60,5 +61,8 @@ export function ensureAgentForSession(row: SessionRow) {
  */
 export async function repairSessionTail(row: SessionIdentity): Promise<void> {
   if (hasAgent(String(row.id))) return;
+  // Only an open tail can read as "running"; a closed tail needs no full scan.
+  const last = await sessionEventsRepo.getLastEvent(String(row.id));
+  if (last === undefined || last.type === "turn/end") return;
   await Session.load(sessionHeaderFrom(row));
 }

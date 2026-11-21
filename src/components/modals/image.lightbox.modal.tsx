@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useModalStore } from "@/store/modal.store";
+import { ModalPortal } from "./modal.portal";
 
 export interface Image {
   src: string;
@@ -166,9 +167,13 @@ function ImageboxModalContent({
   if (!currentImage) return null;
 
   return (
+    <ModalPortal>
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={currentImage.alt || "Image viewer"}
       onClick={onClose}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-foreground/90 backdrop-blur-md animate-in fade-in duration-200 select-none p-2 sm:p-6"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-between bg-foreground/90 backdrop-blur-md animate-in fade-in duration-200 select-none p-2 sm:p-6"
     >
       {/* Top Header */}
       <div
@@ -291,6 +296,7 @@ function ImageboxModalContent({
         </div>
       )}
     </div>
+    </ModalPortal>
   );
 }
 

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 94 96" width="94" height="96" role="img" aria-labelledby="bot-face-amber-title">
+  <title id="bot-face-amber-title">Amber square bot face</title>
+
+  <!-- Cream offset backplate (hard shadow) -->
+  <rect x="14" y="16" width="76" height="76" rx="6" fill="#F4EBDD"/>
+
+  <!-- Stem tucks under the face -->
+  <rect x="40.75" y="82" width="2.5" height="13" fill="#141210"/>
+
+  <!-- Main face -->
+  <rect x="4" y="6" width="76" height="76" rx="6" fill="#E8932E"/>
+  <g>
+    <rect x="21" y="27" width="16" height="6" rx="1" fill="#141210"/>
+    <rect x="47" y="27" width="16" height="6" rx="1" fill="#141210"/>
+    <circle cx="31" cy="42" r="6.3" fill="#141210"/>
+    <circle cx="53" cy="42" r="6.3" fill="#141210"/>
+  </g>
+  <rect x="32" y="61" width="20" height="5.5" rx="1.5" fill="#141210"/>
+</svg>
