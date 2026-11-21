@@ -1,6 +1,11 @@
 import type { Response } from "./types";
 import * as repo from "@/lib/repositories";
-import type { Connector, NewConnector } from "@/lib/db";
+import type {
+  Connector,
+  ConnectorSlug,
+  NewConnector,
+  ProviderSlug,
+} from "@/lib/db";
 import type { ConnectorContext } from "@/lib/connectors/types";
 import { syncCronJobsForConnector } from "@/lib/cron/activation";
 import { publish } from "@/lib/session/bus";
@@ -11,14 +16,24 @@ import {
   toBrowserConnector,
 } from "@/lib/connectors/registry";
 
+export { normalizeInstanceKey } from "@/lib/repositories/connectors.repo";
+
 /**
  * Push one connector's stored row to the browser.
  *
  * Reads after the write so clients receive the stored truth; a deleted row
  * falls back to the catalogue's disconnected definition.
  */
-function publishConnector(userId: string, slug: string): void {
-  const row = repo.getConnectorByUserIdAndSlug(userId, slug);
+function publishConnector(
+  userId: string,
+  slug: string,
+  instance?: string,
+): void {
+  const row = repo.getConnectorByUserIdAndSlug(
+    userId,
+    slug as ConnectorSlug,
+    instance,
+  );
 
   const connector =
     row ?? AVAILABLE_CONNECTORS.find((item) => item.slug === slug);
@@ -48,6 +63,7 @@ export async function upsertConnector(
       event: SESSION_CONNECTOR_EVENT,
       data: {
         slug: result.slug,
+        instance: result.instance,
         connector: toBrowserConnector(
           result as unknown as Record<string, unknown>,
         ) as unknown as Record<string, unknown>,
@@ -80,10 +96,41 @@ export async function getConnectorsByUserId(
  */
 export async function getConnectorByUserIdAndSlug(
   userId: string,
-  slug: string,
+  slug: ConnectorSlug,
+  instance?: string,
 ): Promise<Response<Connector | null>> {
   try {
-    const data = repo.getConnectorByUserIdAndSlug(userId, slug);
+    const data = repo.getConnectorByUserIdAndSlug(userId, slug, instance);
+    return { success: true, data };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: message };
+  }
+}
+
+/** Makes one instance the primary for its connector type. */
+export async function setPrimaryConnector(
+  userId: string,
+  slug: string,
+  instance: string,
+): Promise<Response<boolean>> {
+  try {
+    const data = repo.setPrimaryConnector(userId, slug, instance);
+    if (data) publishConnector(userId, slug, instance);
+    return { success: true, data };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: message };
+  }
+}
+
+/** Returns every instance of one connector type for a user. */
+export async function getConnectorInstances(
+  userId: string,
+  slug: ConnectorSlug,
+): Promise<Response<Connector[]>> {
+  try {
+    const data = repo.getConnectorsByUserIdAndSlug(userId, slug);
     return { success: true, data };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -96,10 +143,15 @@ export async function getConnectorByUserIdAndSlug(
  */
 export async function getConnectorByUserIdAndProviderSlug(
   userId: string,
-  providerSlug: string,
+  providerSlug: ProviderSlug,
+  instance?: string,
 ): Promise<Response<Connector | null>> {
   try {
-    const data = repo.getConnectorByUserIdAndProviderSlug(userId, providerSlug);
+    const data = repo.getConnectorByUserIdAndProviderSlug(
+      userId,
+      providerSlug,
+      instance,
+    );
     return { success: true, data };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -112,13 +164,19 @@ export async function getConnectorByUserIdAndProviderSlug(
  */
 export async function disconnectConnectorBySlug(
   userId: string,
-  slug: string,
+  slug: ConnectorSlug,
+  instance?: string,
 ): Promise<Response<boolean>> {
   try {
-    const data = repo.disconnectConnectorBySlug(userId, slug);
-    // The capability is gone: park its jobs until it connects again.
-    syncCronJobsForConnector(userId, slug, "disconnected");
-    publishConnector(userId, slug);
+    const target = repo.getConnectorByUserIdAndSlug(userId, slug, instance);
+    const wasPrimary = instance === undefined || target?.isPrimary === true;
+
+    const data = repo.disconnectConnectorBySlug(userId, slug, instance);
+    if (wasPrimary) {
+      syncCronJobsForConnector(userId, slug, "disconnected");
+    }
+
+    publishConnector(userId, slug, instance);
     return { success: true, data };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -132,11 +190,12 @@ export async function disconnectConnectorBySlug(
 export async function deleteConnector(
   userId: string,
   providerSlug: string,
+  instance?: string,
 ): Promise<Response<boolean>> {
   try {
-    const data = repo.deleteConnector(userId, providerSlug);
+    const data = repo.deleteConnector(userId, providerSlug, instance);
     syncCronJobsForConnector(userId, providerSlug, null);
-    publishConnector(userId, providerSlug);
+    publishConnector(userId, providerSlug, instance);
     return { success: true, data };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -151,7 +210,7 @@ export async function deleteConnector(
  */
 export async function resolveConnectorContext(
   userId?: string,
-  providerSlug = "meta",
+  providerSlug: ProviderSlug = "meta",
   overrides?: Partial<ConnectorContext>,
 ): Promise<Response<ConnectorContext>> {
   try {

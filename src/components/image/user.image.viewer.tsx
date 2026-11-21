@@ -4,12 +4,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { Maximize2, Loader2, ImageOff } from "lucide-react";
 import type { Image } from "@/components/modals/image.lightbox.modal";
 import { useModalStore } from "@/store/modal.store";
-import {
-  ASPECT_CONFIG,
-  getNearestAspectRatio,
-  parseInitialAspectRatio,
-  type StandardAspectRatio,
-} from "./utils";
 
 export interface UserImageItemProps {
   image: Image;
@@ -28,21 +22,11 @@ export function UserImageItem({
 }: UserImageItemProps) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [aspect, setAspect] = useState<StandardAspectRatio>(() =>
-    parseInitialAspectRatio(image.aspectRatio),
-  );
   const imgRef = useRef<HTMLImageElement | null>(null);
 
-  const applyDimensions = (img: HTMLImageElement) => {
-    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-      setAspect(getNearestAspectRatio(img.naturalWidth, img.naturalHeight));
-    }
+  const handleLoad = () => {
     setIsLoading(false);
     setHasError(false);
-  };
-
-  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    applyDimensions(e.currentTarget);
   };
 
   // Immediate detection for cached images
@@ -50,7 +34,7 @@ export function UserImageItem({
     const el = imgRef.current;
     if (el && el.complete) {
       if (el.naturalWidth > 0) {
-        applyDimensions(el);
+        setIsLoading(false);
       } else {
         setIsLoading(false);
         setHasError(true);
@@ -64,7 +48,7 @@ export function UserImageItem({
     const timer = setTimeout(() => {
       const el = imgRef.current;
       if (el && el.complete && el.naturalWidth > 0) {
-        applyDimensions(el);
+        setIsLoading(false);
       } else {
         setIsLoading(false);
         setHasError(true);
@@ -73,13 +57,13 @@ export function UserImageItem({
     return () => clearTimeout(timer);
   }, [isLoading, image.src]);
 
-  const config = ASPECT_CONFIG[aspect];
-  const widthClass = isSingle ? config.userSingleWidthClass : "w-full";
+  // Fixed, small card: the asset fits inside without cropping or resizing it.
+  const sizeClass = isSingle ? "w-28 h-28" : "w-24 h-24";
 
   return (
     <div
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-xl sm:rounded-2xl border border-border/90 bg-muted hover:border-border-strong transition-all cursor-pointer select-none shadow-xs ${config.aspectClass} ${widthClass} ${className}`}
+      className={`group relative overflow-hidden rounded-xl border border-border/90 bg-muted hover:border-border-strong transition-all cursor-pointer select-none shadow-xs ${sizeClass} ${className}`}
     >
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-muted z-10 pointer-events-none">
@@ -95,12 +79,7 @@ export function UserImageItem({
       ) : (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
-          ref={(el) => {
-            imgRef.current = el;
-            if (el && el.complete && el.naturalWidth > 0) {
-              applyDimensions(el);
-            }
-          }}
+          ref={imgRef}
           src={image.src}
           alt={image.alt || "Uploaded image"}
           loading="eager"
@@ -110,7 +89,7 @@ export function UserImageItem({
             setIsLoading(false);
             setHasError(true);
           }}
-          className={`w-full h-full object-cover rounded-xl sm:rounded-2xl transition-opacity duration-200 group-hover:scale-[1.01] ${
+          className={`w-full h-full object-contain rounded-xl transition-opacity duration-200 ${
             isLoading ? "opacity-0" : "opacity-100"
           }`}
         />
@@ -124,7 +103,7 @@ export function UserImageItem({
 
       {overlayText && (
         <div className="absolute inset-0 bg-foreground/60 backdrop-blur-[2px] flex items-center justify-center z-20 transition-colors group-hover:bg-foreground/50">
-          <span className="font-display text-2xl sm:text-3xl font-bold text-background tracking-tight drop-shadow-lg">
+          <span className="font-display text-lg sm:text-xl font-bold text-background tracking-tight drop-shadow-lg">
             {overlayText}
           </span>
         </div>
@@ -156,9 +135,7 @@ export function UserImageGallery({ images }: { images: Image[] }) {
           isSingle
         />
       ) : (
-        <div
-          className={`grid ${gridCols} gap-2 w-full max-w-[360px] sm:max-w-[420px] items-start`}
-        >
+        <div className={`grid ${gridCols} gap-2 w-fit items-start`}>
           {visibleImages.map((img, idx) => (
             <UserImageItem
               key={idx}

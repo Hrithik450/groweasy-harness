@@ -30,7 +30,10 @@ export interface DetailBarProps {
     content: string,
     options?: { source?: import("@/lib/session/prompt").PromptSource },
   ) => Promise<void> | void;
-  handleNavigation?: (messageId: string) => void;
+  handleNavigation?: (
+    messageId: string,
+    options?: import("@/components/detail.bar/registry").DetailBarNavigationOptions,
+  ) => void;
 }
 
 export function DetailBar({

@@ -8,6 +8,7 @@ import {
 import { eq, and, lte, sql } from "drizzle-orm";
 import { sanitizeUserId } from "@/lib/utils/utils";
 import { type DefaultCronJobConfig } from "./defaults";
+import { nextOccurrenceForTiming } from "@/lib/cron/schedule";
 import { uuidv7 } from "@/lib/utils/uuid";
 
 /**
@@ -110,11 +111,14 @@ export function ensureDefaultCronJobsByUserId(
 
 /**
  * Admits every job gated on a connector to the schedule.
- * Called by the connector service when that connector becomes available.
+ *
+ * `immediate` runs the jobs right away after a connect; `false` leaves each
+ * job due at its next configured cron occurrence instead.
  */
 export function activateCronJobsByRequires(
   userId: string,
   requires: string,
+  immediate = true,
 ): number {
   const safeUserId = sanitizeUserId(userId);
   if (!safeUserId) return 0;
@@ -132,13 +136,16 @@ export function activateCronJobsByRequires(
   let changes = 0;
   let offsetMinutes = 0;
   for (const job of due) {
-    const at = new Date(now.getTime() + offsetMinutes * 60_000);
-    offsetMinutes += 1;
+    const nextRunAt = immediate
+      ? new Date(now.getTime() + offsetMinutes * 60_000)
+      : nextOccurrenceForTiming(job.timing, now);
+    if (immediate) offsetMinutes += 1;
+
     changes += db
       .update(cronJobs)
       .set({
         status: "active",
-        nextRunAt: at.toISOString(),
+        nextRunAt: nextRunAt ? nextRunAt.toISOString() : null,
         lastError: null,
       })
       .where(eq(cronJobs.id, job.id))

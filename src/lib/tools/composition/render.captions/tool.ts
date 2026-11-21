@@ -44,7 +44,6 @@ export interface RenderCaptionsArgs {
   videoPath: string;
   position?: "chest" | "bottom" | "center";
   captions?: CaptionCue[];
-  storage: "tmp" | "artifact";
 }
 
 export interface RenderCaptionsData {
@@ -78,14 +77,8 @@ export const renderCaptionsToolDefinition = {
         description:
           'Vertical placement: "chest" (55% height, recommended for 9:16 safe zone), "bottom", "center".',
       },
-      storage: {
-        type: "string",
-        enum: ["tmp", "artifact"],
-        description:
-          "Storage tier: 'tmp' (default) for intermediate captioned cuts; 'artifact' for permanent deliverables.",
-      },
     },
-    required: ["videoPath", "storage"],
+    required: ["videoPath"],
   },
 };
 
@@ -314,7 +307,6 @@ export async function executeRenderCaptions(
       mediaType: "video/mp4",
     });
     const attachment = toAttachmentReceipt(ref, "video/mp4", {
-      storage: args.storage || "tmp",
     });
 
     return {

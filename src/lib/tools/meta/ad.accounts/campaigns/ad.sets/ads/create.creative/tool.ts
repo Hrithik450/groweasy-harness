@@ -111,7 +111,7 @@ export async function executeCreateMetaCreativeTool(
 
   const res = await createMetaCreative({
     params: args,
-    context: { userId, providerSlug: "metaAds" },
+    context: { userId, providerSlug: "meta" },
   });
 
   if (!res.success || !res.data?.creativeId) {

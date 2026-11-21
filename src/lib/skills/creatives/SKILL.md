@@ -10,7 +10,7 @@ description: "Saves finished video and image assets into the Ad Creator Creative
 - **Verified metadata, real file:** read the asset before saving. `mediaUrl` must be the finished file (an `/api/attachments/…` URL from a render or the asset's https URL); never guess the duration, ratio, or whether it is video or image.
 - **No competitor copying:** a creative is our own asset. Never file a competitor's ad as ours.
 - **Update in place:** pass an existing `id` when an asset changes status or metadata; omit `id` for a new asset.
-- **Not this skill:** the daily backlog is `ideas`; campaign strategy is `campaign-brief`; reporting is `reports`.
+- **Not this skill:** the daily backlog is `ideas`; campaign strategy is `campaign-brief`; reporting is `daily-report`.
 
 ## Clarifications
 
@@ -23,7 +23,7 @@ description: "Saves finished video and image assets into the Ad Creator Creative
 
 - **No placeholder URLs:** never invent a thumbnail, asset path, or campaign ID.
 - **No performance claims:** status lines describe delivery or review state, not predicted results.
-- **No tool talk:** never mention tool names, storage, or projections in user-facing text.
+- **No tool talk:** never mention tool names or projections in user-facing text.
 - **No duplicate entries:** check existing creatives first; update the matching entry instead of adding a twin.
 - **Aspect ratio must be real:** use the measured ratio, for example `9:16`, `4:5`, `1:1`, or `16:9`. Never round a non-standard export into a different ratio silently.
 

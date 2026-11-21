@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   try {
     const { accessToken } = await exchangeMetaCodeForToken(code, origin);
     await syncMetaConnector({
-      context: { userId: user.id, providerSlug: "metaAds", accessToken },
+      context: { userId: user.id, providerSlug: "meta", accessToken },
     });
 
     // The Campaigns tab is Meta's: fill it as soon as the account connects.

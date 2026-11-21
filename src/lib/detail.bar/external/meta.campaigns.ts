@@ -91,7 +91,7 @@ function symbolOf(currency: string | undefined): string {
 async function queryRows(userId: string, query: string): Promise<GraphRow[]> {
   const res = await executeMetaGraphQuery({
     params: { queries: [query] },
-    context: { userId, providerSlug: "metaAds" },
+    context: { userId, providerSlug: "meta" },
   });
   const results = (res.data as { results?: Array<Record<string, unknown>> })
     ?.results;
@@ -185,7 +185,7 @@ export async function syncCampaignsDetailBar(
 ): Promise<{ campaigns: number; ads: number } | null> {
   const connector = await getConnectorByUserIdAndProviderSlug(
     userId,
-    "metaAds",
+    "meta",
   );
   const record = connector?.data;
   if (!record || record.status !== "connected" || !record.accessToken) {

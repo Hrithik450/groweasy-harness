@@ -5,98 +5,90 @@
  * @module @/lib/skills/tool
  */
 
-import { defineTool } from "@/lib/tools/schema";
+import type { ToolInput, ToolOutput } from "@/lib/tools/types";
+import { toolFailure as failure } from "@/lib/tools/utils";
+import type { InputContentParam } from "openai/resources/beta/agents/agents";
+import { recordSessionSkill } from "@/lib/repositories/session.skills.repo";
 import { skillRegistry } from "./registry";
+import type { SkillResourceBase } from "./types";
 import { isModelInvocable, isSkillName, renderSkillContent } from "./utils";
 
-export const skillTool = defineTool({
+export const skillToolDefinition = {
+  type: "function" as const,
   name: "skill",
   description:
     "Load the full instructions for a skill. Call it before acting on a task that names or clearly matches a skill in the session skill catalog.",
-  timeoutMs: 10000,
-  isConcurrencySafe: () => true,
   parameters: {
-    name: {
-      type: "string",
-      required: true,
-      description: "The exact skill name from the available skills list.",
+    type: "object",
+    properties: {
+      name: {
+        type: "string",
+        description: "The exact skill name from the available skills list.",
+      },
     },
+    required: ["name"],
   },
-  output: {
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        name: { type: "string", required: true },
-        content: { type: "string", required: true },
-        provider: { type: "string", required: true },
-        resourceBase: {
-          oneOf: [
-            {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                kind: { type: "string", required: true, const: "directory" },
-                path: { type: "string", required: true },
-              },
-            },
-            {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                kind: { type: "string", required: true, const: "url" },
-                url: { type: "string", required: true },
-              },
-            },
-            {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                kind: { type: "string", required: true, const: "opaque" },
-                description: { type: "string", required: true },
-              },
-            },
-          ],
+};
+
+export interface SkillToolArgs {
+  name: string;
+}
+
+export interface SkillToolResult {
+  contentParts: Array<InputContentParam>;
+  name: string;
+  version: string;
+  content: string;
+  provider: string;
+  resourceBase?: SkillResourceBase;
+}
+
+export async function executeSkillTool(
+  input: ToolInput<SkillToolArgs>,
+): Promise<ToolOutput<SkillToolResult>> {
+  const name = input.args?.name;
+  if (!name || !isSkillName(name)) {
+    return failure(`invalid skill name "${name ?? ""}"`);
+  }
+
+  const skill = skillRegistry.get(name);
+  if (skill === undefined || !isModelInvocable(skill)) {
+    return failure(`skill "${name}" is unknown or not available`);
+  }
+
+  const resourceBase =
+    skill.resourceBase === undefined ? undefined : skill.resourceBase;
+
+  const sessionId = input.context?.sessionId;
+  if (sessionId) {
+    try {
+      recordSessionSkill(sessionId, skill.name, skill.version);
+    } catch (error) {
+      // The content is still valid; the next turn just cannot diff versions.
+      console.warn(`[Skill] Could not record load for ${skill.name}:`, error);
+    }
+  }
+
+  return {
+    success: true,
+    data: {
+      contentParts: [
+        {
+          type: "input_text",
+          text: renderSkillContent({
+            name: skill.name,
+            version: skill.version,
+            content: skill.content,
+            provider: skill.provider,
+            resourceBase,
+          }),
         },
-      },
-    },
-    render: (_args, value) => [
-      {
-        type: "text",
-        text: renderSkillContent(value),
-      },
-    ],
-    presentationMeta: (_args, value) => ({ name: value.name }),
-  },
-  presentCall: (args) => ({
-    card: "generic",
-    kind: "read",
-    title: `Load skill: ${args.name}`,
-    rawInput: args,
-  }),
-  presentResult: (args, result) => ({
-    card: "generic",
-    kind: "read",
-    title: `Skill loaded: ${args.name}`,
-    content: result.content,
-  }),
-  async execute(args) {
-    if (!isSkillName(args.name)) {
-      throw new Error(`invalid skill name "${args.name}"`);
-    }
-
-    const skill = skillRegistry.get(args.name);
-    if (skill === undefined || !isModelInvocable(skill)) {
-      throw new Error(`skill "${args.name}" is unknown or not available`);
-    }
-
-    return {
+      ],
       name: skill.name,
+      version: skill.version,
       content: skill.content,
       provider: skill.provider,
-      ...(skill.resourceBase === undefined
-        ? {}
-        : { resourceBase: skill.resourceBase }),
-    };
-  },
-});
+      ...(resourceBase === undefined ? {} : { resourceBase }),
+    },
+  };
+}

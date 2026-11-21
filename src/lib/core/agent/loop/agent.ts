@@ -26,7 +26,8 @@ import { ReactLoopInbox } from "./inbox";
 import { runStep } from "./driver";
 
 export interface ReactLoopAgentConfig<S extends AgentSession = AgentSession> {
-  instructions?: string;
+  /** Static instructions, or a per-step resolver for versioned prompt state. */
+  instructions?: string | (() => string);
   tools?: Array<Record<string, unknown> | any>;
   onStreamFrame?: (frame: AssistantStreamFrame) => void;
 }
@@ -249,11 +250,16 @@ export class ReactLoopAgent<
         }
 
         try {
+          const instructions =
+            typeof this._config.instructions === "function"
+              ? this._config.instructions()
+              : this._config.instructions;
+
           const outcome = await runStep({
             turn,
             step,
             turnSource,
-            instructions: this._config.instructions,
+            instructions,
             tools: this._config.tools,
             signal,
             agent: this,

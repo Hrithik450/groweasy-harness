@@ -19,6 +19,17 @@ export interface AdMedia {
   images: string[];
 }
 
+/** Media URLs grouped under the card whose anchor precedes them in the HTML. */
+export interface AnchoredMedia extends AdMedia {
+  anchor: string;
+}
+
+/** Minimal ad facts parsed from one Meta Ad Library card. */
+export type ScrapedAdCard = Pick<
+  ScrapedAd,
+  "libraryId" | "adUrl" | "content" | "startDate" | "status"
+>;
+
 /**
  * One durable ad fact as the services consume it: the inferred table row, with
  * the JSON text embedding decoded to a vector at the repository boundary.

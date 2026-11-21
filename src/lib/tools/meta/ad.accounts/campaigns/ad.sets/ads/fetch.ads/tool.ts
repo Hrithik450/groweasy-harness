@@ -71,7 +71,7 @@ export async function executeFetchMetaAdsTool(
     },
     context: {
       userId,
-      providerSlug: "metaAds",
+      providerSlug: "meta",
     },
   });
 

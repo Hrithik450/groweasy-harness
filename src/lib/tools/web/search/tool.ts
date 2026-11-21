@@ -43,7 +43,6 @@ export const webSearchToolDefinition = {
   },
 };
 
-/** Model-facing inputs. */
 export interface WebSearchArgs {
   url: string;
   scanFullPage?: boolean;
@@ -58,11 +57,142 @@ export interface WebSearchCrawlArgs extends WebSearchArgs {
   scrollDelay?: number;
   delayBeforeSnapshot?: number;
   pageTimeout?: number;
+  mediaAnchorPattern?: string;
 }
 
-export async function executeWebSearchTool(
+export interface WebSearchMedia {
+  videos: string[];
+  images: string[];
+}
+
+/** Media URLs grouped under the nearest preceding anchor match in the HTML. */
+export interface AnchoredMediaGroup extends WebSearchMedia {
+  anchor: string;
+}
+
+/** Structured crawl result; model-facing text is rendered from it. */
+export interface WebSearchCrawlResult {
+  url: string;
+  title: string;
+  markdown: string;
+  /** Every creative URL, grouped under its owning card (empty without an anchor). */
+  mediaByAnchor: AnchoredMediaGroup[];
+}
+
+function normalizeMediaUrl(src: string): string {
+  return src.replace(/&amp;/g, "&").trim();
+}
+
+function uniqueMediaUrls(urls: Array<string | undefined | null>): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of urls) {
+    if (!raw) continue;
+    const src = normalizeMediaUrl(raw);
+    if (!src || seen.has(src)) continue;
+    seen.add(src);
+    result.push(src);
+  }
+  return result;
+}
+
+/**
+ * Groups crawler-extracted media under the card whose anchor precedes it in
+ * the raw HTML. Meta's DOM puts the `Library ID: 123` line before that card's
+ * body and media, so DOM order ties each URL to its card.
+ */
+export function associateMediaByAnchor(
+  html: string,
+  anchorPattern: string,
+  videos: string[],
+  images: string[],
+): AnchoredMediaGroup[] {
+  if (!html || !anchorPattern) return [];
+
+  let anchorRe: RegExp;
+  try {
+    anchorRe = new RegExp(anchorPattern, "gi");
+  } catch {
+    console.warn(
+      `[webSearch] Ignoring invalid mediaAnchorPattern: ${anchorPattern}`,
+    );
+    return [];
+  }
+
+  const videoSet = new Set(videos);
+  const imageSet = new Set(images);
+
+  type MediaEvent = { pos: number; kind: "video" | "image"; value: string };
+  const anchors: Array<{ pos: number; anchor: string }> = [];
+  const media: MediaEvent[] = [];
+
+  for (const match of html.matchAll(anchorRe)) {
+    const anchor = match[1];
+    if (anchor && match.index !== undefined) {
+      anchors.push({ pos: match.index, anchor });
+    }
+  }
+  if (anchors.length === 0) return [];
+  anchors.sort((a, b) => a.pos - b.pos);
+
+  for (const match of html.matchAll(/<video\b[^>]*?\bsrc="([^"]+)"/gi)) {
+    const src = normalizeMediaUrl(match[1]);
+    if (match.index !== undefined && videoSet.has(src)) {
+      media.push({ pos: match.index, kind: "video", value: src });
+    }
+  }
+
+  for (const match of html.matchAll(/<img\b[^>]*?\bsrc="([^"]+)"/gi)) {
+    const src = normalizeMediaUrl(match[1]);
+    if (match.index !== undefined && imageSet.has(src)) {
+      media.push({ pos: match.index, kind: "image", value: src });
+    }
+  }
+  media.sort((a, b) => a.pos - b.pos);
+
+  const grouped = new Map<string, WebSearchMedia>();
+  let anchorIndex = -1;
+  for (const event of media) {
+    while (
+      anchorIndex + 1 < anchors.length &&
+      anchors[anchorIndex + 1].pos < event.pos
+    ) {
+      anchorIndex++;
+    }
+    if (anchorIndex < 0) continue;
+
+    const anchor = anchors[anchorIndex].anchor;
+    let group = grouped.get(anchor);
+    if (!group) {
+      group = { videos: [], images: [] };
+      grouped.set(anchor, group);
+    }
+    if (event.kind === "video") group.videos.push(event.value);
+    else group.images.push(event.value);
+  }
+
+  return Array.from(grouped, ([anchor, group]) => ({
+    anchor,
+    videos: uniqueMediaUrls(group.videos),
+    images: uniqueMediaUrls(group.images),
+  }));
+}
+
+/** Headroom on top of the crawler's own budget for queueing and transfer. */
+const CRAWL_ABORT_BUFFER_MS = 30_000;
+
+function resolveCrawlAbortMs(args: WebSearchCrawlArgs): number {
+  return (
+    (args.pageTimeout ?? 60000) +
+    (args.maxScrollSteps ?? 10) * (args.scrollDelay ?? 2.0) * 1000 +
+    (args.delayBeforeSnapshot ?? 1.5) * 1000 +
+    CRAWL_ABORT_BUFFER_MS
+  );
+}
+
+export async function crawlWebPage(
   input: ToolInput<WebSearchCrawlArgs>,
-): Promise<ToolOutput<{ contentParts: Array<InputContentParam> }>> {
+): Promise<ToolOutput<WebSearchCrawlResult>> {
   const {
     url,
     scanFullPage,
@@ -73,6 +203,7 @@ export async function executeWebSearchTool(
     processIframes,
     cssSelector,
     pageTimeout,
+    mediaAnchorPattern,
   } = input.args || {};
 
   if (!url || typeof url !== "string") {
@@ -117,29 +248,52 @@ export async function executeWebSearchTool(
         : cssSelector;
     }
 
-    const res = await fetch(`${baseUrl}/crawl`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        urls: [normUrl],
-        browser_config: {
-          type: "BrowserConfig",
-          params: {
-            headless: true,
-            enable_stealth: true,
-            viewport_width: 1920,
-            viewport_height: 1080,
+    const abortAfterMs = resolveCrawlAbortMs(input.args);
+
+    const controller = new AbortController();
+
+    let timedOut = false;
+    const abortTimer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, abortAfterMs);
+
+    let res: Response;
+    try {
+      res = await fetch(`${baseUrl}/crawl`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          urls: [normUrl],
+          browser_config: {
+            type: "BrowserConfig",
+            params: {
+              headless: true,
+              enable_stealth: true,
+              viewport_width: 1920,
+              viewport_height: 1080,
+            },
           },
-        },
-        crawler_config: {
-          type: "CrawlerRunConfig",
-          params: crawlerParams,
-        },
-      }),
-    });
+          crawler_config: {
+            type: "CrawlerRunConfig",
+            params: crawlerParams,
+          },
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (timedOut) {
+        throw new Error(`Web search timed out after ${abortAfterMs}ms`, {
+          cause: err,
+        });
+      }
+      throw err;
+    } finally {
+      clearTimeout(abortTimer);
+    }
 
     if (!res.ok) {
       throw new Error(
@@ -167,15 +321,31 @@ export async function executeWebSearchTool(
 
     const rawContent = markdown || result.cleaned_html || "";
 
+    const videos = uniqueMediaUrls(
+      (result.media?.videos ?? []).map((video: { src?: string }) => video.src),
+    );
+    const images = uniqueMediaUrls(
+      (result.media?.images ?? []).map((image: { src?: string }) => image.src),
+    );
+
+    // Markdown drops <video>/<img> tags, so card order has to come from HTML.
+    const mediaByAnchor =
+      mediaAnchorPattern && typeof result.html === "string"
+        ? associateMediaByAnchor(
+            result.html,
+            mediaAnchorPattern,
+            videos,
+            images,
+          )
+        : [];
+
     return {
       success: true,
       data: {
-        contentParts: [
-          {
-            type: "input_text",
-            text: rawContent.trim(),
-          },
-        ],
+        url: normUrl,
+        title: result.metadata?.title || "Untitled",
+        markdown: rawContent,
+        mediaByAnchor,
       },
     };
   } catch (err) {
@@ -185,4 +355,34 @@ export async function executeWebSearchTool(
 
     return failure(errorMsg);
   }
+}
+
+/** Model-facing surface: the crawl's markdown becomes the tool content. */
+export async function executeWebSearchTool(
+  input: ToolInput<WebSearchCrawlArgs>,
+): Promise<ToolOutput<{ contentParts: Array<InputContentParam> }>> {
+  const crawled = await crawlWebPage(input);
+  if (!crawled.success || !crawled.data) {
+    return {
+      success: false,
+      data: {
+        contentParts: [
+          {
+            type: "input_text",
+            text: `Error: ${crawled.error ?? "Web search failed."}`,
+          },
+        ],
+      },
+      error: crawled.error,
+    };
+  }
+
+  return {
+    success: true,
+    data: {
+      contentParts: [
+        { type: "input_text", text: crawled.data.markdown.trim() },
+      ],
+    },
+  };
 }

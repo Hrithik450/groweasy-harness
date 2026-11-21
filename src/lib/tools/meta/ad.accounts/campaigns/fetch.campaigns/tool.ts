@@ -73,7 +73,7 @@ export async function executeFetchMetaCampaignsTool(
     },
     context: {
       userId,
-      providerSlug: "metaAds",
+      providerSlug: "meta",
     },
   });
 

@@ -10,10 +10,10 @@
  * @module @/lib/session/derive/chat
  */
 
-import type { SessionEvent } from "@/lib/core/session/events";
-import { cronTurnSet, projectCompaction } from "@/lib/core/compaction/region";
 import { MessageId } from "@/lib/llm/llm/brand";
 import type { Message } from "@/lib/llm/llm/message";
+import type { SessionEvent } from "@/lib/core/session/events";
+import { cronTurnSet, projectCompaction } from "@/lib/core/compaction/region";
 
 /**
  * Derive the full model-visible conversation from session events.

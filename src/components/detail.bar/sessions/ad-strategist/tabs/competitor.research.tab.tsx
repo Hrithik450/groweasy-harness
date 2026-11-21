@@ -63,16 +63,23 @@ export function CompetitorResearchTab({
             month: "short",
             day: "numeric",
           });
+          const canJump = Boolean(item.turnId);
+          const jump = () => {
+            if (canJump && item.turnId) {
+              handleNavigation?.(item.turnId, {
+                createdAt: item.createdAt,
+                sourceSessionId: item.sourceSessionId,
+              });
+            }
+          };
 
           return (
             <div
               key={item.turnId || index}
-              onClick={() => {
-                if (item.turnId) {
-                  handleNavigation?.(item.turnId);
-                }
-              }}
-              className="group relative rounded-2xl p-4 border border-border bg-card hover:border-brand/40 hover:shadow-sm transition-all cursor-pointer shadow-2xs"
+              onClick={canJump ? jump : undefined}
+              className={`group relative rounded-2xl p-4 border border-border bg-card hover:border-brand/40 hover:shadow-sm transition-all shadow-2xs ${
+                canJump ? "cursor-pointer" : ""
+              }`}
             >
               {/* Top Row: Title + Date */}
               <div className="flex items-start justify-between gap-2.5 mb-2">
@@ -157,22 +164,22 @@ export function CompetitorResearchTab({
               )}
 
               {/* Footer: Jump to chat */}
-              <div className="flex items-center justify-end pt-2.5 border-t border-border-subtle">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (item.turnId) {
-                      handleNavigation?.(item.turnId);
-                    }
-                  }}
-                  className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground group-hover:text-brand transition-colors shrink-0 cursor-pointer active:scale-95"
-                >
-                  <MessageSquare className="w-3 h-3 text-muted-2 group-hover:text-brand" />
-                  <span>Jump to chat</span>
-                  <ArrowUpRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </button>
-              </div>
+              {canJump && (
+                <div className="flex items-center justify-end pt-2.5 border-t border-border-subtle">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      jump();
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground group-hover:text-brand transition-colors shrink-0 cursor-pointer active:scale-95"
+                  >
+                    <MessageSquare className="w-3 h-3 text-muted-2 group-hover:text-brand" />
+                    <span>Jump to chat</span>
+                    <ArrowUpRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}

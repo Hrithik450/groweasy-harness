@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       },
       context: {
         userId: user.id,
-        providerSlug: "metaAds",
+        providerSlug: "meta",
       },
     });
 
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       },
       context: {
         userId: user.id,
-        providerSlug: "metaAds",
+        providerSlug: "meta",
       },
     });
 
@@ -154,7 +154,7 @@ export async function PATCH(req: NextRequest) {
       },
       context: {
         userId: user.id,
-        providerSlug: "metaAds",
+        providerSlug: "meta",
       },
     });
 
@@ -207,7 +207,7 @@ export async function DELETE(req: NextRequest) {
       params: { campaignId },
       context: {
         userId: user.id,
-        providerSlug: "metaAds",
+        providerSlug: "meta",
       },
     });
 

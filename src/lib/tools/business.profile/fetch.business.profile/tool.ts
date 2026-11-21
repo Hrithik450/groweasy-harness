@@ -1,5 +1,8 @@
 import { ToolInput, ToolOutput } from "@/lib/tools/types";
-import { getConnectorByUserIdAndSlug } from "@/lib/services/connectors.service";
+import {
+  getConnectorByUserIdAndSlug,
+  normalizeInstanceKey,
+} from "@/lib/services/connectors.service";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
 import {
   parseFlatLocations,
@@ -20,28 +23,26 @@ export const fetchBusinessProfileToolDefinition = {
     properties: {
       section: {
         type: "string",
-        enum: ["all", "branding", "brand", "geography", "competitors"],
+        enum: ["all", "branding", "keywords", "geography", "competitors"],
         description:
-          "Specific modal tab/section of the business profile to retrieve ('all', 'branding', 'geography', 'competitors'). Defaults to 'all'.",
+          "Specific modal tab/section of the business profile to retrieve ('all', 'branding', 'keywords', 'geography', 'competitors'). Defaults to 'all'.",
+      },
+      url: {
+        type: "string",
+        description:
+          "Brand URL of a specific saved profile. Omit to read the active (primary) profile.",
       },
     },
   },
 };
 
 export interface FetchBusinessProfileArgs {
-  section?:
-    | "all"
-    | "branding"
-    | "brand"
-    | "geography"
-    | "competitors"
-    | "keywords"
-    | "theme";
+  section?: "all" | "branding" | "keywords" | "geography" | "competitors";
+  url?: string;
 }
 
 export interface FetchBusinessProfileResult {
   contentParts: Array<InputContentParam>;
-  profile?: BusinessProfileConnectorSchema;
 }
 
 function formatBrandSection(brand: BusinessProfileBrand, url: string): string {
@@ -136,11 +137,7 @@ function formatCompetitorsSection(
     if (c.website) out += `- **Website**: ${c.website}\n`;
     if (c.logo) out += `- **Logo URL**: ${c.logo}\n`;
     out += `- **Overview**: ${c.overview || "No competitor overview provided."}\n`;
-    const broad = c.keywords?.broadPhrases || [];
-    const product = c.keywords?.productOrServicePhrases || [];
-    out += `- **Search Keywords & Phrases**:\n`;
-    out += `  - **Broad / Category Keywords** (${broad.length}): ${broad.length ? broad.join(", ") : "None recorded"}\n`;
-    out += `  - **Product & Service Phrases** (${product.length}): ${product.length ? product.join(", ") : "None recorded"}\n\n`;
+    out += `- **Recent Ads**: ${c.ads?.length ?? 0}\n\n`;
   });
 
   return out.trim();
@@ -153,7 +150,8 @@ function formatBusinessProfileText(
   const { brand, geography, competitors, url } = profile;
   const s = section.toLowerCase().trim();
 
-  if (s === "brand") {
+  // Keywords live inside the branding section.
+  if (s === "branding" || s === "keywords") {
     return formatBrandSection(brand, url);
   }
 
@@ -193,9 +191,29 @@ export async function executeFetchBusinessProfileTool(
   }
 
   try {
+    const requestedUrl = input.args?.url?.trim();
+    const instance = requestedUrl
+      ? (normalizeInstanceKey(requestedUrl) ?? undefined)
+      : undefined;
+    if (requestedUrl && !instance) {
+      return {
+        success: false,
+        data: {
+          contentParts: [
+            {
+              type: "input_text",
+              text: `Error: Invalid brand URL "${requestedUrl}".`,
+            },
+          ],
+        },
+        error: `Invalid brand URL "${requestedUrl}".`,
+      };
+    }
+
     const connectorRes = await getConnectorByUserIdAndSlug(
       userId,
       "businessProfile",
+      instance,
     );
     const connector = connectorRes?.data;
 
@@ -228,7 +246,6 @@ export async function executeFetchBusinessProfileTool(
             text: formattedText,
           },
         ],
-        profile,
       },
     };
   } catch (err) {

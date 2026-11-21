@@ -34,12 +34,18 @@ const UNAVAILABLE: ReadonlySet<ConnectorStatus> = new Set<ConnectorStatus>([
  */
 const ACTIVATE_AFTER_TURN: ReadonlySet<string> = new Set(["businessProfile"]);
 
-/** Admit a connector's jobs to the schedule. */
+/**
+ * Admit a connector's jobs to the schedule.
+ *
+ * @param immediate - run on connect (default) instead of waiting for the
+ *                    job's next configured occurrence.
+ */
 export function activateCronJobsForConnector(
   userId: string,
   requires: string,
+  immediate = true,
 ): void {
-  activateCronJobsByRequires(userId, requires);
+  activateCronJobsByRequires(userId, requires, immediate);
 }
 
 /**

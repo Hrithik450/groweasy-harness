@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getConnectorByUserIdAndSlug, upsertConnector } from "@/lib/services";
 import { getAuthSessionFromRequest } from "@/lib/auth/session";
-import { reconcileSyncStatus } from "@/lib/connectors/sync.reconcile";
+import { reconcileStatus } from "@/lib/connectors/reconcile";
 import { toBrowserConnector } from "@/lib/connectors/registry";
-import { mergeKeywords } from "@/lib/tools/business.profile/utils";
-import type { BusinessProfileKeywords } from "@/lib/connectors/business.profile";
+import {
+  mergeBusinessProfilePatch,
+  normalizeBusinessProfilePayload,
+} from "@/lib/tools/business.profile/utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,16 +15,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const instance = req.nextUrl.searchParams.get("instance") ?? undefined;
     const connectorRes = await getConnectorByUserIdAndSlug(
       user.id,
       "businessProfile",
+      instance,
     );
 
     return NextResponse.json({
       success: true,
       connector: connectorRes.data
         ? toBrowserConnector(
-            reconcileSyncStatus(connectorRes.data) as unknown as Record<
+            reconcileStatus(connectorRes.data) as unknown as Record<
               string,
               unknown
             >,
@@ -37,11 +41,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/**
- * PATCH /api/connectors/business.profile
- * Stores edited profile metadata (branding, geography, competitors). The write
- * publishes to the session stream, so the client never echoes it back.
- */
 export async function PATCH(req: NextRequest) {
   try {
     const user = await getAuthSessionFromRequest(req);
@@ -58,38 +57,44 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    const instance =
+      typeof body?.instance === "string" && body.instance.trim()
+        ? body.instance.trim()
+        : undefined;
+
     const existing = await getConnectorByUserIdAndSlug(
       user.id,
       "businessProfile",
+      instance,
     );
+
     if (!existing.data) {
       return NextResponse.json(
-        { error: "Brand Brain is not connected" },
+        {
+          error: instance
+            ? `Business profile "${instance}" was not found.`
+            : "Brand Brain is not connected",
+        },
         { status: 404 },
       );
     }
 
-    // Keywords are additive: a partial save must not drop stored phrases.
-    const incoming = metadata as Record<string, unknown>;
-    const incomingBrand = (incoming.brand ?? {}) as Record<string, unknown>;
-    const existingBrand = ((existing.data.metadata ?? {}) as Record<
-      string,
-      unknown
-    >).brand as Record<string, unknown> | undefined;
-    const keywords = mergeKeywords(
-      existingBrand?.keywords as BusinessProfileKeywords | undefined,
-      incomingBrand.keywords as BusinessProfileKeywords | undefined,
+    const existingProfile = normalizeBusinessProfilePayload(
+      existing.data.metadata,
+      (existing.data.metadata as { url?: string } | null)?.url,
     );
+
+    const merged = mergeBusinessProfilePatch(existingProfile, metadata);
 
     const res = await upsertConnector({
       userId: user.id,
       slug: existing.data.slug,
+      instance: existing.data.instance,
       providerSlug: existing.data.providerSlug,
       status: existing.data.status,
-      metadata: keywords
-        ? { ...incoming, brand: { ...incomingBrand, keywords } }
-        : metadata,
+      metadata: merged as unknown as Record<string, unknown>,
     });
+
     if (!res.success) {
       return NextResponse.json(
         { error: res.error || "Failed to save profile" },

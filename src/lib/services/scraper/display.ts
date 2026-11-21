@@ -4,11 +4,7 @@
  * Stored ad content is raw scraped markdown: it carries Meta's UI chrome
  * (avatar thumbnails, "Platforms", "See ad details"), zero-width layout
  * characters, and creative images embedded as markdown. This module turns that
- * into the crisp card the model reads, and drops media links whose signed CDN
- * expiry has passed.
- *
- * The card's canonical text (used for hashing and embeddings) is computed
- * elsewhere from the raw card, so presentation changes never alter ad identity.
+ * into the crisp card the model reads.
  *
  * @module @/lib/services/scraper/display
  */
@@ -34,68 +30,15 @@ export function isAvatarMediaUrl(src: string): boolean {
   return /(?:^|[^0-9])s60x60(?:[^0-9]|$)/i.test(src);
 }
 
-/**
- * Absolute expiry of a signed Meta CDN URL, from its `oe` parameter.
- *
- * @returns epoch milliseconds, or `null` when the URL is unsigned/opaque.
- */
-export function mediaUrlExpiresAt(url: string): number | null {
-  const match = /[?&]oe=([0-9a-f]{6,})(?:&|$)/i.exec(url);
-  if (!match) return null;
-  const seconds = Number.parseInt(match[1], 16);
-  return Number.isFinite(seconds) ? seconds * 1000 : null;
-}
-
-/** Whether a signed media URL is already past its expiry. */
+/** Whether a signed media URL (its `oe` expiry) is already past. */
 export function isMediaUrlExpired(
   url: string,
   nowMs: number = Date.now(),
 ): boolean {
-  const expiresAt = mediaUrlExpiresAt(url);
-  return expiresAt !== null && expiresAt <= nowMs;
-}
-
-/** Remove media lines whose signed URL has expired, keeping the rest intact. */
-export function stripExpiredMediaLines(
-  content: string,
-  nowMs: number = Date.now(),
-): { content: string; dropped: number } {
-  let dropped = 0;
-  const lines = content.split("\n").filter((line) => {
-    const match = MEDIA_LINE_RE.exec(line.trim());
-    if (match === null) return true;
-    if (!isMediaUrlExpired(match[2], nowMs)) return true;
-    dropped += 1;
-    return false;
-  });
-  return { content: lines.join("\n").trim(), dropped };
-}
-
-/** Creative media URLs of one card, split by kind. */
-export interface CardMediaUrls {
-  videos: string[];
-  images: string[];
-}
-
-/** Every live creative URL in one card, read from its crisp form. */
-export function extractMediaUrls(
-  content: string,
-  nowMs: number = Date.now(),
-): CardMediaUrls {
-  const videos: string[] = [];
-  const images: string[] = [];
-  const seen = new Set<string>();
-
-  for (const line of crispAdCardContent(content).split("\n")) {
-    const match = MEDIA_LINE_RE.exec(line.trim());
-    if (match === null) continue;
-    const url = match[2];
-    if (seen.has(url) || isMediaUrlExpired(url, nowMs)) continue;
-    seen.add(url);
-    (match[1].toLowerCase() === "video" ? videos : images).push(url);
-  }
-
-  return { videos, images };
+  const match = /[?&]oe=([0-9a-f]{6,})(?:&|$)/i.exec(url);
+  if (match === null) return false;
+  const seconds = Number.parseInt(match[1], 16);
+  return Number.isFinite(seconds) && seconds * 1000 <= nowMs;
 }
 
 /**

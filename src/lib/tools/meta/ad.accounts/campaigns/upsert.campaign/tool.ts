@@ -128,7 +128,7 @@ export async function executeUpsertMetaCampaignTool(
             ? { lifetimeBudget: cfg.lifetimeBudget }
             : {}),
         },
-        context: { userId, providerSlug: "metaAds" },
+        context: { userId, providerSlug: "meta" },
       });
 
       if (!res.success) {
@@ -186,7 +186,7 @@ export async function executeUpsertMetaCampaignTool(
         stopTime: cfg.stopTime,
         adAccountId: cfg.adAccountId,
       },
-      context: { userId, providerSlug: "metaAds" },
+      context: { userId, providerSlug: "meta" },
     });
 
     if (!res.success || !res.data) {

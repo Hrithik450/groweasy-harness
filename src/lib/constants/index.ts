@@ -18,4 +18,16 @@ export const CONNECTOR_SLUGS = [
   "businessProfile",
 ] as const;
 
+export const PROVIDER_SLUGS = ["adsEasy", "meta", "shopify"] as const;
+
+/** The connector each provider backs. */
+export const PROVIDER_CONNECTOR_SLUGS: Record<
+  (typeof PROVIDER_SLUGS)[number],
+  (typeof CONNECTOR_SLUGS)[number]
+> = {
+  meta: "metaAds",
+  shopify: "shopify",
+  adsEasy: "businessProfile",
+};
+
 export * from "./session.suggestions";

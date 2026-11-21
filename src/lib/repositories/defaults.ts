@@ -58,7 +58,7 @@ export const DEFAULT_CRON_JOBS: readonly DefaultCronJobConfig[] = [
     sessionSlug: "businessProfile",
     name: "Daily Business Profile Update",
     prompt:
-      "Refresh the Business Profile tab: load the `business-profile` skill, scan Meta Ad Library for winning ads and new competitors, and update the stored profile.",
+      "Refresh our Business Profile using the `business-profile` skill. Check Meta Ad Library for new winning ads and new competitors, and for any new keywords (up to 5 broad and 5 product/service). Keep everything already in the profile and add only what is new. Save the updated profile.",
     timing: { kind: "cron", expression: "0 8 * * *" },
     requires: "businessProfile",
   },
@@ -66,7 +66,7 @@ export const DEFAULT_CRON_JOBS: readonly DefaultCronJobConfig[] = [
     sessionSlug: "adManager",
     name: CAMPAIGN_HEALTH_JOB_NAME,
     prompt:
-      "Classify every synced ad: load the `ads-classifier` skill, read the live ads with `fetchMetaAds`, and save one verdict plus its computed metrics per ad with `upsertAdsClassified`.",
+      "Classify all our live ads using the `ads-classifier` skill. Read them with `fetchMetaAds`, give each ad one label with its computed metrics, and save the results with `upsertAdsClassified`. If the account is new or thin, judge ads relative to each other and mark those labels as relative.",
     timing: { kind: "cron", expression: "0 */6 * * *" },
     requires: "metaAds",
   },
@@ -74,7 +74,7 @@ export const DEFAULT_CRON_JOBS: readonly DefaultCronJobConfig[] = [
     sessionSlug: "adManager",
     name: "Hourly Alert Scan",
     prompt:
-      "Run the hourly account health scan: load the `alerts` skill, diagnose active campaigns, and persist only new or changed alerts with `updateAlerts`.",
+      "Check the health of our active campaigns using the `alerts` skill. Look for problems that need attention (fatigue, overspend, tracking or delivery issues). Compare with the alerts we already have and save only the new or changed ones with `updateAlerts`. If nothing has changed, save nothing.",
     timing: { kind: "cron", expression: "30 * * * *" },
     requires: "metaAds",
   },
@@ -82,7 +82,7 @@ export const DEFAULT_CRON_JOBS: readonly DefaultCronJobConfig[] = [
     sessionSlug: "adManager",
     name: "Daily Suggestions",
     prompt:
-      "Run the daily optimisation review: load the `suggestions` skill, rank the highest-money moves, and persist the top 5 with `updateSuggestions`.",
+      "Review our ad account using the `suggestions` skill and find the moves that would save or make the most money. Rank them by impact and save the top 5 with `updateSuggestions`. Skip any suggestion we already have open.",
     timing: { kind: "cron", expression: "0 7 * * *" },
     requires: "metaAds",
   },
@@ -90,7 +90,7 @@ export const DEFAULT_CRON_JOBS: readonly DefaultCronJobConfig[] = [
     sessionSlug: "adCreator",
     name: "Daily Creative Ideas",
     prompt:
-      "Refresh the Ad Creator idea backlog: load the `ideas` skill, read competitor research, existing creatives, alerts and suggestions, and save 8–10 new ideas with `updateIdeas`.",
+      "Refresh our idea backlog using the `ideas` skill. Read the saved ideas first so you don't repeat any. Then read the latest competitor research, our creatives, campaigns, alerts and suggestions, and view the winning competitor ads before building ideas from them. Save up to 10 new, ranked ideas with `updateIdeas`, each with its reference ad. Save fewer if the evidence is thin.",
     timing: { kind: "cron", expression: "0 7 * * *" },
     requires: "metaAds",
   },
@@ -98,7 +98,7 @@ export const DEFAULT_CRON_JOBS: readonly DefaultCronJobConfig[] = [
     sessionSlug: "adStrategist",
     name: "Daily Competitor Research",
     prompt:
-      "Run the daily competitor scan: load the `competitor-research` skill, research tracked rivals in Meta Ad Library, and save only new findings with `updateCompetitorResearch`.",
+      "Scan our competitors in Meta Ad Library using the `competitor-research` skill. Cover the rivals we track and any newly found ones. Read what we have already saved and save only new findings with `saveCompetitorResearch`. If nothing new turned up, save nothing.",
     timing: { kind: "cron", expression: "0 6 * * *" },
     requires: "metaAds",
   },
@@ -106,7 +106,7 @@ export const DEFAULT_CRON_JOBS: readonly DefaultCronJobConfig[] = [
     sessionSlug: "adStrategist",
     name: "Daily Report",
     prompt:
-      "Write the daily report: load the `reports` skill, read the newest competitor research, campaigns, briefs, ideas, creatives, alerts and suggestions, and save one report with `updateReports`.",
+      "Write today's report using the `daily-report` skill. Read the latest campaigns, competitor research, alerts and suggestions, plus any briefs, ideas and creatives that changed. Lead with the biggest change, end with one action for today, and save it with `updateDailyReport`. If nothing meaningful changed, save a one-line report.",
     timing: { kind: "cron", expression: "0 9 * * *" },
     requires: "metaAds",
   },

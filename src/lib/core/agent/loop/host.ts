@@ -50,6 +50,8 @@ export interface ToolExecutionRequest {
   readonly callId: ToolCallId;
   /** Assistant message that requested this call, when the step recorded one. */
   readonly turnId?: string;
+  /** Conversation turn number, for transcript anchors. */
+  readonly turn?: number;
   readonly args?: unknown;
   readonly signal?: AbortSignal;
   readonly scope?: string;

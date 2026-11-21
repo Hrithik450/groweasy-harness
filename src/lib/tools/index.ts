@@ -12,9 +12,6 @@ import {
   executeFetchImageTypesTool,
 } from "./image";
 import {
-  imageToVideoToolDefinition,
-  ImageToVideoArgs,
-  executeImageToVideoTool,
   syncLipsToolDefinition,
   SyncLipsArgs,
   executeSyncLipsTool,
@@ -24,6 +21,9 @@ import {
   readVideosToolDefinition,
   ReadVideosArgs,
   executeReadVideosTool,
+  generateVideoToolDefinition,
+  GenerateVideoArgs,
+  executeGenerateVideoTool,
 } from "./video";
 import {
   convertAccentToolDefinition,
@@ -103,7 +103,7 @@ import {
   scrapeWebPageToolDefinition,
   ScrapeWebPageArgs,
   executeScrapeWebPageTool,
-} from "./web";
+} from "./web/scrape.page/tool";
 import {
   updateAlertToolDefinition,
   UpdateAlertArgs,
@@ -111,9 +111,9 @@ import {
   updateSuggestionsToolDefinition,
   UpdateSuggestionsArgs,
   executeUpdateSuggestionsTool,
-  updateCompetitorResearchToolDefinition,
-  UpdateCompetitorResearchArgs,
-  executeUpdateCompetitorResearchTool,
+  saveCompetitorResearchToolDefinition,
+  SaveCompetitorResearchArgs,
+  executeSaveCompetitorResearchTool,
   upsertAdsClassifiedToolDefinition,
   executeUpsertAdsClassifiedTool,
   updateIdeasToolDefinition,
@@ -122,9 +122,9 @@ import {
   updateCreativesToolDefinition,
   UpdateCreativesArgs,
   executeUpdateCreativesTool,
-  updateReportsToolDefinition,
-  UpdateReportsArgs,
-  executeUpdateReportsTool,
+  updateDailyReportToolDefinition,
+  UpdateDailyReportArgs,
+  executeUpdateDailyReportTool,
   updateCampaignBriefsToolDefinition,
   UpdateCampaignBriefsArgs,
   executeUpdateCampaignBriefsTool,
@@ -134,15 +134,21 @@ import {
   FetchDetailBarArgs,
   executeFetchDetailBarTool,
 } from "./detail.bar/fetch.projections/tool";
-import { skillTool } from "@/lib/skills/tool";
+import {
+  skillToolDefinition,
+  executeSkillTool,
+} from "@/lib/skills/tool";
 import {
   renderUIBlockToolDefinition,
   executeRenderUIBlockTool,
   type RenderUIBlockArgs,
 } from "./generative.ui/render.ui.block/tool";
 import type { ModelToolSchema } from "@/lib/llm/llm/driver";
-import { webSearchToolDefinition } from "./web/search/tool";
-import { webSearchTool } from "./web";
+import {
+  webSearchToolDefinition,
+  executeWebSearchTool,
+  type WebSearchCrawlArgs,
+} from "./web/search/tool";
 import {
   fetchShopifyCollectionsToolDefinition,
   executeFetchShopifyCollectionsTool,
@@ -161,7 +167,8 @@ export * from "./composition";
 export * from "./meta";
 export * from "./business.profile";
 export * from "./detail.bar";
-export * from "./web";
+export * from "./web/search/tool";
+export * from "./web/scrape.page/tool";
 
 export interface ToolDefinition {
   name: string;
@@ -205,21 +212,10 @@ export const TOOL_REGISTRY: Record<
     execute: (input) =>
       executeFetchImageTypesTool(input as ToolInput<FetchImageTypesArgs>),
   },
-  imageToVideo: {
-    definition: imageToVideoToolDefinition,
-    execute: async (input) => {
-      try {
-        const result = await executeImageToVideoTool(
-          input.args as ImageToVideoArgs,
-        );
-        return { success: true, data: result };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
-    },
+  generateVideo: {
+    definition: generateVideoToolDefinition,
+    execute: (input) =>
+      executeGenerateVideoTool(input as ToolInput<GenerateVideoArgs>),
   },
   listVoiceCatalog: {
     definition: listVoiceCatalogToolDefinition,
@@ -400,10 +396,10 @@ export const TOOL_REGISTRY: Record<
     execute: (input) =>
       executeUpdateCreativesTool(input as ToolInput<UpdateCreativesArgs>),
   },
-  updateReports: {
-    definition: updateReportsToolDefinition,
+  updateDailyReport: {
+    definition: updateDailyReportToolDefinition,
     execute: (input) =>
-      executeUpdateReportsTool(input as ToolInput<UpdateReportsArgs>),
+      executeUpdateDailyReportTool(input as ToolInput<UpdateDailyReportArgs>),
   },
   updateCampaignBriefs: {
     definition: updateCampaignBriefsToolDefinition,
@@ -415,11 +411,11 @@ export const TOOL_REGISTRY: Record<
     execute: (input) =>
       executeFetchDetailBarTool(input as ToolInput<FetchDetailBarArgs>),
   },
-  updateCompetitorResearch: {
-    definition: updateCompetitorResearchToolDefinition,
+  saveCompetitorResearch: {
+    definition: saveCompetitorResearchToolDefinition,
     execute: (input) =>
-      executeUpdateCompetitorResearchTool(
-        input as ToolInput<UpdateCompetitorResearchArgs>,
+      executeSaveCompetitorResearchTool(
+        input as ToolInput<SaveCompetitorResearchArgs>,
       ),
   },
   scrapeWebPage: {
@@ -429,19 +425,8 @@ export const TOOL_REGISTRY: Record<
   },
   webSearch: {
     definition: webSearchToolDefinition,
-    execute: async (input) => {
-      try {
-        return {
-          success: true,
-          data: await webSearchTool.execute(input.args, {}),
-        };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
-    },
+    execute: (input) =>
+      executeWebSearchTool(input as ToolInput<WebSearchCrawlArgs>),
   },
   fetchShopifyProducts: {
     definition: fetchShopifyProductsToolDefinition,
@@ -472,19 +457,8 @@ export const TOOL_REGISTRY: Record<
       ),
   },
   skill: {
-    definition: skillTool,
-    // The definition validates and throws; the dispatcher contract wants a
-    // result, so the failure is turned into one here.
-    execute: async (input) => {
-      try {
-        return { success: true, data: await skillTool.execute(input.args, {}) };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
-    },
+    definition: skillToolDefinition,
+    execute: (input) => executeSkillTool(input as ToolInput<{ name: string }>),
   },
 };
 
@@ -529,7 +503,7 @@ export function getToolDefinitionsForSlug(
       updateBusinessProfileToolDefinition,
       fetchShopifyProductsToolDefinition,
       fetchShopifyCollectionsToolDefinition,
-      skillTool,
+      skillToolDefinition,
     ].map(toModelSchema);
   }
   return getAllToolDefinitions();

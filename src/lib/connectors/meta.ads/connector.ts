@@ -246,7 +246,7 @@ export async function fetchMetaAdAccounts(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       context.userId,
-      context.providerSlug ?? "metaAds",
+      context.providerSlug ?? "meta",
     );
     token =
       (context.accessToken || connectorRes?.data?.accessToken) ?? undefined;
@@ -368,7 +368,7 @@ export async function syncMetaConnector(
   const userId = context.userId;
   const existingConnector = await getConnectorByUserIdAndProviderSlug(
     userId,
-    "metaAds",
+    "meta",
   );
   const existing = existingConnector.data;
   const token = context.accessToken?.trim() ?? existing?.accessToken;
@@ -377,7 +377,7 @@ export async function syncMetaConnector(
     const updated = await upsertConnector({
       userId,
       slug: "metaAds",
-      providerSlug: "metaAds",
+      providerSlug: "meta",
       status: "disconnected",
       accessToken: null,
       metadata: null,
@@ -394,7 +394,7 @@ export async function syncMetaConnector(
       userId,
       status: "disconnected",
       slug: "metaAds",
-      providerSlug: "metaAds",
+      providerSlug: "meta",
       accessToken: token,
       metadata: {
         error: verification.error?.message,
@@ -431,7 +431,7 @@ export async function syncMetaConnector(
   const updated = await upsertConnector({
     userId,
     slug: "metaAds",
-    providerSlug: "metaAds",
+    providerSlug: "meta",
     status: "connected",
     accessToken: token,
     permissions: permissions,
@@ -466,7 +466,7 @@ export async function fetchMetaCampaigns(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       context.userId,
-      context.providerSlug ?? "metaAds",
+      context.providerSlug ?? "meta",
     );
     const connector = connectorRes?.data;
     const token = context.accessToken || connector?.accessToken;
@@ -598,7 +598,7 @@ export async function fetchMetaAdSets(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       userId,
-      "metaAds",
+      "meta",
     );
     const connector = connectorRes?.data;
     const token = context.accessToken || connector?.accessToken;
@@ -790,7 +790,7 @@ export async function fetchMetaAds(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       userId,
-      "metaAds",
+      "meta",
     );
     const connector = connectorRes?.data;
     const token = context.accessToken || connector?.accessToken;
@@ -878,7 +878,7 @@ export async function getMetaCampaignById(options: {
     if (!token && options.userId) {
       const connectorRes = await getConnectorByUserIdAndProviderSlug(
         options.userId,
-        "metaAds",
+        "meta",
       );
       token = connectorRes?.data?.accessToken ?? undefined;
     }
@@ -969,7 +969,7 @@ export async function updateMetaCampaign(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       userId,
-      "metaAds",
+      "meta",
     );
     const connector = connectorRes?.data;
     const token = context.accessToken || connector?.accessToken;
@@ -1058,7 +1058,7 @@ export async function uploadImageCreative(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       userId,
-      "metaAds",
+      "meta",
     );
     const token = context.accessToken ?? connectorRes?.data?.accessToken;
     if (!token) {
@@ -1142,7 +1142,7 @@ export async function uploadVideoCreative(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       userId,
-      "metaAds",
+      "meta",
     );
     const token = context.accessToken || connectorRes?.data?.accessToken;
     if (!token) {
@@ -1226,7 +1226,7 @@ export async function createMetaAdSet(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       userId,
-      "metaAds",
+      "meta",
     );
     const connector = connectorRes?.data;
     const token = context.accessToken || connector?.accessToken;
@@ -1511,7 +1511,7 @@ export async function createMetaCampaign(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       context.userId,
-      context.providerSlug ?? "metaAds",
+      context.providerSlug ?? "meta",
     );
     const connector = connectorRes?.data;
     const token = context.accessToken || connector?.accessToken;
@@ -1614,7 +1614,7 @@ export async function deleteMetaCampaign(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       userId,
-      "metaAds",
+      "meta",
     );
     const connector = connectorRes?.data;
     const token = context.accessToken || connector?.accessToken;
@@ -1690,7 +1690,7 @@ export async function updateMetaAdSet(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       userId,
-      "metaAds",
+      "meta",
     );
     const connector = connectorRes?.data;
     const token = context.accessToken || connector?.accessToken;
@@ -1779,7 +1779,7 @@ export async function updateMetaAd(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       userId,
-      "metaAds",
+      "meta",
     );
     const connector = connectorRes?.data;
     const token = context.accessToken || connector?.accessToken;
@@ -1849,7 +1849,7 @@ export async function deleteMetaAdSet(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       userId,
-      "metaAds",
+      "meta",
     );
     const connector = connectorRes?.data;
     const token = context.accessToken || connector?.accessToken;
@@ -1947,7 +1947,7 @@ export async function createMetaCreative(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       userId,
-      "metaAds",
+      "meta",
     );
     const connector = connectorRes?.data;
     const token = context.accessToken || connector?.accessToken;
@@ -2126,7 +2126,7 @@ export async function createMetaAd(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       userId,
-      "metaAds",
+      "meta",
     );
     const connector = connectorRes?.data;
     const token = context.accessToken || connector?.accessToken;
@@ -2192,7 +2192,7 @@ export async function executeMetaGraphQuery(
 
     const connectorRes = await getConnectorByUserIdAndProviderSlug(
       context.userId,
-      context.providerSlug ?? "metaAds",
+      context.providerSlug ?? "meta",
     );
     const connector = connectorRes?.data;
     const token = context.accessToken ?? connector?.accessToken;

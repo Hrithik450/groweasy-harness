@@ -2,25 +2,23 @@ import { uuidv7 } from "@/lib/utils/uuid";
 import type { ToolInput, ToolOutput } from "@/lib/tools/types";
 import type { CompetitorResearchItem } from "@/lib/detail.bar/types";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
-import { getScrapedAdsByIds } from "@/lib/services/scraper";
 import { extractAdIdFromReference } from "@/lib/services/utils";
-import { readBarItemFor, upsertDetailBarItems, resolveDetailBarSession } from "@/lib/detail.bar/service";
+import { getScrapedAdsByIds } from "@/lib/services/scraper";
+import {
+  upsertDetailBarItems,
+  resolveDetailBarSession,
+} from "@/lib/detail.bar/service";
 
-export const updateCompetitorResearchToolDefinition = {
+export const saveCompetitorResearchToolDefinition = {
   type: "function" as const,
-  name: "updateCompetitorResearch",
+  name: "saveCompetitorResearch",
   preSkills: "competitor-research",
   description:
     "Prerequisite: competitor-research skill is a prerequisite.\n\n" +
-    "Persists competitive intelligence findings, identified competitor brands, discovered search keywords, and winning ad IDs into the Ad Strategist DetailBar. Read previous research first and save only new findings.",
+    "Saves a new competitive intelligence finding: competitor brands, search keywords, and winning ad IDs. Research rows are append-only; read previous research first and save only new findings.",
   parameters: {
     type: "object",
     properties: {
-      id: {
-        type: "string",
-        description:
-          "Existing research id to update. Omit to record new findings.",
-      },
       title: {
         type: "string",
         description:
@@ -66,17 +64,20 @@ export const updateCompetitorResearchToolDefinition = {
   },
 };
 
-export type UpdateCompetitorResearchArgs = Partial<
-  Omit<CompetitorResearchItem, "createdAt" | "turnId" | "sourceSessionId">
+export type SaveCompetitorResearchArgs = Partial<
+  Omit<
+    CompetitorResearchItem,
+    "id" | "createdAt" | "turnId" | "sourceSessionId"
+  >
 >;
 
-type UpdateCompetitorResearchOutput = {
-  contentParts: Array<InputContentParam>;
-};
-
-export async function executeUpdateCompetitorResearchTool(
-  input: ToolInput<UpdateCompetitorResearchArgs>,
-): Promise<ToolOutput<UpdateCompetitorResearchOutput>> {
+export async function executeSaveCompetitorResearchTool(
+  input: ToolInput<SaveCompetitorResearchArgs>,
+): Promise<
+  ToolOutput<{
+    contentParts: Array<InputContentParam>;
+  }>
+> {
   const userId = input.context?.userId;
   const context = input.context;
 
@@ -93,7 +94,6 @@ export async function executeUpdateCompetitorResearchTool(
   }
 
   const {
-    id: requestedId,
     title,
     content,
     newCompetitors = [],
@@ -138,12 +138,10 @@ export async function executeUpdateCompetitorResearchTool(
     let droppedIds: string[] = [];
 
     if (allSubmittedIds.length > 0) {
-      const cachedMap = await getScrapedAdsByIds(allSubmittedIds);
+      const cachedMap = getScrapedAdsByIds(allSubmittedIds);
 
       const invalidIds = allSubmittedIds.filter((id) => !cachedMap.has(id));
       if (invalidIds.length > 0) {
-        // Unverified references are dropped individually: one bad id must not
-        // discard the competitors, keywords and findings of the whole run.
         const invalid = new Set(invalidIds);
         uniqueStatic = uniqueStatic.filter((id) => !invalid.has(id));
         uniqueVideo = uniqueVideo.filter((id) => !invalid.has(id));
@@ -151,15 +149,26 @@ export async function executeUpdateCompetitorResearchTool(
       }
     }
 
-    const id = requestedId?.trim() || uuidv7();
-    const existing = requestedId?.trim()
-      ? (readBarItemFor(userId, "competitorResearches", id) as CompetitorResearchItem | null)
-      : null;
+    const session = resolveDetailBarSession(userId, "competitorResearches");
+    if (!session) {
+      const errorMsg =
+        "Session not found for this user; competitor research was not saved.";
+      return {
+        success: false,
+        data: {
+          contentParts: [{ type: "input_text", text: `Error: ${errorMsg}` }],
+        },
+        error: errorMsg,
+      };
+    }
+
+    const id = uuidv7();
 
     const data: Record<string, unknown> = {
       title: title.trim(),
       content: (content || "").trim(),
-      turnId: context?.turnId ?? "",
+      turnId:
+        context?.turn !== undefined ? `turn-${context.turn}` : "",
       sourceSessionId: context?.sessionId ?? "",
       newCompetitors: Array.isArray(newCompetitors)
         ? newCompetitors.map((c) => String(c).trim()).filter(Boolean)
@@ -171,20 +180,12 @@ export async function executeUpdateCompetitorResearchTool(
         staticAds: uniqueStatic,
         videoAds: uniqueVideo,
       },
-      createdAt: existing?.createdAt ?? new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
-    const session = resolveDetailBarSession(userId, "competitorResearches");
-    if (!session) {
-      const errorMsg = "Ad Strategist session not found.";
-      return {
-        success: false,
-        data: {
-          contentParts: [{ type: "input_text", text: `Error: ${errorMsg}` }],
-        },
-        error: errorMsg,
-      };
-    }
+    const [written] = upsertDetailBarItems(session, "competitorResearches", [
+      { id, data },
+    ]);
 
     return {
       success: true,
@@ -192,7 +193,7 @@ export async function executeUpdateCompetitorResearchTool(
         contentParts: [
           {
             type: "input_text",
-            text: `Successfully saved competitor research "${String(data.title)}" as ${id} in the Ad Strategist DetailBar.${
+            text: `Successfully saved competitor research "${String(data.title)}" as ${written?.id ?? id} in the session.${
               droppedIds.length > 0
                 ? ` Dropped ${droppedIds.length} unverified ad reference(s) not returned by searchAdLibrary: ${droppedIds.join(", ")}.`
                 : ""

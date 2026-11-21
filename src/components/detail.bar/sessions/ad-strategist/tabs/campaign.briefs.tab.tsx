@@ -46,11 +46,13 @@ export function CampaignBriefsTab({
   return (
     <div className="space-y-3 pb-6">
       {pager.items.map((brief) => {
-        const canJump =
-          brief.sourceSessionId === session?.id && Boolean(brief.turnId);
+        const canJump = Boolean(brief.turnId);
         const jump = () => {
           if (canJump && brief.turnId) {
-            handleNavigation?.(brief.turnId);
+            handleNavigation?.(brief.turnId, {
+              createdAt: brief.createdAt,
+              sourceSessionId: brief.sourceSessionId,
+            });
           }
         };
 
@@ -79,7 +81,7 @@ export function CampaignBriefsTab({
               </p>
             ) : null}
 
-            {/* Footer: Jump to chat (same-session briefs only) */}
+            {/* Footer: Jump to chat */}
             {canJump && (
               <div className="flex items-center justify-end pt-2.5 border-t border-border-subtle">
                 <button

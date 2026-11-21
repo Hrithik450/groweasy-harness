@@ -1,9 +1,16 @@
 import type { ToolInput, ToolOutput } from "@/lib/tools/types";
 import { toolFailure as errorResult } from "@/lib/tools/utils";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
-import { upsertDetailBarItems, resolveDetailBarSession } from "@/lib/detail.bar/service";
+import {
+  upsertDetailBarItems,
+  resolveDetailBarSession,
+} from "@/lib/detail.bar/service";
 import { uuidv7 } from "@/lib/utils/uuid";
-import type { Idea } from "@/lib/detail.bar/types";
+import {
+  IDEA_SOURCES,
+  type Idea,
+  type IdeaSource,
+} from "@/lib/detail.bar/types";
 import { isRenderableAssetUrl } from "@/lib/attachments/asset.url";
 
 /** Idea cards accepted per call; the list keeps the rest. */
@@ -35,11 +42,6 @@ export const updateIdeasToolDefinition = {
               description:
                 "Existing idea ID to update. Omit to create a new card.",
             },
-            category: {
-              type: "string",
-              description:
-                "Source chip shown on the card (e.g. 'COMPETITOR WINNER', 'OUR WINNER', 'FROM INSIGHTS', 'VARIANT').",
-            },
             title: {
               type: "string",
               description: "Card headline, max 8 words.",
@@ -50,8 +52,8 @@ export const updateIdeasToolDefinition = {
             },
             source: {
               type: "string",
-              description:
-                "Optional evidence behind the idea: the competitor ad, our winning ad, alert, or insight.",
+              enum: [...IDEA_SOURCES],
+              description: "Source chip shown on the card.",
             },
             format: {
               type: "string",
@@ -84,7 +86,7 @@ export const updateIdeasToolDefinition = {
               description: "One line: why it should work.",
             },
           },
-          required: ["category", "title", "description"],
+          required: ["source", "title", "description"],
         },
       },
     },
@@ -98,7 +100,6 @@ export type IdeaItemInput = Partial<Omit<Idea, "createdAt">>;
 export interface UpdateIdeasArgs {
   ideas?: IdeaItemInput[];
 }
-
 
 function trimmed(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -123,23 +124,23 @@ export async function executeUpdateIdeasTool(
   const missing: number[] = [];
 
   rawIdeas.slice(0, MAX_IDEAS_PER_CALL).forEach((idea, index) => {
-    const category = trimmed(idea.category);
+    const sourceRaw = trimmed(idea.source).toUpperCase();
+    const source = (IDEA_SOURCES as readonly string[]).includes(sourceRaw)
+      ? (sourceRaw as IdeaSource)
+      : null;
     const title = trimmed(idea.title);
     const description = trimmed(idea.description);
-    if (!category || !title || !description) {
+    if (!source || !title || !description) {
       missing.push(index + 1);
       return;
     }
 
     const data: Record<string, unknown> = {
-      category,
+      source,
       title,
       description,
       createdAt,
     };
-
-    const source = trimmed(idea.source);
-    if (source) data.source = source;
     if (idea.format === "video" || idea.format === "image") {
       data.format = idea.format;
     }
@@ -172,7 +173,7 @@ export async function executeUpdateIdeasTool(
 
   if (missing.length > 0) {
     return errorResult(
-      `Idea card(s) ${missing.join(", ")} are missing 'category', 'title', or 'description'.`,
+      `Idea card(s) ${missing.join(", ")} are missing a valid 'source', 'title', or 'description'.`,
     );
   }
 

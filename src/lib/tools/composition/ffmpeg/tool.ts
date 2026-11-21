@@ -38,21 +38,14 @@ export const ffmpegToolDefinition = {
         description:
           "Target output file extension supported by FFmpeg: video ('.mp4', '.webm', '.mov'), audio ('.mp3', '.wav', '.m4a'), images/frames ('.png', '.webp', '.jpg'), subtitles ('.ass', '.srt', '.vtt'), or animation ('.gif').",
       },
-      storage: {
-        type: "string",
-        enum: ["tmp", "artifact"],
-        description:
-          "Storage tier: 'tmp' (default) for intermediate edits; 'artifact' for permanent deliverables.",
-      },
     },
-    required: ["command", "extension", "storage"],
+    required: ["command", "extension"],
   },
 };
 
 export interface FfmpegArgs {
   command: string;
   extension: string;
-  storage: "tmp" | "artifact";
 }
 
 function isImageMediaType(mediaType: string): mediaType is ImageMediaType {
@@ -173,8 +166,6 @@ export async function executeFfmpegTool(
   if (tokens.length > 0 && path.extname(tokens[tokens.length - 1])) {
     tokens.pop();
   }
-
-  const storageTier = rawArgs.storage ?? "tmp";
   const targetDir = await ensureScratchDir();
   const outputFilename = `${uuidv7()}${ext}`;
   const targetOutputPath = path.join(targetDir, outputFilename);
@@ -225,7 +216,6 @@ export async function executeFfmpegTool(
             name: outputFilename,
           });
       const saved = toAttachmentReceipt(ref, mimeType, {
-        storage: storageTier,
         filename: outputFilename,
       });
       const message = `FFmpeg command executed successfully (${bytes} bytes). Output saved to ${saved.url}. Embed in markdown via [${label}](${saved.url}).`;

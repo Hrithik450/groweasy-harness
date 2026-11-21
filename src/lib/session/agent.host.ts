@@ -8,8 +8,10 @@
  * @module @/lib/session/agent.host
  */
 
-import { composeTurn } from "@/lib/core/agent/compose.turn";
+import { composeInstructions } from "@/lib/core/agent/compose.turn";
 import { ensureAgent, hasAgent, type AgentSeed } from "@/lib/core/agent/registry";
+import { getSessionById } from "@/lib/repositories/sessions.repo";
+import { getToolDefinitionsForSlug } from "@/lib/tools";
 import { Session } from "@/lib/core/session/session";
 import {
   SESSION_FORMAT_VERSION,
@@ -34,8 +36,14 @@ export function sessionHeaderFrom(row: SessionIdentity): SessionHeader {
 
 /** Instructions and tools one stored session composes into. */
 export function sessionSeedFrom(row: SessionRow): AgentSeed {
-  const { instructions, tools } = composeTurn(row);
-  return { header: sessionHeaderFrom(row), instructions, tools };
+  return {
+    header: sessionHeaderFrom(row),
+    // Skill versions change under a warm agent; resolve the prompt per step
+    // so a reload clears the notice and a new deploy is seen immediately.
+    resolveInstructions: () =>
+      composeInstructions(getSessionById(row.id) ?? row),
+    tools: getToolDefinitionsForSlug(row.slug),
+  };
 }
 
 /** Warm the agent that serves this stored session. */

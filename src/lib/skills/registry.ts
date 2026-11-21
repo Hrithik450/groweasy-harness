@@ -5,6 +5,7 @@
  * @module @/lib/skills/registry
  */
 
+import { createHash } from "node:crypto";
 import fs from "fs";
 import path from "path";
 import {
@@ -14,72 +15,63 @@ import {
 } from "./types";
 import { isSkillName, normalizeSkillName, parseFrontmatter } from "./utils";
 
-/** The seven bundled skills, their categories, and their markdown paths. */
+/** The bundled skills and their markdown paths. */
 export const SKILL_REGISTRY = {
   "static-ad": {
     name: "static-ad",
-    category: "creative",
     path: "src/lib/skills/static-ad/SKILL.md",
   },
   "competitor-research": {
     name: "competitor-research",
-    category: "meta",
     path: "src/lib/skills/competitor-research/SKILL.md",
   },
   "campaign-health": {
     name: "campaign-health",
-    category: "account",
     path: "src/lib/skills/campaign-health/SKILL.md",
   },
   "ads-classifier": {
     name: "ads-classifier",
-    category: "account",
     path: "src/lib/skills/ads-classifier/SKILL.md",
   },
   alerts: {
     name: "alerts",
-    category: "account",
     path: "src/lib/skills/alerts/SKILL.md",
   },
   suggestions: {
     name: "suggestions",
-    category: "account",
     path: "src/lib/skills/suggestions/SKILL.md",
   },
   ffmpeg: {
     name: "ffmpeg",
-    category: "composition",
     path: "src/lib/skills/ffmpeg/SKILL.md",
   },
   "business-profile": {
     name: "business-profile",
-    category: "account",
     path: "src/lib/skills/business-profile/SKILL.md",
   },
   ideas: {
     name: "ideas",
-    category: "creative",
     path: "src/lib/skills/ideas/SKILL.md",
   },
   creatives: {
     name: "creatives",
-    category: "creative",
     path: "src/lib/skills/creatives/SKILL.md",
   },
-  reports: {
-    name: "reports",
-    category: "account",
-    path: "src/lib/skills/reports/SKILL.md",
+  "daily-report": {
+    name: "daily-report",
+    path: "src/lib/skills/daily-report/SKILL.md",
   },
   "campaign-brief": {
     name: "campaign-brief",
-    category: "meta",
     path: "src/lib/skills/campaign-brief/SKILL.md",
   },
   "video-ad": {
     name: "video-ad",
-    category: "creative",
     path: "src/lib/skills/video-ad/SKILL.md",
+  },
+  "video-service-config": {
+    name: "video-service-config",
+    path: "src/lib/skills/video-service-config/SKILL.md",
   },
 } as const satisfies Record<string, SkillEntry>;
 
@@ -91,23 +83,54 @@ function resolveSkillPath(entry: SkillEntry): string {
     : path.join(process.cwd(), entry.path);
 }
 
+interface CachedSkill {
+  mtimeMs: number;
+  size: number;
+  skill: SkillDefinition;
+}
+
+/** Avoid re-reading and re-hashing unchanged files on every model step. */
+const skillCache = new Map<string, CachedSkill>();
+
 function loadSkill(entry: SkillEntry): SkillDefinition | null {
   const absolutePath = resolveSkillPath(entry);
-  if (!fs.existsSync(absolutePath)) return null;
+
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(absolutePath);
+  } catch {
+    return null;
+  }
+
+  const cached = skillCache.get(absolutePath);
+  if (
+    cached !== undefined &&
+    cached.mtimeMs === stat.mtimeMs &&
+    cached.size === stat.size
+  ) {
+    return cached.skill;
+  }
 
   const rawContent = fs.readFileSync(absolutePath, "utf-8");
   const { data, content } = parseFrontmatter(rawContent);
   const frontmatterName = data.name?.trim() ?? "";
   const name = isSkillName(frontmatterName) ? frontmatterName : entry.name;
 
-  return {
+  const skill: SkillDefinition = {
     name,
-    category: entry.category,
     description: data.description?.trim() ?? "",
+    version: createHash("sha256").update(rawContent).digest("hex"),
     content: content.trim(),
     provider: "bundled",
     invocation: { modelInvocable: true, userInvocable: true },
   };
+
+  skillCache.set(absolutePath, {
+    mtimeMs: stat.mtimeMs,
+    size: stat.size,
+    skill,
+  });
+  return skill;
 }
 
 /**
@@ -120,11 +143,7 @@ class BundledSkillRegistry {
     return Object.values(SKILL_REGISTRY)
       .map((entry) => loadSkill(entry))
       .filter((skill): skill is SkillDefinition => skill !== null)
-      .map(({ name, category, description }) => ({
-        name,
-        category,
-        description,
-      }));
+      .map(({ name, description, version }) => ({ name, description, version }));
   }
 
   /** Loads one skill's frontmatter and instruction body, or `undefined`. */

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useContext, useState, useEffect, useRef, useMemo } from "react";
+import Link from "next/link";
 import { defineRegistry, useBoundProp, useActions } from "@json-render/react";
 import {
   catalog,
@@ -843,10 +844,10 @@ export const { registry } = defineRegistry(catalog, {
     Heading: ({ props }: { props: any }) => {
       const level = props.level ?? 2;
       const headingClasses: Record<number, string> = {
-        1: "text-lg sm:text-xl font-bold tracking-tight text-foreground",
-        2: "text-base sm:text-lg font-semibold tracking-tight text-foreground",
-        3: "text-sm sm:text-base font-semibold text-foreground",
-        4: "text-xs sm:text-sm font-medium text-foreground/80",
+        1: "font-display text-[27px] sm:text-[30px] font-bold leading-[1.1] tracking-tight text-foreground",
+        2: "font-display text-[24px] sm:text-[27px] font-semibold leading-[1.15] tracking-tight text-foreground",
+        3: "font-display text-[21px] sm:text-[24px] font-semibold leading-[1.2] text-foreground",
+        4: "font-display text-[18px] sm:text-[21px] font-medium leading-[1.25] text-foreground/80",
       };
       const baseClass = `${headingClasses[level] || headingClasses[2]} m-0`;
       const mergedClass = `${baseClass} ${props.className || ""}`.trim();
@@ -1847,10 +1848,25 @@ export const { registry } = defineRegistry(catalog, {
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Link: ({ props }: { props: any }) => {
-      // A block never navigates away: show the reference, not a redirect.
+      const href = typeof props.href === "string" ? props.href : "";
+      const label = props.label || href;
+      const internal = href.startsWith("/") || href.startsWith("#");
+
+      // In-app destinations navigate; outbound references only keep their text.
+      if (internal) {
+        return (
+          <Link
+            href={href}
+            className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-brand underline underline-offset-2 hover:opacity-80"
+          >
+            {label}
+          </Link>
+        );
+      }
+
       return (
         <span className="inline-flex items-center gap-1 text-xs font-medium text-brand">
-          {props.label || props.href}
+          {label}
         </span>
       );
     },

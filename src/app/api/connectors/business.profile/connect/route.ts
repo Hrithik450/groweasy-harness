@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   cancelAgent,
   enqueuePrompt,
+  isAgentRunning,
   whenAgentIdle,
 } from "@/lib/core/agent/registry";
 import { ensureAgentForSession } from "@/lib/session/agent.host";
@@ -14,15 +15,14 @@ import {
   upsertConnector,
   ensureDefaultCronJobs,
   getConnectorByUserIdAndSlug,
+  normalizeInstanceKey,
   DEFAULT_BUSINESS_PROFILE_CRON_JOBS,
 } from "@/lib/services";
 
-/**
- * One deep scan must finish inside six minutes. The agent is expected to
- * answer within five; this is the hard stop shared with the client, so a turn
- * that stalls cannot hold the route open indefinitely.
- */
 const SCAN_TIMEOUT_MS = 6 * 60 * 1000;
+
+/** One in-flight connect per analyzer session, across overlapping requests. */
+const activeScans = new Set<string>();
 
 /**
  * POST /api/connectors/business.profile/connect
@@ -30,6 +30,8 @@ const SCAN_TIMEOUT_MS = 6 * 60 * 1000;
  */
 export async function POST(req: NextRequest) {
   const user = await getAuthSessionFromRequest(req);
+  let instance: string | null = null;
+  let lockedSession: string | null = null;
 
   try {
     if (!user?.id) {
@@ -37,7 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { url, prompt, input } = body;
+    const { url, input } = body;
 
     if (!url || typeof url !== "string" || !url.trim()) {
       return NextResponse.json(
@@ -65,21 +67,48 @@ export async function POST(req: NextRequest) {
     const session = sessionRes.data;
     const cleanUrl = url.trim();
 
-    // composeTurn reads the brand URL from connector metadata; keep any
-    // profile already stored and stamp the URL the session was started with.
+    // The brand domain selects the instance: reconnecting the same brand
+    // resumes that profile, a different brand gets its own row.
+    instance = normalizeInstanceKey(cleanUrl);
+    if (!instance) {
+      return NextResponse.json(
+        { error: "Valid website URL is required" },
+        { status: 400 },
+      );
+    }
+
+    // One analyzer turn at a time: a second brand would otherwise redirect the
+    // running turn's save to a different instance.
+    await ensureAgentForSession(session);
+    if (activeScans.has(session.id) || isAgentRunning(session.id)) {
+      return NextResponse.json(
+        {
+          error:
+            "A brand analysis is already running. Please wait for it to finish.",
+        },
+        { status: 409 },
+      );
+    }
+    activeScans.add(session.id);
+    lockedSession = session.id;
+
     const existingConnector = await getConnectorByUserIdAndSlug(
       user.id,
       "businessProfile",
+      instance,
     );
     const metadata: Record<string, unknown> = {
       ...(existingConnector.data?.metadata ?? {}),
       url: cleanUrl,
     };
     delete metadata.error;
+
     await upsertConnector({
       userId: user.id,
       slug: "businessProfile",
       providerSlug: "adsEasy",
+      instance,
+      isPrimary: true,
       status: "running",
       metadata,
     });
@@ -88,11 +117,8 @@ export async function POST(req: NextRequest) {
     const inputText =
       typeof input === "string" && input.trim()
         ? input.trim()
-        : typeof prompt === "string" && prompt.trim()
-          ? prompt.trim()
-          : "This is a cron job execution for the business profile, follow the instructions and update the profile accordingly.";
+        : "Analyze this brand website and save the complete business profile.";
 
-    await ensureAgentForSession(session);
     enqueuePrompt(
       session.id,
       [
@@ -124,9 +150,10 @@ export async function POST(req: NextRequest) {
         userId: user.id,
         slug: "businessProfile",
         providerSlug: "adsEasy",
+        instance,
         status: "error",
         metadata: {
-          ...(existingConnector.data?.metadata ?? {}),
+          ...metadata,
           error:
             "The analysis did not finish within 6 minutes. Please try again.",
         },
@@ -140,6 +167,7 @@ export async function POST(req: NextRequest) {
     const settled = await getConnectorByUserIdAndSlug(
       user.id,
       "businessProfile",
+      instance,
     );
     if (settled.data?.status !== "connected") {
       const error =
@@ -150,6 +178,7 @@ export async function POST(req: NextRequest) {
         userId: user.id,
         slug: "businessProfile",
         providerSlug: "adsEasy",
+        instance,
         status: "error",
         metadata: {
           ...((settled.data?.metadata as Record<string, unknown> | null) ?? {}),
@@ -160,7 +189,7 @@ export async function POST(req: NextRequest) {
     }
 
     await ensureDefaultCronJobs(user.id, DEFAULT_BUSINESS_PROFILE_CRON_JOBS);
-    activateCronJobsForConnector(user.id, "businessProfile");
+    activateCronJobsForConnector(user.id, "businessProfile", false);
 
     return NextResponse.json({
       success: true,
@@ -171,25 +200,34 @@ export async function POST(req: NextRequest) {
 
     if (user?.id) {
       try {
-        const current = await getConnectorByUserIdAndSlug(
-          user.id,
-          "businessProfile",
-        );
-        await upsertConnector({
-          userId: user.id,
-          slug: "businessProfile",
-          providerSlug: "adsEasy",
-          status: "error",
-          metadata: {
-            ...(current.data?.metadata ?? {}),
-            error: errorMsg,
-          },
-        });
+        const current = instance
+          ? await getConnectorByUserIdAndSlug(
+              user.id,
+              "businessProfile",
+              instance,
+            )
+          : null;
+        if (instance) {
+          await upsertConnector({
+            userId: user.id,
+            slug: "businessProfile",
+            providerSlug: "adsEasy",
+            instance,
+            status: "error",
+            metadata: {
+              ...(current?.data?.metadata ?? {}),
+              url: current?.data?.metadata?.url ?? instance,
+              error: errorMsg,
+            },
+          });
+        }
       } catch (dbErr) {
         console.error("Failed to reset connector status:", dbErr);
       }
     }
 
     return NextResponse.json({ error: errorMsg }, { status: 500 });
+  } finally {
+    if (lockedSession) activeScans.delete(lockedSession);
   }
 }

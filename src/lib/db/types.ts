@@ -16,13 +16,18 @@ import {
   users,
   sessions,
   sessionEvents,
+  sessionSkills,
   connectors,
   cronJobs,
   detailBarItems,
   attachmentReceipts,
 } from "./schema/schema";
 import { scrapedAds, adQueryRelevance } from "./schema/scraper";
-import { CONNECTOR_SLUGS, SESSION_SLUGS } from "@/lib/constants";
+import {
+  CONNECTOR_SLUGS,
+  PROVIDER_SLUGS,
+  SESSION_SLUGS,
+} from "@/lib/constants";
 
 // --- Users -----------------------------------------------------------------
 
@@ -64,6 +69,11 @@ export interface DefaultSessionConfig {
 
 export type SessionEventRow = typeof sessionEvents.$inferSelect;
 export type NewSessionEventRow = typeof sessionEvents.$inferInsert;
+
+// --- Skill version ledger ---------------------------------------------------
+
+export type SessionSkillRow = typeof sessionSkills.$inferSelect;
+export type NewSessionSkillRow = typeof sessionSkills.$inferInsert;
 
 // --- Detail bars ------------------------------------------------------------
 
@@ -110,6 +120,7 @@ export type Connector = typeof connectors.$inferSelect;
 export type NewConnector = typeof connectors.$inferInsert;
 export type ConnectorStatus = NonNullable<Connector["status"]>;
 export type ConnectorSlug = (typeof CONNECTOR_SLUGS)[number];
+export type ProviderSlug = (typeof PROVIDER_SLUGS)[number];
 
 /**
  * Legacy alias used by the Meta connector service. This app has no separate

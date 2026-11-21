@@ -1,15 +1,19 @@
-import type { ConnectorStatus } from "@/lib/db";
-import { CONNECTOR_SLUGS } from "@/lib/constants";
+import type {
+  ConnectorSlug,
+  ConnectorStatus,
+  ProviderSlug,
+} from "@/lib/db";
 
-export type { ConnectorStatus };
-
-/** Slugs the browser connector manager can open. */
-export type ConnectorSlug = (typeof CONNECTOR_SLUGS)[number];
+export type { ConnectorSlug, ConnectorStatus, ProviderSlug };
 
 export interface Connector {
   id?: string;
   slug: ConnectorSlug;
-  providerSlug: string;
+  providerSlug: ProviderSlug;
+  /** Instance identity within (userId, slug): brand domain, account id. */
+  instance?: string;
+  /** The default instance for this connector type. */
+  isPrimary?: boolean;
   name: string;
   icon: string;
   description: string;
@@ -53,7 +57,7 @@ export const AVAILABLE_CONNECTORS: Connector[] = [
   },
   {
     slug: "metaAds",
-    providerSlug: "metaAds",
+    providerSlug: "meta",
     name: "Meta Ads Manager",
     description:
       "Launch, manage, and optimize advertising campaigns across Instagram & Facebook.",

@@ -8,6 +8,7 @@ import {
   useLayoutEffect,
   useMemo,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   catchUpJournal,
   applyJournalChange,
@@ -77,6 +78,7 @@ export function Chat({
   initialDetailBar,
 }: MainChatProps) {
   const sessionId = initialSession.id;
+  const router = useRouter();
 
   const chatNodes = useChatNodes(sessionId);
   const isStreaming = useIsStreaming(sessionId);
@@ -252,16 +254,118 @@ export function Chat({
     void e;
   };
 
-  const handleNavigation = async (targetId: string) => {
-    let el = document.getElementById(targetId);
-    for (let attempt = 0; !el && attempt < 5; attempt += 1) {
-      if (!pagination.hasMore) break;
-      await loadOlder(sessionId);
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      el = document.getElementById(targetId);
+  const resolveLegacyTurn = (
+    targetId: string,
+    createdAt?: string,
+  ): string | null => {
+    const legacy = /^(.+):(\d+)$/.exec(targetId);
+    if (!legacy) return null;
+
+    const step = Number(legacy[2]);
+    const createdMs = createdAt ? Date.parse(createdAt) : Number.NaN;
+    const events = useChatStore.getState().events[sessionId] ?? [];
+    let bestTurn: number | undefined;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (const event of events) {
+      if (event.type !== "tool/result") continue;
+      const data = event.data as { step?: unknown; turn?: unknown };
+      if (data.step !== step || typeof data.turn !== "number") continue;
+
+      // The legacy id only names the step. Item creation time picks the turn
+      // when several turns used the same step; without it, newest wins.
+      const distance = Number.isFinite(createdMs)
+        ? Math.abs(event.time - createdMs)
+        : -event.seq;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestTurn = data.turn;
+      }
     }
-    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    return bestTurn === undefined ? null : `turn-${bestTurn}`;
   };
+
+  const handleNavigation = async (
+    targetId: string,
+    options?: { createdAt?: string; sourceSessionId?: string },
+  ) => {
+    if (options?.sourceSessionId && options.sourceSessionId !== sessionId) {
+      const query = new URLSearchParams({ turn: targetId });
+      router.push(`/c/${options.sourceSessionId}?${query.toString()}`);
+      return;
+    }
+
+    const findTarget = (): HTMLElement | null => {
+      const direct = document.getElementById(targetId);
+      if (direct) return direct;
+      const resolved = resolveLegacyTurn(targetId, options?.createdAt);
+      return resolved ? document.getElementById(resolved) : null;
+    };
+
+    let target = findTarget();
+    for (let attempt = 0; !target && attempt < 50; attempt += 1) {
+      const state =
+        useChatStore.getState().pagination[sessionId] ?? NO_PAGINATION;
+      if (!state.hasMore || state.cursor === null) break;
+      if (state.isLoadingOlder) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        continue;
+      }
+
+      // Loading history must not let the bottom-follow effect pull us away.
+      userScrolledUpRef.current = true;
+      isFetchingOlderRef.current = true;
+      try {
+        await loadOlder(sessionId);
+      } finally {
+        isFetchingOlderRef.current = false;
+      }
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      target = findTarget();
+    }
+
+    const container = scrollRef.current;
+    if (!target || !container) return;
+
+    userScrolledUpRef.current = true;
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    // The turn's first line sits at the viewport's middle; centering the whole
+    // block puts the start above the fold on long turns.
+    const top =
+      container.scrollTop +
+      targetRect.top -
+      containerRect.top -
+      container.clientHeight / 2;
+
+    container.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  };
+
+  // A cross-chat jump lands here with `?turn=<anchor>`; consume it once the
+  // transcript has painted, then keep the URL clean.
+  useEffect(() => {
+    if (!isInitialScrolled) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const turn = params.get("turn");
+    if (!turn) return;
+
+    params.delete("turn");
+    const query = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+    );
+
+    void (async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await handleNavigation(turn);
+    })();
+    // handleNavigation reads live store state at fire time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialScrolled, sessionId]);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground select-text">

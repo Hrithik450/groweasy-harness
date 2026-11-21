@@ -1,54 +1,22 @@
+/**
+ * Scraper public surface: card parsing, ingestion, and stored-ad reads.
+ *
+ * @module @/lib/services/scraper
+ */
+
+export { buildMetaAdLibraryUrl, parseMetaAdCards } from "./scraper.service";
+export { ingestScrapedAds } from "./ingestion.service";
+export { EXACT_CACHE_MIN_SCORE } from "./policy";
 export {
-  buildMetaAdLibraryUrl,
   getAdsByQuery,
   getScrapedAdsByIds,
-  parseMetaAdCards,
   persistScrapedAds,
-} from "./scraper.service";
+} from "@/lib/repositories/scraper.repo";
 export type {
+  AnchoredMedia,
   NewAdQueryRelevance,
   NewScrapedAd,
   ScoredScrapedAd,
   ScrapedAd,
+  ScrapedAdCard,
 } from "./types";
-
-export { ingestScrapedAds } from "./ingestion.service";
-export type {
-  IngestScrapedAdsParams,
-  IngestScrapedAdsResult,
-} from "./ingestion.service";
-export type { AnchoredMedia, ScrapedAdCard } from "./pipeline";
-export { attachMediaToCardContent } from "./pipeline";
-
-export {
-  calculateBatchRelevance,
-  calculateRelevance,
-  createOpenAIEmbeddingProvider,
-  dotProduct,
-  getBatchEmbeddings,
-  getEmbedding,
-} from "./ad.relevance.service";
-export type { EmbeddingProvider } from "./ad.relevance.service";
-
-export {
-  crispAdCardContent,
-  extractMediaUrls,
-  isAvatarMediaUrl,
-  isMediaUrlExpired,
-  mediaUrlExpiresAt,
-  stripExpiredMediaLines,
-} from "./display";
-export type { CardMediaUrls } from "./display";
-
-export {
-  canonicalizeAdText,
-  canonicalizeQueryText,
-  computeEmbeddingHash,
-  normalizeQueryKey,
-  parseMetaAdDate,
-  sha256Hex,
-} from "./utils";
-export {
-  EMBEDDING_BATCH_SIZE,
-  EXACT_CACHE_MIN_SCORE,
-} from "./policy";

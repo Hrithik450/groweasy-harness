@@ -6,4 +6,4 @@ export * from "./ads.classifier/tool";
 export * from "./competitor.researches/tool";
 export * from "./creatives/tool";
 export * from "./ideas/tool";
-export * from "./reports/tool";
+export * from "./daily.report/tool";

@@ -112,7 +112,7 @@ export async function executeUploadMetaAssetTool(
     if (kind === "image") {
       const upload = await uploadImageCreative({
         params: { adAccountId, image: buffer, filename },
-        context: { userId, providerSlug: "metaAds" },
+        context: { userId, providerSlug: "meta" },
       });
       if (!upload.success || !upload.data?.hash) {
         return failure(upload.error?.message || "Meta returned no image hash.");
@@ -135,7 +135,7 @@ export async function executeUploadMetaAssetTool(
 
     const upload = await uploadVideoCreative({
       params: { adAccountId, video: buffer, filename },
-      context: { userId, providerSlug: "metaAds" },
+      context: { userId, providerSlug: "meta" },
     });
     if (!upload.success || !upload.data?.id) {
       return failure(upload.error?.message || "Meta returned no video id.");

@@ -8,10 +8,8 @@
 export interface SyncLipsArgs {
   videoPath: string;
   audioPath: string;
-  storage?: "tmp" | "artifact";
 }
 
-export const DEFAULT_SYNC_LIPS_STORAGE = "tmp" as const;
 
 export const syncLipsToolDefinition = {
   type: "function" as const,
@@ -24,7 +22,6 @@ export const syncLipsToolDefinition = {
     properties: {
       videoPath: { type: "string", description: "Attachment URL of the source video." },
       audioPath: { type: "string", description: "Attachment URL of the target audio." },
-      storage: { type: "string", enum: ["tmp", "artifact"] },
     },
     required: ["videoPath", "audioPath"],
   },

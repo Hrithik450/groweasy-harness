@@ -41,7 +41,7 @@ export async function executeFetchMetaPagesTool(
 
   const res = await executeMetaGraphQuery({
     params: { queries: input.args.queries },
-    context: { userId, providerSlug: "metaAds" },
+    context: { userId, providerSlug: "meta" },
   });
 
   if (!res.success || !res.data) {

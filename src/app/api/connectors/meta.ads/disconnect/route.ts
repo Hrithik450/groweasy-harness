@@ -21,8 +21,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Gated jobs are parked by the connector service; they stay visible and
-    // reconnect reactivates them.
     return NextResponse.json({
       success: true,
       status: "disconnected",

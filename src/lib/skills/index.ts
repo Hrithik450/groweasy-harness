@@ -6,18 +6,15 @@
  */
 
 import { skillRegistry } from "./registry";
-import type { SkillCategory, SkillDefinition, SkillSummary } from "./types";
+import type { SkillDefinition, SkillSummary } from "./types";
 
 export * from "./types";
 export * from "./utils";
 export * from "./registry";
 
-/** Lists bundled skills, optionally narrowed to one category. */
-export function listSkills(category?: SkillCategory): SkillSummary[] {
-  const skills = skillRegistry.list();
-  return category === undefined
-    ? skills
-    : skills.filter((skill) => skill.category === category);
+/** Lists every bundled skill. */
+export function listSkills(): SkillSummary[] {
+  return skillRegistry.list();
 }
 
 /** Loads one skill's frontmatter and instruction body by name. */

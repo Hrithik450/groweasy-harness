@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   Loader2,
   ChevronDown,
-  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useDetailBarStore } from "@/store/detail.bar.store";
@@ -54,7 +53,6 @@ export function AlertsTab({
   const [filter, setFilter] = useState<FilterType>("all");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [resolvingAiId, setResolvingAiId] = useState<string | null>(null);
   const [resolvingManualId, setResolvingManualId] = useState<string | null>(
@@ -79,31 +77,6 @@ export function AlertsTab({
 
   const currentFilterLabel =
     FILTER_OPTIONS.find((f) => f.id === filter)?.label || "ALL";
-
-  const handleRefresh = async () => {
-    if (isRefreshing || !session?.id) return;
-    setIsRefreshing(true);
-    try {
-      const res = await fetch(`/api/sessions/${session.id}/detail.bar?field=alerts`);
-      if (!res.ok) throw new Error(`bar refresh ${res.status}`);
-
-      const page = (await res.json()) as {
-        items?: unknown[];
-        nextCursor?: string | null;
-      };
-      if (Array.isArray(page.items)) {
-        useDetailBarStore
-          .getState()
-          .replacePage("alerts", null, page.items, page.nextCursor ?? null);
-      }
-      toast.success("Alerts refreshed");
-    } catch (err) {
-      console.error("Failed to refresh alerts:", err);
-      toast.error("Failed to refresh alerts");
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
 
   /** Hand the alert to the agent as a hidden prompt. */
   const handleFixWithAi = async (alert: Alert) => {
@@ -148,22 +121,6 @@ export function AlertsTab({
       {/* Action Row: Refresh & Filter Dropdown, only once there are alerts */}
       {visibleAlerts.length > 0 && (
       <div className="flex items-center justify-end gap-1.5 pb-0.5">
-        {session?.id && (
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="p-1 text-muted-2 hover:text-foreground bg-card hover:bg-muted rounded-lg border border-border transition-colors cursor-pointer shadow-2xs disabled:opacity-60"
-            title="Refresh alerts"
-          >
-            <RefreshCw
-              className={`w-3.5 h-3.5 ${
-                isRefreshing ? "animate-spin text-brand" : ""
-              }`}
-            />
-          </button>
-        )}
-
         {/* Status Filter Dropdown */}
         <div className="relative">
           <button

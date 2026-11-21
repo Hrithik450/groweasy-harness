@@ -267,6 +267,7 @@ async function runGroup(
         ...(call.spec.turnId !== undefined
           ? { turnId: call.spec.turnId }
           : {}),
+        turn,
         args: call.exec.arguments,
         signal: call.exec.signal,
         ...(call.exec.scope !== undefined ? { scope: call.exec.scope } : {}),

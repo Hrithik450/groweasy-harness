@@ -8,7 +8,7 @@ import type {
   AdStrategistDetailBarData,
 } from "@/lib/detail.bar/types";
 import { useBarPager } from "@/hooks/use.bar.pager";
-import { DetailBarHeader } from "../../common";
+import { DetailBarHeader, DetailBarRefresh } from "../../common";
 import {
   ReportsTab,
   CampaignBriefsTab,
@@ -76,11 +76,22 @@ export function AdStrategistDetailBar({
     competitorResearches: newResearchCount,
   };
   const Body = CONTENT[activeTab];
+  const activeLabel =
+    tabs.find((tab) => tab.key === activeTab)?.label ?? "Daily reports";
 
   return (
     <div className="flex flex-col h-full bg-card select-none">
       {/* Top Header */}
-      <DetailBarHeader>
+      <DetailBarHeader
+        action={
+          <DetailBarRefresh
+            sessionId={session?.id}
+            field={activeTab}
+            label={activeLabel}
+            showLabel
+          />
+        }
+      >
         <div
           role="tablist"
           aria-label="Ad strategist"

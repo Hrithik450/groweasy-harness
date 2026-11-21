@@ -9,7 +9,7 @@ description: "Classifies every ad in the Ad Manager Campaigns tab as winner, sca
 - **Read first:** `fetchMetaAdAccounts` → `fetchMetaCampaigns` → `fetchMetaAds` with `insights` fields; use the returned ids, ad sets, and metrics.
 - **One write per run:** call `upsertAdsClassified` once with every ad you judged. A run ends when that call returns.
 - **Grounded in the read:** classify only from the numbers the Meta fetch tools returned. A signal the read does not carry leaves the ad `untested`, never guessed.
-- **Not this skill:** delivery and billing problems are `alerts`; growth ideas are `suggestions`; a written narrative is `reports`; changing a live campaign is `updateMetaCampaign` / `deleteMetaCampaign`.
+- **Not this skill:** delivery and billing problems are `alerts`; growth ideas are `suggestions`; a written narrative is `daily-report`; changing a live campaign is `updateMetaCampaign` / `deleteMetaCampaign`.
 
 ## Guardrails
 

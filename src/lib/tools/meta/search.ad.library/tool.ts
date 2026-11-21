@@ -1,7 +1,10 @@
-import type { ToolInput, ToolOutput } from "@/lib/tools/types";
 import { toolFailure as failure } from "@/lib/tools/utils";
+import type { ToolInput, ToolOutput } from "@/lib/tools/types";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
-import { webSearchTool } from "@/lib/tools/web";
+import {
+  crawlWebPage,
+  type WebSearchCrawlResult,
+} from "@/lib/tools/web/search/tool";
 import {
   getDetailBarPage,
   resolveDetailBarSession,
@@ -86,10 +89,7 @@ const VALIDATION_SCROLL_STEPS = 3;
  * Crawl depth from intent, ported from the legacy harness.
  * Validation checks need only the first cards; collection crawls go deeper.
  */
-function resolveCrawlDepth(params: {
-  targetCount: number;
-  query: string;
-}): CrawlDepth {
+function resolveCrawlDepth(params: { targetCount: number }): CrawlDepth {
   const targetCount = Math.max(1, params.targetCount);
 
   if (targetCount <= VALIDATION_TARGET_COUNT) {
@@ -266,10 +266,8 @@ export async function executeSearchAdLibraryTool(
   // Same creative, different ad id: exclude by content hash too.
   const excludedHashes = new Set<string>(reservation.hashes);
   if (excludeIds.size > 0) {
-    const stored = await getScrapedAdsByIds([...excludeIds]);
-    for (const rows of stored.values()) {
-      for (const row of rows) excludedHashes.add(row.contentHash);
-    }
+    const stored = getScrapedAdsByIds([...excludeIds]);
+    for (const row of stored.values()) excludedHashes.add(row.contentHash);
   }
 
   const allCachedAds = await getAdsByQuery(
@@ -317,21 +315,11 @@ export async function executeSearchAdLibraryTool(
     mediaType,
   });
 
-  const depth = resolveCrawlDepth({ targetCount, query });
+  const depth = resolveCrawlDepth({ targetCount });
 
-  interface CrawlResult {
-    summary?: string;
-    markdown?: string;
-    mediaByAnchor?: Array<{
-      anchor: string;
-      videos: string[];
-      images: string[];
-    }>;
-  }
-
-  const crawl = async (d: CrawlDepth): Promise<CrawlResult> =>
-    (await webSearchTool.execute(
-      {
+  const crawl = async (d: CrawlDepth) =>
+    crawlWebPage({
+      args: {
         url: targetUrl,
         scanFullPage: true,
         maxScrollSteps: d.maxScrollSteps,
@@ -340,15 +328,17 @@ export async function executeSearchAdLibraryTool(
         pageTimeout: d.pageTimeout,
         mediaAnchorPattern: "Library ID:\\s*(\\d+)",
       },
-      {},
-    )) as CrawlResult;
+    });
 
-  let scrapeRes: CrawlResult | null = null;
+  let scrapeRes: WebSearchCrawlResult | null = null;
   let scrapeError: string | null = null;
-  try {
-    scrapeRes = await crawl(depth);
-  } catch (err: unknown) {
-    scrapeError = err instanceof Error ? err.message : String(err);
+
+  const crawled = await crawl(depth);
+  if (crawled.success && crawled.data) {
+    scrapeRes = crawled.data;
+  } else {
+    scrapeError =
+      crawled.error || `Failed to scrape Meta Ad Library for "${query}".`;
   }
 
   if (scrapeRes === null) {
@@ -383,7 +373,7 @@ export async function executeSearchAdLibraryTool(
     );
   }
 
-  const fullText = scrapeRes.markdown ?? scrapeRes.summary ?? "";
+  const fullText = scrapeRes.markdown;
 
   const isUpstreamMetaError =
     /your request couldn't be processed|sorry!? (?:something went wrong|we're having trouble)|there's an issue and the page could not be loaded/i.test(

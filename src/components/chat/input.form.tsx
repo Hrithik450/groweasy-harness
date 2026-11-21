@@ -12,7 +12,12 @@ import {
   Square,
 } from "lucide-react";
 import { useConnectorStore } from "@/store/connector.store";
+import {
+  useAudioRecorder,
+  type AudioRecording,
+} from "@/hooks/use.audio.recorder";
 import { toast } from "sonner";
+import { AudioVisualizer } from "./audio.visualizer";
 
 interface PendingAttachment {
   id: string;
@@ -21,6 +26,14 @@ interface PendingAttachment {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Dictation lands in the draft; it never submits the turn. */
+function appendTranscript(existing: string, transcript: string): string {
+  const next = transcript.trim();
+  if (!next) return existing;
+  const base = existing.trimEnd();
+  return base ? `${base} ${next}` : next;
 }
 
 interface ChatInputFormProps {
@@ -53,8 +66,110 @@ export function ChatInputForm({
   const [pending, setPending] = useState<PendingAttachment[]>([]);
   // Names show immediately, so an upload never reads as a bare spinner.
   const [uploadingNames, setUploadingNames] = useState<string[]>([]);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputValueRef = useRef(inputValue);
+  const transcribeAbortRef = useRef<AbortController | null>(null);
+  inputValueRef.current = inputValue;
+
+  const handleRecordingComplete = async (
+    recording: AudioRecording,
+  ): Promise<void> => {
+    transcribeAbortRef.current?.abort();
+    const abort = new AbortController();
+    transcribeAbortRef.current = abort;
+    setIsTranscribing(true);
+
+    try {
+      const extension = /mp4|m4a/.test(recording.mimeType)
+        ? "mp4"
+        : recording.mimeType.includes("ogg")
+          ? "ogg"
+          : "webm";
+      const body = new FormData();
+      body.append("audio", recording.blob, `voice.${extension}`);
+
+      const response = await fetch("/api/audio/transcribe", {
+        method: "POST",
+        body,
+        signal: abort.signal,
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          isRecord(payload) && typeof payload.error === "string"
+            ? payload.error
+            : "Could not transcribe audio. Please try again.",
+        );
+      }
+
+      const text =
+        isRecord(payload) &&
+        isRecord(payload.data) &&
+        typeof payload.data.text === "string"
+          ? payload.data.text.trim()
+          : "";
+      if (!text) {
+        toast.info("No speech detected. Please try again.");
+        return;
+      }
+
+      setInputValue(appendTranscript(inputValueRef.current, text));
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    } catch (error) {
+      if (abort.signal.aborted) return;
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not transcribe audio. Please try again.",
+      );
+    } finally {
+      if (transcribeAbortRef.current === abort) {
+        transcribeAbortRef.current = null;
+      }
+      setIsTranscribing(false);
+    }
+  };
+
+  const recorder = useAudioRecorder({
+    onError: (message) => toast.error(message),
+    onRecordingComplete: (recording) => {
+      void handleRecordingComplete(recording);
+    },
+  });
+
+  useEffect(() => {
+    return () => {
+      transcribeAbortRef.current?.abort();
+      recorder.cancel();
+    };
+  }, [recorder.cancel]);
+
+  useEffect(() => {
+    if (!recorder.isRecording) return;
+
+    const cancel = (): void => recorder.cancel();
+    const onVisibility = (): void => {
+      if (document.hidden) cancel();
+    };
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        cancel();
+      }
+    };
+
+    window.addEventListener("blur", cancel);
+    document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("blur", cancel);
+      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [recorder.isRecording, recorder.cancel]);
 
   // Upload on pick, keep the receipt until the message is sent.
   const handleFiles = async (files: FileList | null): Promise<void> => {
@@ -225,90 +340,147 @@ export function ChatInputForm({
           )}
         </div>
 
-        <TextareaAutosize
-          rows={1}
-          minRows={1}
-          maxRows={8}
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (isStreaming && e.key === "Escape") {
-              e.preventDefault();
-              onStop?.();
-              return;
-            }
-            if (
-              !e.nativeEvent.isComposing &&
-              (isBlocked || isStreaming) &&
-              e.key === "Enter" &&
-              !e.shiftKey
-            ) {
-              e.preventDefault();
-              if (isBlocked) {
-                toast.info("Please complete the questions above to continue.");
+        {recorder.isRecording ? (
+          <div className="flex min-w-0 flex-1 items-center gap-2 px-1 sm:px-2 min-h-[36px]">
+            <AudioVisualizer stream={recorder.stream} />
+            <button
+              type="button"
+              onClick={recorder.cancel}
+              title="Cancel recording"
+              aria-label="Cancel recording"
+              className="h-[24px] w-[24px] shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        ) : (
+          <TextareaAutosize
+            ref={textareaRef}
+            rows={1}
+            minRows={1}
+            maxRows={8}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (isStreaming && e.key === "Escape") {
+                e.preventDefault();
+                onStop?.();
+                return;
               }
-              return;
+              if (
+                !e.nativeEvent.isComposing &&
+                (isBlocked || isStreaming || isTranscribing) &&
+                e.key === "Enter" &&
+                !e.shiftKey
+              ) {
+                e.preventDefault();
+                if (isBlocked) {
+                  toast.info(
+                    "Please complete the questions above to continue.",
+                  );
+                }
+                return;
+              }
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send(e);
+                return;
+              }
+              onKeyDown(e);
+            }}
+            placeholder={
+              isTranscribing
+                ? "Transcribing…"
+                : isBlocked
+                  ? "Please complete the questions above to continue..."
+                  : placeholder
             }
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              send(e);
-              return;
-            }
-            onKeyDown(e);
-          }}
-          placeholder={
-            isBlocked
-              ? "Please complete the questions above to continue..."
-              : placeholder
-          }
-          className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:outline-none text-foreground placeholder:text-muted-foreground px-2.5 sm:px-4 py-1.5 text-[16px] sm:text-[15px] leading-6 min-h-[36px] resize-none overflow-y-auto"
-          style={{
-            boxShadow: "none",
-            border: "none",
-            outline: "none",
-            WebkitBoxShadow: "none",
-            height: 36,
-          }}
-        />
+            className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:outline-none text-foreground placeholder:text-muted-foreground px-2.5 sm:px-4 py-1.5 text-[16px] sm:text-[15px] leading-6 min-h-[36px] resize-none overflow-y-auto"
+            style={{
+              boxShadow: "none",
+              border: "none",
+              outline: "none",
+              WebkitBoxShadow: "none",
+              height: 36,
+            }}
+          />
+        )}
 
         <button
           type={
             !isStreaming &&
+            !isTranscribing &&
+            !recorder.isRecording &&
             (inputValue.trim() || pending.length > 0) &&
             !isBlocked
               ? "submit"
               : "button"
           }
-          disabled={!isStreaming && isBlocked}
+          disabled={isTranscribing || (!isStreaming && isBlocked)}
           onClick={(e) => {
             if (isStreaming) {
               e.preventDefault();
               onStop?.();
               return;
             }
+            if (isTranscribing) {
+              e.preventDefault();
+              return;
+            }
+            if (recorder.isRecording) {
+              e.preventDefault();
+              recorder.stop();
+              return;
+            }
             if (isBlocked) {
               e.preventDefault();
               toast.info("Please complete the questions above to continue.");
+              return;
+            }
+            if (!inputValue.trim() && pending.length === 0) {
+              e.preventDefault();
+              void recorder.start();
             }
           }}
           className={`h-[36px] w-[36px] flex items-center justify-center rounded-none transition-all ml-1 flex-shrink-0 ${
-            isStreaming
+            isStreaming || recorder.isRecording
               ? "bg-accent text-accent-foreground hover:bg-accent-hover cursor-pointer active:scale-95"
-              : isBlocked
-                ? "bg-secondary text-muted-foreground cursor-not-allowed opacity-40"
-                : "bg-accent text-accent-foreground hover:bg-accent-hover cursor-pointer active:scale-95"
+              : isTranscribing
+                ? "bg-secondary text-muted-foreground cursor-wait"
+                : isBlocked
+                  ? "bg-secondary text-muted-foreground cursor-not-allowed opacity-40"
+                  : "bg-accent text-accent-foreground hover:bg-accent-hover cursor-pointer active:scale-95"
           }`}
           title={
             isStreaming
               ? "Stop generating"
-              : isBlocked
-                ? "Please complete the questions above to continue"
-                : undefined
+              : isTranscribing
+                ? "Transcribing…"
+                : recorder.isRecording
+                  ? "Stop recording"
+                  : isBlocked
+                    ? "Please complete the questions above to continue"
+                    : inputValue.trim() || pending.length > 0
+                      ? "Send message"
+                      : "Voice input"
           }
-          aria-label={isStreaming ? "Stop generating" : "Send message"}
+          aria-label={
+            isStreaming
+              ? "Stop generating"
+              : isTranscribing
+                ? "Transcribing"
+                : recorder.isRecording
+                  ? "Stop recording"
+                  : inputValue.trim() || pending.length > 0
+                    ? "Send message"
+                    : "Voice input"
+          }
+          aria-pressed={recorder.isRecording}
         >
-          {isStreaming ? (
+          {isStreaming || recorder.isRecording ? (
             <Square className="h-3.5 w-3.5 fill-current" />
+          ) : isTranscribing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : inputValue.trim() || pending.length > 0 ? (
             <svg
               width="16"

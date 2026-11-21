@@ -23,7 +23,9 @@ import {
   type SaveFileAttachment,
   type SaveFileStreamAttachment,
   type SaveImageAttachment,
+  type SaveVideoAttachment,
   type StoredAttachment,
+  type VideoAttachmentRef,
 } from "@/lib/attachments/core";
 import { createR2Client } from "./client";
 import { EphemeralRequestCache } from "./cache";
@@ -325,6 +327,47 @@ export class R2AttachmentStore extends AttachmentStore {
       attachmentId,
       name: input.name || `file-${hash.slice(0, 12)}`,
       bytes: input.data.byteLength,
+    };
+  }
+
+
+  override async saveVideo(
+    input: SaveVideoAttachment,
+  ): Promise<VideoAttachmentRef> {
+    const hash = crypto.createHash("sha256").update(input.data).digest("hex");
+    const attachmentId = AttachmentId(hash);
+    const key = this.fileObjectKey(attachmentId);
+
+    let exists = false;
+    try {
+      await this.client.send(
+        new HeadObjectCommand({ Bucket: this.bucketName, Key: key }),
+      );
+      exists = true;
+    } catch {
+      exists = false;
+    }
+
+    if (!exists) {
+      await this.client.send(
+        new PutObjectCommand({
+          Bucket: this.bucketName,
+          Key: key,
+          Body: input.data,
+          ContentType: input.mediaType || "video/mp4",
+          CacheControl: "public, max-age=31536000, immutable",
+          Metadata: input.name
+            ? { "original-name": encodeURIComponent(input.name) }
+            : undefined,
+        }),
+      );
+    }
+
+    return {
+      attachmentId,
+      mediaType: input.mediaType,
+      bytes: input.data.byteLength,
+      name: input.name || `video-${hash.slice(0, 12)}.mp4`,
     };
   }
 

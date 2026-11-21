@@ -6,16 +6,6 @@
 
 export const SKILL_NAME_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-/** Domain buckets used by catalog filtering and the `listSkills` tool. */
-export const SKILL_CATEGORIES = [
-  "account",
-  "meta",
-  "creative",
-  "composition",
-] as const;
-
-export type SkillCategory = (typeof SKILL_CATEGORIES)[number];
-
 /** Provider-specific base for relative resources referenced by a skill body. */
 export type SkillResourceBase =
   | { readonly kind: "directory"; readonly path: string }
@@ -34,14 +24,14 @@ export interface SkillInvocationPolicy {
 /** Invocation-neutral metadata returned by catalog listings. */
 export interface SkillSummary {
   readonly name: string;
-  readonly category: SkillCategory;
   readonly description: string;
+  /** Content hash, used to detect a skill changing between turns/deploys. */
+  readonly version: string;
 }
 
 /** Registry entry describing where one bundled skill lives on disk. */
 export interface SkillEntry {
   readonly name: string;
-  readonly category: SkillCategory;
   readonly path: string;
 }
 

@@ -1,8 +1,10 @@
 "use client";
 
 import React from "react";
-import { PanelRightClose } from "lucide-react";
+import { PanelRightClose, RefreshCw } from "lucide-react";
 import { useSidebarStore } from "@/store/sidebar.store";
+import { useBarRefresh } from "@/hooks/use.bar.refresh";
+import type { DetailBarField } from "@/lib/detail.bar/fields";
 
 interface DetailBarHeaderProps {
   title?: React.ReactNode;
@@ -53,6 +55,41 @@ export function DetailBarHeader({
         </button>
       </div>
     </div>
+  );
+}
+
+interface DetailBarRefreshProps {
+  sessionId: string | undefined;
+  field: DetailBarField;
+  /** Used in the toast and the button's accessible name. */
+  label: string;
+  /** Show the word "Refresh"; omit in tight headers. */
+  showLabel?: boolean;
+}
+
+/** Reloads the active tab from the server, replacing its seeded page. */
+export function DetailBarRefresh({
+  sessionId,
+  field,
+  label,
+  showLabel = false,
+}: DetailBarRefreshProps) {
+  const { isRefreshing, refresh } = useBarRefresh(sessionId, field, label);
+
+  return (
+    <button
+      type="button"
+      onClick={() => void refresh()}
+      disabled={isRefreshing}
+      title={`Refresh ${label}`}
+      aria-label={`Refresh ${label}`}
+      className="flex h-7 shrink-0 items-center gap-1.5 px-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-50"
+    >
+      <RefreshCw
+        className={`w-4 h-4 ${isRefreshing ? "animate-spin text-brand" : ""}`}
+      />
+      {showLabel && <span>Refresh</span>}
+    </button>
   );
 }
 

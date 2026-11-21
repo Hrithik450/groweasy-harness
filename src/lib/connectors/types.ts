@@ -1,4 +1,4 @@
-import type { ConnectorStatus } from "@/lib/db";
+import type { ConnectorStatus, ProviderSlug } from "@/lib/db";
 export type { ConnectorStatus };
 
 /**
@@ -18,8 +18,8 @@ export interface ConnectorProfile {
 export interface ConnectorContext {
   /** The internal authenticated user ID executing the request */
   userId: string;
-  /** Unique provider slug identifier (e.g., 'meta', 'google', 'adsEasy') */
-  providerSlug?: string;
+  /** Provider behind the connector (e.g. 'meta', 'adsEasy', 'shopify'). */
+  providerSlug?: ProviderSlug;
   /** Direct access token override (if bypassing stored database credentials) */
   accessToken?: string;
 }

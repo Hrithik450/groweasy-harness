@@ -1,20 +1,20 @@
 import type { ToolInput, ToolOutput } from "@/lib/tools/types";
 import { toolFailure as errorResult } from "@/lib/tools/utils";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
-import { upsertDetailBarItems, latestBarItemFor, resolveDetailBarSession } from "@/lib/detail.bar/service";
+import {
+  upsertDetailBarItems,
+  latestBarItemFor,
+  resolveDetailBarSession,
+} from "@/lib/detail.bar/service";
 import { uuidv7 } from "@/lib/utils/uuid";
-import type { DailyReport } from "@/lib/detail.bar/types";
 import { reportIsoDate } from "@/lib/utils/report.date";
+import type { DailyReport } from "@/lib/detail.bar/types";
 import { validateAndNormalizeUI } from "@/lib/generative.ui";
 
-type SaveReportOutput = {
-  contentParts: Array<InputContentParam>;
-};
-
-export const updateReportsToolDefinition = {
+export const updateDailyReportToolDefinition = {
   type: "function" as const,
-  name: "updateReports",
-  preSkills: "reports",
+  name: "updateDailyReport",
+  preSkills: "daily-report",
   description:
     "Prerequisite: reports skill is a prerequisite.\n\n" +
     "Saves one daily report as a UI-block spec into the Ad Strategist Reports tab. One report per day: re-running the same day updates that day's report.",
@@ -41,16 +41,17 @@ export const updateReportsToolDefinition = {
 };
 
 /** One report as the tool accepts it; id and date come from the save time. */
-export type UpdateReportsArgs = Partial<Omit<DailyReport, "id" | "createdAt">>;
-
+export type UpdateDailyReportArgs = Partial<
+  Omit<DailyReport, "id" | "createdAt">
+>;
 
 function trimmed(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-export async function executeUpdateReportsTool(
-  input: ToolInput<UpdateReportsArgs>,
-): Promise<ToolOutput<SaveReportOutput>> {
+export async function executeUpdateDailyReportTool(
+  input: ToolInput<UpdateDailyReportArgs>,
+): Promise<ToolOutput<{ contentParts: Array<InputContentParam> }>> {
   const userId = input.context?.userId;
   if (!userId) {
     return errorResult("User context is required to save a report.");
@@ -74,9 +75,10 @@ export async function executeUpdateReportsTool(
   const today = reportIsoDate(createdAt);
 
   // One report per day: reuse today's report when the day is already written.
-  const latest = latestBarItemFor(userId, "reports") as unknown as
-    | DailyReport
-    | null;
+  const latest = latestBarItemFor(
+    userId,
+    "reports",
+  ) as unknown as DailyReport | null;
   const id =
     latest && reportIsoDate(latest.createdAt) === today ? latest.id : uuidv7();
 
@@ -88,7 +90,6 @@ export async function executeUpdateReportsTool(
     { id, data: { title, summary, blocks, createdAt } },
   ]);
 
-  // The report page lives under the Ad Strategist session that owns it.
   const url = ` View it at /c/${session.id}/reports/${id}.`;
 
   return {

@@ -8,7 +8,7 @@ description: "Cross-platform FFmpeg reference for video stitching, audio mixing,
 - **Invoke through the `ffmpeg` tool** with one command string.
 - **Attachment references, never paths:** pass every input exactly as the producing tool returned it — an attachment id (`sha256:<hex>`) or its `/api/attachments/<attachmentId>` URL. The tool materializes the bytes itself. Never invent a path and never use a placeholder like `input.mp4`.
 - **Outputs are managed:** pass the target extension as `extension` (`".mp4"`, `".png"`, `".mp3"`). Do not name the output file; the tool stores it and returns its `/api/attachments/<attachmentId>` URL.
-- **Retention, not location:** `storage: "artifact"` for final deliverables, `"tmp"` for clips, stills, and intermediates. It marks intent only; every object is durable and content-addressed.
+- **Every output is durable:** the tool returns a content-addressed attachment URL; pass it forward instead of naming or re-storing files.
 - **Always** put `-y` immediately after `ffmpeg`, use `-pix_fmt yuv420p` for video, and use `-map` explicitly with `-filter_complex`.
 - **Quote every expression** that uses variables (`x='(main_w-overlay_w)/2'`).
 - **Check exit codes.** On non-zero, read stderr and fix the filter graph before retrying.

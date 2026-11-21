@@ -92,7 +92,7 @@ export async function executeUpsertMetaAdTool(
 
       const res = await updateMetaAd({
         params: { adId: cfg.id, status: cfg.status },
-        context: { userId, providerSlug: "metaAds" },
+        context: { userId, providerSlug: "meta" },
       });
 
       if (!res.success) {
@@ -126,7 +126,7 @@ export async function executeUpsertMetaAdTool(
         status: cfg.status || "PAUSED",
         creativeId: cfg.creativeId,
       },
-      context: { userId, providerSlug: "metaAds" },
+      context: { userId, providerSlug: "meta" },
     });
 
     if (!res.success || !res.data) {

@@ -53,14 +53,8 @@ export const generateImagesToolDefinition = {
         description:
           "Image quality tier: 'low', 'medium', or 'high' (defaults to 'high' for high-resolution marketing assets).",
       },
-      storage: {
-        type: "string",
-        enum: ["tmp", "artifact"],
-        description:
-          "Storage tier: 'tmp' (default) for intermediate creative drafts; 'artifact' for permanent marketing assets.",
-      },
     },
-    required: ["images", "storage"],
+    required: ["images"],
   },
 };
 
@@ -71,7 +65,6 @@ export interface GenerateImagesArgs {
     aspectRatio: "1:1" | "16:9" | "9:16" | "4:5";
   }>;
   quality?: "low" | "medium" | "high";
-  storage: "tmp" | "artifact";
 }
 
 /**
@@ -80,7 +73,6 @@ export interface GenerateImagesArgs {
 async function generateImage(
   prompt: string,
   aspectRatio: "1:1" | "16:9" | "9:16" | "4:5" = "9:16",
-  storage: "tmp" | "artifact" = "artifact",
   quality: "low" | "medium" | "high" = "high",
   userId?: string,
 ): Promise<{ imageUrl: string; aspectRatio: string }> {
@@ -130,7 +122,7 @@ async function generateImage(
       data: Buffer.from(imageData.b64_json, "base64"),
       mediaType: "image/png",
     });
-    attachmentUrl = toAttachmentReceipt(ref, "image/png", { storage }).url;
+    attachmentUrl = toAttachmentReceipt(ref, "image/png", {}).url;
   } else if (imageData.url) {
     try {
       const res = await fetch(imageData.url);
@@ -140,7 +132,7 @@ async function generateImage(
           data: Buffer.from(arrayBuf),
           mediaType: "image/png",
         });
-        attachmentUrl = toAttachmentReceipt(ref, "image/png", { storage }).url;
+        attachmentUrl = toAttachmentReceipt(ref, "image/png", {}).url;
       } else {
         attachmentUrl = imageData.url;
       }
@@ -204,8 +196,6 @@ export async function executeGenerateImagesTool(
         error: errorMsg,
       };
     }
-
-    const storageTier = rawArgs.storage || "tmp";
     const qualityTier = rawArgs.quality || "high";
 
     const generatedImages = await Promise.all(
@@ -213,7 +203,6 @@ export async function executeGenerateImagesTool(
         const res = await generateImage(
           item.prompt,
           item.aspectRatio,
-          storageTier,
           qualityTier,
           input.context?.userId,
         );

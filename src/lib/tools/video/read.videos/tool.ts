@@ -133,8 +133,21 @@ export async function executeReadVideosTool(
         }
         const arrayBuf = await res.arrayBuffer();
         const buffer = Buffer.from(arrayBuf);
-        const filename =
-          path.basename(new URL(rawPath).pathname) || "video.mp4";
+        // Service routes end in `/download` with no extension; recover it from
+        // the response type so the analyzer can identify the container.
+        const contentType = res.headers.get("content-type") ?? "";
+        const extension =
+          contentType.includes("webm")
+            ? ".webm"
+            : contentType.includes("quicktime")
+              ? ".mov"
+              : contentType.includes("mp4")
+                ? ".mp4"
+                : path.extname(new URL(rawPath).pathname);
+        const base = path.basename(new URL(rawPath).pathname) || "video";
+        const filename = extension && !base.endsWith(extension)
+          ? `${base}${extension}`
+          : base;
         result = await analyzeVideoBuffer(buffer, filename, options);
       } else {
         let resolvedPath: string | null = null;

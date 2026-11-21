@@ -332,7 +332,7 @@ export async function executeUpsertMetaAdSetTool(
             : {}),
           ...(cfg.bidAmount !== undefined ? { bidAmount: cfg.bidAmount } : {}),
         },
-        context: { userId, providerSlug: "metaAds" },
+        context: { userId, providerSlug: "meta" },
       });
 
       if (!res.success) {
@@ -376,7 +376,7 @@ export async function executeUpsertMetaAdSetTool(
         destinationType: cfg.destinationType,
         promotedObject: cfg.promotedObject,
       },
-      context: { userId, providerSlug: "metaAds" },
+      context: { userId, providerSlug: "meta" },
     });
 
     if (!res.success || !res.data) {

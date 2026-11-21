@@ -26,7 +26,7 @@ async function ensureMetaCronSchedule(
   userId: string,
   previousMetaUserId: string | null,
 ): Promise<void> {
-  const latest = await getConnectorByUserIdAndProviderSlug(userId, "metaAds");
+  const latest = await getConnectorByUserIdAndProviderSlug(userId, "meta");
   const currentMetaUserId = metaUserId(latest.data?.metadata);
   const jobs = getCronJobsByUserId(userId).filter(
     (job) => job.requires === "metaAds",
@@ -67,16 +67,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const previous = await getConnectorByUserIdAndProviderSlug(
-      user.id,
-      "metaAds",
-    );
+    const previous = await getConnectorByUserIdAndProviderSlug(user.id, "meta");
     const previousMetaUserId = metaUserId(previous.data?.metadata);
 
     const syncRes = await syncMetaConnector({
       context: {
         userId: user.id,
-        providerSlug: "metaAds",
+        providerSlug: "meta",
         accessToken: token,
       },
     });

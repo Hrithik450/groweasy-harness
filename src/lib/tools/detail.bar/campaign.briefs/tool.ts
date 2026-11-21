@@ -1,7 +1,11 @@
 import type { ToolInput, ToolOutput } from "@/lib/tools/types";
 import { toolFailure as errorResult } from "@/lib/tools/utils";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
-import { readBarItemFor, resolveDetailBarSession, upsertDetailBarItems } from "@/lib/detail.bar/service";
+import {
+  readBarItemFor,
+  resolveDetailBarSession,
+  upsertDetailBarItems,
+} from "@/lib/detail.bar/service";
 import { uuidv7 } from "@/lib/utils/uuid";
 import type { CampaignBrief } from "@/lib/detail.bar/types";
 
@@ -11,7 +15,7 @@ export const updateCampaignBriefsToolDefinition = {
   preSkills: "campaign-brief",
   description:
     "Prerequisite: campaign-brief skill is a prerequisite.\n\n" +
-    "Saves one campaign brief into the Ad Strategist Briefs tab. The brief links back to the assistant message that produced it when the message id is known.",
+    "Saves one campaign brief session. The brief links back to the assistant message that produced it when the message id is known.",
   parameters: {
     type: "object",
     properties: {
@@ -71,15 +75,18 @@ export async function executeUpdateCampaignBriefsTool(
 
   const now = Date.now();
   const id = trimmed(args.id) || uuidv7();
-  const turnId = trimmed(input.context?.turnId);
+  const turnId =
+    input.context?.turn !== undefined
+      ? `turn-${input.context.turn}`
+      : "";
   const sourceSessionId = trimmed(input.context?.sessionId);
 
-  const owner = resolveDetailBarSession(userId, "campaignBriefs");
+  const session = resolveDetailBarSession(userId, "campaignBriefs");
   const existing =
-    owner && trimmed(args.id)
+    session && trimmed(args.id)
       ? (readBarItemFor(userId, "campaignBriefs", id) as CampaignBrief | null)
       : null;
-  if (!owner) {
+  if (!session) {
     return errorResult("Ad Strategist session not found.");
   }
 
@@ -91,7 +98,7 @@ export async function executeUpdateCampaignBriefsTool(
   if (turnId) data.turnId = turnId;
   if (sourceSessionId) data.sourceSessionId = sourceSessionId;
 
-  upsertDetailBarItems(owner, "campaignBriefs", [{ id, data }]);
+  upsertDetailBarItems(session, "campaignBriefs", [{ id, data }]);
 
   return {
     success: true,

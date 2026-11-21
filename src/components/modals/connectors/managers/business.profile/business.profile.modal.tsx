@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { LogOut, Loader2, RotateCw } from "lucide-react";
+import type { BusinessProfileTabId } from "./types";
+import { useEffect, useRef, useState } from "react";
+import { LogOut, Loader2 } from "lucide-react";
 import {
   BaseManagerModalTabs,
   BaseManagerModalDialog,
@@ -19,7 +20,6 @@ import {
   BusinessProfileCompetitorsTab,
   BusinessProfileGeographyTab,
 } from "./tabs";
-import type { BusinessProfileTabId } from "./types";
 
 const SCAN_TIMEOUT_MS = 6 * 60 * 1000;
 
@@ -122,24 +122,27 @@ export function BusinessProfileManagerModal({
     }
   };
 
-  const handleReanalyze = async () => {
-    if (!metadata?.url) return;
-    await handleConnect(metadata.url);
-  };
-
   const saveMetadata = async (updated: BusinessProfileConnectorSchema) => {
-    // Local view refresh; the store gets the same write back over the stream.
+    const previous = metadata;
     setMetadata(updated);
 
-    const res = await fetch("/api/connectors/business.profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ metadata: updated }),
-    });
-
-    if (!res.ok) {
+    try {
+      const res = await fetch("/api/connectors/business.profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          metadata: updated,
+          instance: connector.instance,
+        }),
+      });
       const json = await res.json().catch(() => ({}));
-      throw new Error(json.error || "Failed to save settings");
+
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to save settings");
+      }
+    } catch (err) {
+      setMetadata(previous);
+      throw err;
     }
   };
 
@@ -238,17 +241,6 @@ export function BusinessProfileManagerModal({
           }
           rightSlot={
             <div className="flex items-center gap-2">
-              {isConnected && (
-                <button
-                  type="button"
-                  onClick={handleReanalyze}
-                  disabled={isDisconnecting}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-foreground hover:text-foreground bg-card hover:bg-muted border border-border rounded-lg transition-colors disabled:opacity-40 cursor-pointer shadow-2xs"
-                >
-                  <RotateCw className="w-3.5 h-3.5" />
-                  <span>Re-analyze</span>
-                </button>
-              )}
               <button
                 type="button"
                 onClick={onClose}

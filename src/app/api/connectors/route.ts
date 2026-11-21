@@ -6,7 +6,7 @@ import {
   toBrowserConnector,
   type Connector,
 } from "@/lib/connectors/registry";
-import { reconcileSyncStatus } from "@/lib/connectors/sync.reconcile";
+import { reconcileStatus } from "@/lib/connectors/reconcile";
 
 /**
  * GET /api/connectors
@@ -24,9 +24,21 @@ export async function GET(req: NextRequest) {
     }
 
     const rows = ((await getConnectorsByUserId(user.id)).data ?? []).map(
-      (row) => reconcileSyncStatus(row),
+      (row) => reconcileStatus(row),
     );
-    const rowBySlug = new Map(rows.map((row) => [row.slug, row]));
+    // One display row per slug: the primary instance, else the newest.
+    const rowBySlug = new Map<string, (typeof rows)[number]>();
+    for (const row of rows) {
+      const current = rowBySlug.get(row.slug);
+      if (
+        current === undefined ||
+        (row.isPrimary && !current.isPrimary) ||
+        (row.isPrimary === current.isPrimary &&
+          row.updatedAt > current.updatedAt)
+      ) {
+        rowBySlug.set(row.slug, row);
+      }
+    }
 
     const connectors: Connector[] = AVAILABLE_CONNECTORS.map((definition) => {
       const row = rowBySlug.get(definition.slug);
@@ -47,6 +59,8 @@ export async function GET(req: NextRequest) {
       connectors.push({
         ...row,
         slug: row.slug as Connector["slug"],
+        // Rows predating the provider enum may still store legacy ids.
+        providerSlug: row.providerSlug as Connector["providerSlug"],
         name: row.slug,
         icon: "",
         description: "",

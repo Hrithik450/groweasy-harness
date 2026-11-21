@@ -191,8 +191,23 @@ export const markdownComponents = {
     node: _node,
     ...props
   }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { node?: unknown }) => {
-    // Nothing in a reply sends the reader off-platform: the link text stays,
-    // the redirect does not.
+    // In-app destinations stay clickable; outbound links only keep their text.
+    const internal =
+      typeof href === "string" &&
+      (href.startsWith("/") || href.startsWith("#"));
+
+    if (internal) {
+      return (
+        <a
+          {...props}
+          href={href}
+          className="cursor-pointer text-brand underline underline-offset-2 font-medium hover:opacity-80"
+        >
+          {children}
+        </a>
+      );
+    }
+
     void props;
     return (
       <span className="text-brand underline underline-offset-2 font-medium">
@@ -206,7 +221,7 @@ export const markdownComponents = {
   }: React.HTMLAttributes<HTMLHeadingElement> & { node?: unknown }) => (
     <h1
       {...props}
-      className="text-xl font-bold text-foreground mt-4 mb-2 tracking-tight"
+      className="font-display text-[30px] font-bold leading-[1.1] text-foreground mt-4 mb-2 tracking-tight"
     />
   ),
   h2: ({
@@ -215,7 +230,7 @@ export const markdownComponents = {
   }: React.HTMLAttributes<HTMLHeadingElement> & { node?: unknown }) => (
     <h2
       {...props}
-      className="text-lg font-bold text-foreground mt-3 mb-1.5 tracking-tight"
+      className="font-display text-[27px] font-bold leading-[1.15] text-foreground mt-3 mb-1.5 tracking-tight"
     />
   ),
   h3: ({
@@ -224,7 +239,7 @@ export const markdownComponents = {
   }: React.HTMLAttributes<HTMLHeadingElement> & { node?: unknown }) => (
     <h3
       {...props}
-      className="text-base font-semibold text-foreground mt-2.5 mb-1"
+      className="font-display text-[24px] font-semibold leading-[1.2] text-foreground mt-2.5 mb-1"
     />
   ),
   ul: ({

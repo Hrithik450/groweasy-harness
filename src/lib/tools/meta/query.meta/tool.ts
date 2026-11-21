@@ -65,7 +65,7 @@ export async function executeQueryMetaTool(
 
   const res = await executeMetaGraphQuery({
     params: { queries },
-    context: { userId, providerSlug: "metaAds" },
+    context: { userId, providerSlug: "meta" },
   });
 
   if (!res.success || !res.data) {

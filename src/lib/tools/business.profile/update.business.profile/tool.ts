@@ -2,7 +2,7 @@ import { ToolInput, ToolOutput } from "@/lib/tools/types";
 import {
   upsertConnector,
   getConnectorByUserIdAndSlug,
-  deleteConnector,
+  normalizeInstanceKey,
 } from "@/lib/services/connectors.service";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
 import type {
@@ -25,11 +25,6 @@ export const updateBusinessProfileToolDefinition = {
   parameters: {
     type: "object",
     properties: {
-      clear: {
-        type: "boolean",
-        description:
-          "If true, completely clears and deletes any previous business profile before applying the update's.",
-      },
       url: {
         type: "string",
         description:
@@ -167,30 +162,43 @@ export const updateBusinessProfileToolDefinition = {
                   description:
                     "Concise 3 to 4 lines paragraph of what this competitor does, their core offerings, and market positioning.",
                 },
-                keywords: {
-                  type: "object",
-                  properties: {
-                    broadPhrases: {
-                      type: "array",
-                      items: { type: "string" },
-                      description:
-                        "Broad category keywords targeted by this competitor.",
-                    },
-                    productOrServicePhrases: {
-                      type: "array",
-                      items: { type: "string" },
-                      description:
-                        "Specific product or service phrases targeted by this competitor.",
-                    },
-                  },
+                ads: {
+                  type: "array",
                   description:
-                    "Keywords and search phrases targeted by this competitor.",
+                    "Recent ads for this competitor. Each ad carries the Meta Ad Library ID and the creative URLs that searchAdLibrary returned; invalid URLs are dropped.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: {
+                        type: "string",
+                        description:
+                          "Meta Ad Library ID returned by searchAdLibrary.",
+                      },
+                      media: {
+                        type: "array",
+                        description:
+                          "Creative URLs for this ad. Omit to use the cached ones.",
+                        items: {
+                          type: "object",
+                          properties: {
+                            kind: {
+                              type: "string",
+                              enum: ["video", "image"],
+                            },
+                            url: { type: "string" },
+                          },
+                          required: ["kind", "url"],
+                        },
+                      },
+                    },
+                    required: ["id"],
+                  },
                 },
               },
               required: ["name"],
             },
             description:
-              "List of competitors identified with their respective overviews and target keywords.",
+              "List of competitors with their overviews and recent ads.",
           },
         },
       },
@@ -199,7 +207,6 @@ export const updateBusinessProfileToolDefinition = {
 };
 
 export interface UpdateBusinessProfileArgs {
-  clear?: boolean;
   url?: string;
   brand?: {
     name?: string;
@@ -237,30 +244,14 @@ export async function executeUpdateBusinessProfileTool(
   }
 
   try {
-    const isClear = Boolean(input.args?.clear);
-
-    if (isClear) {
-      await deleteConnector(userId, "businessProfile");
-
-      const hasNewData = Boolean(input.args?.url);
-      if (!hasNewData) {
-        return {
-          success: true,
-          data: {
-            contentParts: [
-              {
-                type: "input_text",
-                text: "Successfully deleted and cleared the business profile for this user.",
-              },
-            ],
-          },
-        };
-      }
-    }
-
-    const existingRes = isClear
-      ? null
-      : await getConnectorByUserIdAndSlug(userId, "businessProfile");
+    const requestedInstance = input.args?.url
+      ? (normalizeInstanceKey(input.args.url) ?? undefined)
+      : undefined;
+    const existingRes = await getConnectorByUserIdAndSlug(
+      userId,
+      "businessProfile",
+      requestedInstance,
+    );
     const existingConnector = existingRes?.data;
 
     let finalProfile: BusinessProfileConnectorSchema;
@@ -280,6 +271,7 @@ export async function executeUpdateBusinessProfileTool(
     const res = await upsertConnector({
       userId,
       slug: "businessProfile",
+      instance: existingConnector?.instance ?? requestedInstance,
       providerSlug: "adsEasy",
       status: "connected",
       metadata: finalProfile as unknown as Record<string, unknown>,
@@ -297,9 +289,7 @@ export async function executeUpdateBusinessProfileTool(
         contentParts: [
           {
             type: "input_text",
-            text: isClear
-              ? `Successfully cleared previous profile and created fresh business profile for "${finalProfile.brand.name}" (${finalProfile.url}).`
-              : `Successfully updated business profile for "${finalProfile.brand.name}" (${finalProfile.url}).`,
+            text: `Successfully updated business profile for "${finalProfile.brand.name}" (${finalProfile.url}).`,
           },
         ],
       },

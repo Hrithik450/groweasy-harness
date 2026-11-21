@@ -88,20 +88,31 @@ export function renderSkillCatalog(skills: readonly SkillSummary[]): string {
     "Available skills:",
     ...skills.map(
       (skill) =>
-        `- \`${skill.name}\` [${skill.category}]: ${escapeText(skill.description)}`,
+        `- \`${skill.name}\`: ${escapeText(skill.description)}`,
     ),
   ].join("\n");
+}
+
+/** First 12 hex characters of a content hash, for prompt-sized display. */
+export function shortSkillVersion(version: string): string {
+  return version.slice(0, 12);
 }
 
 /** Renders a loaded skill as model-facing instruction content. */
 export function renderSkillContent(skill: {
   readonly name: string;
+  readonly version?: string;
   readonly content: string;
   readonly provider?: string;
   readonly resourceBase?: SkillResourceBase;
 }): string {
+  const version =
+    skill.version === undefined
+      ? ""
+      : ` version="${escapeAttr(shortSkillVersion(skill.version))}"`;
+
   return [
-    `<skill_content name="${escapeAttr(skill.name)}">`,
+    `<skill_content name="${escapeAttr(skill.name)}"${version}>`,
     ...renderResourceHint(skill),
     "<skill_instructions>",
     skill.content.trim(),

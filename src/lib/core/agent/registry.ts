@@ -37,7 +37,8 @@ const entries = (globalForAgents.__sessionAgents ??= new Map<string, Entry>());
  */
 export interface AgentSeed {
   header: SessionHeader;
-  instructions: string;
+  /** Single source of the system prompt, resolved for each model step. */
+  resolveInstructions: () => string;
   tools: readonly ModelToolSchema[];
 }
 
@@ -84,13 +85,13 @@ export async function ensureAgent(
   );
   // `Session.load` already repaired an interrupted tail; live turns are
   // re-balanced before a prompt and after a cancel.
-  const { instructions, tools } = seed;
+  const { resolveInstructions, tools } = seed;
 
   const agent = new ReactLoopAgent(
     session,
     {},
     {
-      instructions,
+      instructions: resolveInstructions,
       tools: [...tools],
       onStreamFrame: (frame) =>
         publish(sessionKey(sessionId), {
@@ -151,6 +152,11 @@ function closeInterruptedTail(session: Session): void {
         break;
     }
   }
+}
+
+/** Whether the session's agent is mid-turn. */
+export function isAgentRunning(sessionId: string): boolean {
+  return entries.get(sessionId)?.agent.status === "running";
 }
 
 export function enqueuePrompt(

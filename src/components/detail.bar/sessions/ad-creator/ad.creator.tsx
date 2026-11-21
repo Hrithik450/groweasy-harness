@@ -6,7 +6,7 @@ import type {
   DetailBarTabProps,
   AdCreatorDetailBarData,
 } from "@/lib/detail.bar/types";
-import { DetailBarHeader } from "../../common";
+import { DetailBarHeader, DetailBarRefresh } from "../../common";
 import { IdeasTab, CreativesTab } from "./tabs";
 import type { AdCreatorTabKey } from "./types";
 
@@ -37,11 +37,22 @@ export function AdCreatorDetailBar({
   );
 
   const Body = CONTENT[activeTab];
+  const activeLabel =
+    tabs.find((tab) => tab.key === activeTab)?.label ?? "Ideas";
 
   return (
     <div className="flex flex-col h-full bg-card select-none">
       {/* Top Header with Tab Switcher */}
-      <DetailBarHeader>
+      <DetailBarHeader
+        action={
+          <DetailBarRefresh
+            sessionId={session?.id}
+            field={activeTab}
+            label={activeLabel}
+            showLabel
+          />
+        }
+      >
         <div
           role="tablist"
           aria-label="Ad creator"

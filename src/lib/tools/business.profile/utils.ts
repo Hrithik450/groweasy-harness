@@ -1,4 +1,7 @@
+import { isCompetitorAdMedia } from "@/lib/connectors/business.profile";
 import type {
+  CompetitorAd,
+  CompetitorAdMedia,
   CompetitorProfileItem,
   BusinessProfileConnectorSchema,
   BusinessProfileBrand,
@@ -7,6 +10,77 @@ import type {
   BusinessProfileKeywords,
   Country,
 } from "@/lib/connectors/business.profile";
+import { getScrapedAdsByIds } from "@/lib/services/scraper";
+
+/** One submitted ad, keyed by its Meta Ad Library ID. */
+/**
+ * Normalize submitted ads. Provided creative URLs are validated; when an ad
+ * has none, the scraper cache fills them from its library ID.
+ */
+export function normalizeCompetitorAds(raw: unknown): CompetitorAd[] {
+  if (!Array.isArray(raw)) return [];
+
+  const byId = new Map<string, CompetitorAdMedia[]>();
+  for (const item of raw) {
+    const record = (item && typeof item === "object" ? item : {}) as {
+      id?: unknown;
+      media?: unknown;
+    };
+    const id = typeof record.id === "string" ? record.id.trim() : "";
+    if (!id) continue;
+
+    const media = (Array.isArray(record.media) ? record.media : []).filter(
+      isCompetitorAdMedia,
+    );
+    byId.set(id, [...(byId.get(id) ?? []), ...media]);
+  }
+
+  if (byId.size === 0) return [];
+
+  const stored = getScrapedAdsByIds([...byId.keys()]);
+  return [...byId.entries()].flatMap(([id, media]) => {
+    const cached = stored.get(id);
+    const resolved =
+      media.length > 0
+        ? media
+        : [
+            ...(cached?.media?.videos ?? []).map((url) => ({
+              kind: "video" as const,
+              url,
+            })),
+            ...(cached?.media?.images ?? []).map((url) => ({
+              kind: "image" as const,
+              url,
+            })),
+          ].filter(isCompetitorAdMedia);
+
+    // No validated media and no cached ad means there is nothing to save.
+    if (!cached && resolved.length === 0) return [];
+
+    const seen = new Set<string>();
+    return [
+      {
+        id,
+        media: resolved
+          .filter((m) => {
+            const url = m.url.trim();
+            if (seen.has(url)) return false;
+            seen.add(url);
+            return true;
+          })
+          .map((m) => ({ kind: m.kind, url: m.url.trim() })),
+      },
+    ];
+  });
+}
+
+/** Merge two ad lists by library ID, keeping every creative URL once. */
+export function mergeCompetitorAds(
+  existing: CompetitorAd[] = [],
+  incoming: CompetitorAd[] = [],
+): CompetitorAd[] {
+  return normalizeCompetitorAds([...existing, ...incoming]);
+}
 
 export const resolveFullUrl = (
   urlStr?: unknown,
@@ -138,7 +212,6 @@ export function mergeCompetitorList(
 
     if (matchIndex >= 0) {
       const existing = result[matchIndex];
-      const mergedKeywords = mergeKeywords(existing.keywords, inc.keywords);
       result[matchIndex] = {
         name: incName || existing.name,
         website: inc.website?.trim() || existing.website,
@@ -149,7 +222,7 @@ export function mergeCompetitorList(
           typeof inc.overview === "string" && inc.overview.trim()
             ? inc.overview.trim()
             : existing.overview,
-        keywords: mergedKeywords,
+        ads: mergeCompetitorAds(existing.ads, inc.ads),
       };
     } else {
       result.push({
@@ -160,7 +233,7 @@ export function mergeCompetitorList(
           typeof inc.overview === "string" && inc.overview.trim()
             ? inc.overview.trim()
             : undefined,
-        keywords: inc.keywords,
+        ads: normalizeCompetitorAds(inc.ads),
       });
     }
   }
@@ -319,7 +392,7 @@ export function normalizeBusinessProfilePayload(
         logo: resolveFullUrl(c?.logo, website),
         overview:
           typeof c?.overview === "string" ? c.overview.trim() : undefined,
-        keywords: normalizeKeywords(c?.keywords),
+        ads: normalizeCompetitorAds(c?.ads),
       };
     }),
   };
@@ -442,5 +515,33 @@ export function mergeBusinessProfilePayload(
         incoming.competitors?.competitors || [],
       ),
     },
+  };
+}
+
+/**
+ * Merge a UI patch into a stored profile.
+ *
+ * Brand merges field-by-field (keywords stay additive). Geography and
+ * competitors are replaced when the patch includes them, so removing a row in
+ * the modal sticks; omitting a section keeps the stored one.
+ */
+export function mergeBusinessProfilePatch(
+  existing: BusinessProfileConnectorSchema,
+  incomingRaw: unknown,
+): BusinessProfileConnectorSchema {
+  const incoming = normalizeBusinessProfilePayload(incomingRaw, existing.url);
+  const brand = mergeBusinessProfilePayload(existing, incomingRaw).brand;
+  const has = (key: string) =>
+    typeof incomingRaw === "object" &&
+    incomingRaw !== null &&
+    Object.prototype.hasOwnProperty.call(incomingRaw, key);
+
+  return {
+    url: incoming.url || existing.url,
+    brand,
+    geography: has("geography") ? incoming.geography : existing.geography,
+    competitors: has("competitors")
+      ? incoming.competitors
+      : existing.competitors,
   };
 }

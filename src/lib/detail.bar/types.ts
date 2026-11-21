@@ -3,8 +3,13 @@ import type { DetailBarField, BarStatus } from "@/lib/detail.bar/fields";
 import type {
   DetailBarRegistry,
   DetailBarComponentProps,
+  DetailBarNavigationOptions,
 } from "@/components/detail.bar/registry";
-export type { DetailBarRegistry, DetailBarComponentProps };
+export type {
+  DetailBarRegistry,
+  DetailBarComponentProps,
+  DetailBarNavigationOptions,
+};
 import type { MetaCampaign } from "@/lib/connectors/meta.ads/types";
 
 /** Props one tab receives from its bar: the payload is already unwrapped. */
@@ -24,7 +29,10 @@ export interface DetailBarTabProps<TData = unknown> {
     id: string;
     patch: Record<string, unknown>;
   }) => Promise<void>;
-  handleNavigation?: (turnId: string) => void;
+  handleNavigation?: (
+    turnId: string,
+    options?: DetailBarNavigationOptions,
+  ) => void;
 }
 
 // DetailBar UI Tab Configuration
@@ -210,14 +218,21 @@ export interface AdManagerDetailBarData {
 }
 
 // 2. Ad Creator bar payload
-export type AdCreatorCategory = "FRESHNESS" | "TRADITION" | "PROOF" | string;
+/** Source chip on an idea card; the only four accepted values. */
+export const IDEA_SOURCES = [
+  "COMPETITOR WINNER",
+  "OUR WINNER",
+  "FROM INSIGHTS",
+  "VARIANT",
+] as const;
+
+export type IdeaSource = (typeof IDEA_SOURCES)[number];
 
 export interface Idea extends BarRowRef {
   title: string;
   description: string;
-  category: AdCreatorCategory;
-  /** Where the idea came from: a competitor winner, our winner, an insight… */
-  source?: string;
+  /** Where the idea came from; rendered as the card's chip. */
+  source: IdeaSource;
   /** What the idea is made of; picks the preview component. */
   format?: "video" | "image";
   /** Media the idea is modelled on (a competitor or our own ad). */
@@ -259,8 +274,10 @@ export interface DailyReport extends BarRowRef {
 export interface CompetitorResearchItem extends BarRowRef {
   title: string;
   content: string;
-  /** Assistant message that produced it. */
+  /** Chat transcript anchor (`turn-<n>`) that produced it. */
   turnId?: string;
+  /** Chat that ran the research; findings are shared across that surface. */
+  sourceSessionId?: string;
   newCompetitors: string[];
   newKeywords?: string[];
   newAds?: {
@@ -274,7 +291,7 @@ export interface CampaignBrief extends BarRowRef {
   title: string;
   /** Two-line gist; the full brief is the message it points at. */
   summary?: string;
-  /** Assistant message that produced it. */
+  /** Chat transcript anchor (`turn-<n>`) that produced it. */
   turnId?: string;
   sourceSessionId?: string;
 }

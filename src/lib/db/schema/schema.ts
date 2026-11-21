@@ -6,7 +6,7 @@ import {
   uniqueIndex,
   primaryKey,
 } from "drizzle-orm/sqlite-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { uuidv7 } from "@/lib/utils/uuid";
 
 // 1. Users Table
@@ -106,6 +106,20 @@ export const sessionEvents = sqliteTable(
   ],
 );
 
+// Records the skill version each session has actually loaded. A changed hash
+// on the next turn is what tells the model to reread that skill.
+export const sessionSkills = sqliteTable(
+  "session_skills",
+  {
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    version: text("version").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.sessionId, table.name] })],
+);
+
 export const detailBarItems = sqliteTable(
   "detail_bar_items",
   {
@@ -163,6 +177,12 @@ export const connectors = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     slug: text("slug").notNull(),
+    /** Identity within (userId, slug): brand domain, provider account id. */
+    instance: text("instance").notNull().default("default"),
+    /** The instance the app loads by default for this (userId, slug). */
+    isPrimary: integer("is_primary", { mode: "boolean" })
+      .notNull()
+      .default(false),
     providerSlug: text("provider_slug").notNull(),
     accessToken: text("access_token"),
     refreshToken: text("refresh_token"),
@@ -187,7 +207,14 @@ export const connectors = sqliteTable(
       .$defaultFn(() => new Date().toISOString()),
   },
   (table) => [
-    uniqueIndex("idx_connectors_user_slug").on(table.userId, table.slug),
+    uniqueIndex("idx_connectors_user_slug_instance").on(
+      table.userId,
+      table.slug,
+      table.instance,
+    ),
+    uniqueIndex("idx_connectors_one_primary")
+      .on(table.userId, table.slug)
+      .where(sql`is_primary = 1`),
     index("idx_connectors_user_status").on(table.userId, table.status),
     index("idx_connectors_user_provider").on(table.userId, table.providerSlug),
   ],
@@ -268,6 +295,7 @@ export const sessionsRelations = relations(sessions, ({ one, many }) => ({
     references: [users.id],
   }),
   events: many(sessionEvents),
+  skills: many(sessionSkills),
   detailBarItems: many(detailBarItems),
   cronJobs: many(cronJobs),
 }));
@@ -275,6 +303,13 @@ export const sessionsRelations = relations(sessions, ({ one, many }) => ({
 export const sessionEventsRelations = relations(sessionEvents, ({ one }) => ({
   session: one(sessions, {
     fields: [sessionEvents.sessionId],
+    references: [sessions.id],
+  }),
+}));
+
+export const sessionSkillsRelations = relations(sessionSkills, ({ one }) => ({
+  session: one(sessions, {
+    fields: [sessionSkills.sessionId],
     references: [sessions.id],
   }),
 }));

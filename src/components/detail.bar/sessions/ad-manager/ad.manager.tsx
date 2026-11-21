@@ -8,7 +8,7 @@ import type {
   Suggestion,
 } from "@/lib/detail.bar/types";
 import { useBarPager } from "@/hooks/use.bar.pager";
-import { DetailBarHeader } from "../../common";
+import { DetailBarHeader, DetailBarRefresh } from "../../common";
 import { AlertsTab, CampaignsTab, SuggestionsTab } from "./tabs";
 
 const TAB_BASE =
@@ -59,9 +59,21 @@ export function AdManagerDetailBar({
     handleNavigation,
   };
 
+  const activeLabel =
+    TABS.find((tab) => tab.key === activeTab)?.label ?? "Campaigns";
+
   return (
     <div className="relative flex flex-col h-full bg-card select-none">
-      <DetailBarHeader>
+      <DetailBarHeader
+        action={
+          <DetailBarRefresh
+            sessionId={session?.id}
+            field={activeTab}
+            label={activeLabel}
+            showLabel
+          />
+        }
+      >
         <div
           role="tablist"
           aria-label="Ad manager"

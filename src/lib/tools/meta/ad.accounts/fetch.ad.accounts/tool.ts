@@ -60,7 +60,7 @@ export async function executeFetchMetaAdAccountsTool(
     },
     context: {
       userId,
-      providerSlug: "metaAds",
+      providerSlug: "meta",
     },
   });
 

@@ -393,20 +393,3 @@ export const BaseManagerModalHeader = BaseManagerHeader;
 export const BaseManagerModalTabs = BaseManagerTabs;
 export const BaseManagerModalFooter = BaseManagerFooter;
 
-/** Edit state a manager tab hands to the modal footer. */
-export interface ModalEditActions {
-  isEditing: true;
-  onSave: () => void | Promise<void>;
-  onCancel: () => void | Promise<void>;
-  isSaving?: boolean;
-}
-
-/**
- * Register a tab's save/cancel handlers with the modal footer.
- *
- * Not wired to the footer yet — the manager modals still render their own
- * actions, so this records the handlers without publishing them.
- */
-export function useModalEditActions(_actions: ModalEditActions | null): void {
-  // Intentionally empty until the footer consumes registered actions.
-}

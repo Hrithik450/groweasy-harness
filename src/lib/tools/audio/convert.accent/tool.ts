@@ -28,12 +28,6 @@ export const convertAccentToolDefinition = {
         description:
           "Target voice ID from 'list_voice_catalog' tool (e.g. '1pAo3XuopqND1XIDGKB4', 'karan', etc.).",
       },
-      storage: {
-        type: "string",
-        enum: ["tmp", "artifact"],
-        description:
-          "Storage tier: 'tmp' (default) for intermediate takes; 'artifact' for permanent deliverables.",
-      },
       stability: {
         type: "number",
         description:
@@ -50,14 +44,13 @@ export const convertAccentToolDefinition = {
           "Whether to remove background noise. Defaults to false so background audio/voice is preserved and not re-filtered.",
       },
     },
-    required: ["inputPath", "voiceId", "storage"],
+    required: ["inputPath", "voiceId"],
   },
 };
 
 export interface ConvertAccentArgs {
   inputPath: string;
   voiceId: string;
-  storage: "tmp" | "artifact";
   stability?: number;
   similarityBoost?: number;
   style?: number;
@@ -170,7 +163,6 @@ export async function executeConvertAccent(
     mediaType: "audio/mpeg",
   });
   const attachment = toAttachmentReceipt(ref, "audio/mpeg", {
-    storage: args.storage ?? "tmp",
   });
 
   return {

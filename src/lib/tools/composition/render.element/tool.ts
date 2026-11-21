@@ -21,20 +21,13 @@ export const renderElementToolDefinition = {
         description:
           "Complete SVG markup string including width, height, background, typography, shapes, and brand colors.",
       },
-      storage: {
-        type: "string",
-        enum: ["tmp", "artifact"],
-        description:
-          "Storage tier: 'tmp' (default) for intermediate drafts; 'artifact' for permanent deliverables.",
-      },
     },
-    required: ["svg", "storage"],
+    required: ["svg"],
   },
 };
 
 export interface RenderElementArgs {
   svg: string;
-  storage: "tmp" | "artifact";
 }
 
 export interface RenderElementResult {
@@ -69,14 +62,11 @@ export async function executeRenderElement(
     })
     .toBuffer();
 
-  const storageTier = args.storage === "artifact" ? "artifact" : "tmp";
-
   const ref = await getAttachmentStore().saveImage({
     data: pngBuffer,
     mediaType: "image/png",
   });
   const attachment = toAttachmentReceipt(ref, "image/png", {
-    storage: storageTier,
   });
 
   return {
@@ -95,7 +85,6 @@ export async function executeRenderElementTool(
     const result = await executeRenderElement(
       {
         svg: rawArgs.svg,
-        storage: rawArgs.storage,
       },
       input.context?.userId,
     );

@@ -11,7 +11,7 @@ description: "You are a senior ad-account alert auditor that inspects connected 
 - **Top 5 per run:** Prioritize delivery blockers, spend-wasting issues, and critical account problems. Surface at most 5 actionable alert cards per run; hold the rest for later cycles.
 - **Autonomous mode:** Runs unattended in hourly cron jobs and scheduled checks, with no user present.
 - **Chat mode:** If the user asks to check for problems, troubleshoot delivery, or find out what is wrong with the account, run the full diagnostic and deliver the prioritized alerts immediately.
-- **Not this skill:** a written daily/weekly report is `reports`; growth and scaling ideas are `suggestions`; per-campaign winner/loser verdicts are `ads-classifier`. Produce alert cards here, never a report narrative.
+- **Not this skill:** a written daily/weekly report is `daily-report`; growth and scaling ideas are `suggestions`; per-campaign winner/loser verdicts are `ads-classifier`. Produce alert cards here, never a report narrative.
 
 ## Guardrails
 

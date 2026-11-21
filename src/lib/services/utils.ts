@@ -1,52 +1,11 @@
-import crypto from "node:crypto";
-
 /** Default lookback window when a date range omits its start. */
 const DEFAULT_LONGEVITY_DAYS = 30;
 
-/**
- * Normalizes a URL or domain into a consistent, protocol-agnostic hostname/path string.
- */
-export function normalizeDomainOrUrl(url?: string): string {
-  if (!url) return "";
-  try {
-    const parsed = new URL(url.startsWith("http") ? url : `https://${url}`);
-    return (parsed.hostname + parsed.pathname)
-      .toLowerCase()
-      .replace(/\/+$/, "");
-  } catch {
-    return url.trim().toLowerCase().replace(/\/+$/, "");
-  }
-}
-
+/** The numeric Meta ad id inside a stored reference. */
 export function extractAdIdFromReference(ref: string): string | null {
   if (!ref || typeof ref !== "string") return null;
   const match = ref.match(/\d{10,25}/);
   return match ? match[0] : null;
-}
-
-/**
- * Strips raw URLs, markdown images, and markdown links on the fly for semantic embedding.
- * Keeps link text if available.
- */
-export function stripUrlsForEmbedding(content: string): string {
-  if (!content) return "";
-  return content
-    .replace(/!\[.*?\]\([^\)]*\)/g, "") // remove markdown images
-    .replace(/\[([^\]]*)\]\([^\)]*\)/g, "$1") // preserve markdown link anchor text
-    .replace(/https?:\/\/\S+/g, "") // remove bare URLs
-    .replace(/[ \t]+/g, " ") // normalize horizontal spaces
-    .replace(/\n\s*\n+/g, "\n") // normalize multiple newlines
-    .trim();
-}
-
-/**
- * Computes an O(1) SHA-256 content hash of the complete ad card markdown/text.
- */
-export function computeContentHash(content: string): string {
-  return crypto
-    .createHash("sha256")
-    .update((content || "").trim())
-    .digest("hex");
 }
 
 /**

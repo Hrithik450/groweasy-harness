@@ -35,7 +35,8 @@ function toScrapedAd(row: ScrapedAdRecord): ScrapedAd {
   if (row.embedding !== null) {
     try {
       const parsed: unknown = JSON.parse(row.embedding);
-      if (Array.isArray(parsed)) embedding = new Float32Array(parsed as number[]);
+      if (Array.isArray(parsed))
+        embedding = new Float32Array(parsed as number[]);
     } catch {
       embedding = null;
     }
@@ -65,15 +66,11 @@ function toEmbedding(
     : JSON.stringify(Array.from(embedding));
 }
 
-
-/**
- * Retrieve scraped ads by their libraryIds in a single query.
- * Returns a map keyed by libraryId, one entry list per stored ad.
- */
+/** Retrieve scraped ads by libraryId, one row per id (the primary key). */
 export function getScrapedAdsByIds(
   libraryIds: string[],
-): Map<string, ScrapedAd[]> {
-  const data = new Map<string, ScrapedAd[]>();
+): Map<string, ScrapedAd> {
+  const data = new Map<string, ScrapedAd>();
   const ids = [...new Set(libraryIds)];
   if (ids.length === 0) return data;
 
@@ -84,21 +81,11 @@ export function getScrapedAdsByIds(
     .all();
 
   for (const record of records) {
-    const rows = data.get(record.libraryId) ?? [];
-    rows.push(toScrapedAd(record));
-    data.set(record.libraryId, rows);
+    data.set(record.libraryId, toScrapedAd(record));
   }
   return data;
 }
 
-/**
- * Persist ad facts and their per-query relevance in one transaction.
- *
- * `scraped_ads` is keyed by `libraryId`, so concurrent searches reuse the same
- * record (and embedding) instead of duplicating the ad. `first_seen_at` is
- * preserved on both tables; `last_seen_at` is bumped and the relation score
- * updated.
- */
 export function persistScrapedAds(
   ads: NewScrapedAd[],
   relations: NewAdQueryRelevance[],
@@ -137,7 +124,6 @@ export function persistScrapedAds(
             startDate: row.startDate,
             status: row.status,
             lastSeenAt: now,
-            // firstSeenAt deliberately untouched.
           },
         })
         .run();
@@ -146,7 +132,6 @@ export function persistScrapedAds(
     for (const relation of relations) {
       const row: NewAdQueryRelevanceRecord = {
         libraryId: relation.libraryId,
-        // Stored normalized so casing/whitespace variants share one cache key.
         searchQuery: normalizeQueryKey(relation.searchQuery),
         relevanceScore: relation.relevanceScore,
         firstSeenAt: relation.firstSeenAt ?? now,
@@ -157,9 +142,8 @@ export function persistScrapedAds(
         .onConflictDoUpdate({
           target: [adQueryRelevance.libraryId, adQueryRelevance.searchQuery],
           set: {
-            relevanceScore: row.relevanceScore,
             lastSeenAt: now,
-            // firstSeenAt deliberately untouched.
+            relevanceScore: row.relevanceScore,
           },
         })
         .run();
@@ -215,15 +199,9 @@ export function getAdsByQuery(
       relevanceScore: adQueryRelevance.relevanceScore,
     })
     .from(adQueryRelevance)
-    .innerJoin(
-      scrapedAds,
-      eq(adQueryRelevance.libraryId, scrapedAds.libraryId),
-    )
+    .innerJoin(scrapedAds, eq(adQueryRelevance.libraryId, scrapedAds.libraryId))
     .where(and(...conditions))
-    .orderBy(
-      desc(adQueryRelevance.relevanceScore),
-      desc(scrapedAds.lastSeenAt),
-    )
+    .orderBy(desc(adQueryRelevance.relevanceScore), desc(scrapedAds.lastSeenAt))
     .all();
 
   const results = rows.map(({ ad, relevanceScore }) => ({

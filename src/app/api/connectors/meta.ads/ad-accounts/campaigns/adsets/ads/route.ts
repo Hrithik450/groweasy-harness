@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
   const res = await fetchMetaAds({
     params: { adAccountId, campaignId, adSetId },
-    context: { userId: user.id, providerSlug: "metaAds" },
+    context: { userId: user.id, providerSlug: "meta" },
   });
 
   if (!res.success) {

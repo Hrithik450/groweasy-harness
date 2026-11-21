@@ -9,13 +9,16 @@ import {
   Trash2,
   Globe,
   FileText,
+  Film,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useModalEditActions } from "../../base.modal";
-import type {
-  BusinessProfileConnectorSchema,
-  BusinessProfileCompetitors,
-  CompetitorProfileItem,
+import {
+  isCompetitorAdMedia,
+  type BusinessProfileConnectorSchema,
+  type BusinessProfileCompetitors,
+  type CompetitorAd,
+  type CompetitorProfileItem,
 } from "@/lib/connectors/business.profile";
 
 interface BusinessProfileCompetitorsTabProps {
@@ -51,6 +54,93 @@ function getValidCompetitorLogo(logo?: string): string | undefined {
   return trimmed;
 }
 
+/**
+ * One ad's creative inside a fixed-size card.
+ *
+ * `object-contain` so a 9:16 video, 1:1 image, or 16:9 creative all read whole
+ * inside the same square instead of being cropped.
+ */
+function AdCreative({ ad }: { ad: CompetitorAd }) {
+  const first = ad.media?.[0];
+  if (!first) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-muted-foreground">
+        <Film className="w-5 h-5 opacity-50" />
+        <span className="text-[10px] font-mono uppercase tracking-tight">
+          No media
+        </span>
+      </div>
+    );
+  }
+
+  if (first.kind === "video") {
+    return (
+      <video
+        src={first.url}
+        className="absolute inset-0 h-full w-full object-contain"
+        controls
+        muted
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+
+  return (
+    <img
+      src={first.url}
+      alt="Competitor ad"
+      loading="lazy"
+      className="absolute inset-0 h-full w-full object-contain"
+    />
+  );
+}
+
+/** A competitor's recent ads as a horizontal, snap-scrolling row of cards. */
+function CompetitorAdsCarousel({ ads }: { ads: CompetitorAd[] }) {
+  return (
+    <div className="-mx-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {ads.map((ad, idx) => {
+        const first = ad.media?.[0];
+        return (
+          <div
+            key={`${ad.id}-${idx}`}
+            className="w-44 shrink-0 snap-start overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xs"
+          >
+            <div className="relative aspect-square overflow-hidden bg-linen">
+              <AdCreative ad={ad} />
+
+              <span className="absolute left-1.5 top-1.5 rounded-sm border border-white/20 bg-black/60 px-1.5 py-0.5 text-[9.5px] font-mono font-semibold uppercase tracking-tight text-white">
+                {first?.kind === "video" ? "Video" : "Static"}
+              </span>
+
+              {ad.media.length > 1 && (
+                <span className="absolute bottom-1.5 left-1.5 rounded-sm border border-white/20 bg-black/60 px-1.5 py-0.5 text-[9.5px] font-mono font-semibold text-white">
+                  +{ad.media.length - 1}
+                </span>
+              )}
+
+              <a
+                href={`https://www.facebook.com/ads/library/?id=${ad.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="absolute right-1.5 top-1.5 rounded-sm border border-white/20 bg-black/60 p-1 text-white transition-colors hover:text-forest"
+                title="Open ad"
+              >
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
+            <p className="px-2 py-1.5 text-[10px] font-mono text-muted-foreground truncate">
+              ID {ad.id}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 interface CompetitorCardProps {
   competitor: CompetitorProfileItem;
   index: number;
@@ -79,6 +169,7 @@ function CompetitorCard({
   const validLogo = getValidCompetitorLogo(competitor.logo);
   const showImage = Boolean(validLogo && !imgError);
   const initials = getCompetitorInitials(competitor.name);
+  const ads = competitor.ads ?? [];
 
   return (
     <div className="bg-linen border border-border/80 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs hover:border-border-strong transition-all">
@@ -107,6 +198,7 @@ function CompetitorCard({
                   {competitor.name}
                 </h3>
               </div>
+
               {competitor.website && (
                 <span className="text-xs text-forest hover:underline inline-flex items-center gap-1 font-medium mt-0.5 truncate max-w-full">
                   <Globe className="w-3 h-3 shrink-0 opacity-60" />
@@ -214,7 +306,31 @@ function CompetitorCard({
         )}
       </div>
 
-      {/* 3. Divider: Centered vertical spacing before keywords */}
+      {/* 3. Divider between overview and recent ads */}
+      <div className="border-t border-border/60" />
+
+      {/* 4. Recent ads: collector URLs rendered as their live creative */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Film className="w-3.5 h-3.5 text-forest" />
+            <span className="text-[11px] font-bold text-foreground uppercase tracking-tight">
+              Recent Ads
+            </span>
+          </div>
+          <span className="text-[10px] font-mono font-semibold text-muted-foreground bg-linen border border-border/80 px-2 py-0.5">
+            {ads.length}
+          </span>
+        </div>
+
+        {ads.length > 0 ? (
+          <CompetitorAdsCarousel ads={ads} />
+        ) : (
+          <p className="text-xs text-muted-2 italic">
+            No recent ads collected for this competitor.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -248,25 +364,23 @@ export function BusinessProfileCompetitorsTab({
 
     setIsSaving(true);
     try {
-      const cleaned: CompetitorProfileItem[] = competitors.map((c) => ({
+      const materialized: CompetitorProfileItem[] = competitors.map((c) => ({
         name: c.name.trim(),
         website: c.website?.trim() || undefined,
         logo: c.logo?.trim() || undefined,
         overview: c.overview?.trim() || undefined,
-        keywords: {
-          broadPhrases: (c.keywords?.broadPhrases || []).filter(
-            (p): p is string => typeof p === "string" && p.trim().length > 0,
-          ),
-          productOrServicePhrases: (
-            c.keywords?.productOrServicePhrases || []
-          ).filter(
-            (p): p is string => typeof p === "string" && p.trim().length > 0,
-          ),
-        },
+        ads: (c.ads || [])
+          .filter((ad) => ad.id?.trim())
+          .map((ad) => ({
+            id: ad.id.trim(),
+            media: (ad.media || [])
+              .filter(isCompetitorAdMedia)
+              .map((m) => ({ kind: m.kind, url: m.url.trim() })),
+          })),
       }));
 
       await onSave?.({
-        competitors: cleaned,
+        competitors: materialized,
       });
       toast.success("Competitors updated successfully");
       setIsEditing(false);
@@ -277,17 +391,6 @@ export function BusinessProfileCompetitorsTab({
       setIsSaving(false);
     }
   };
-
-  useModalEditActions(
-    isEditing
-      ? {
-          isEditing: true,
-          onSave: handleSave,
-          onCancel: handleCancel,
-          isSaving,
-        }
-      : null,
-  );
 
   const updateCompetitor = (
     index: number,
@@ -315,10 +418,7 @@ export function BusinessProfileCompetitorsTab({
       website: "",
       logo: "",
       overview: "",
-      keywords: {
-        broadPhrases: [],
-        productOrServicePhrases: [],
-      },
+      ads: [],
     };
     setCompetitors((prev) => [...prev, newComp]);
   };
@@ -369,14 +469,36 @@ export function BusinessProfileCompetitorsTab({
           ))}
 
           {isEditing && (
-            <button
-              type="button"
-              onClick={addCompetitor}
-              className="w-full flex items-center justify-center gap-1.5 py-3 rounded-2xl border-2 border-dashed border-border hover:border-forest text-xs font-semibold text-muted-foreground hover:text-forest bg-linen hover:bg-forest/5 transition-all cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Another Competitor</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={addCompetitor}
+                className="w-full flex items-center justify-center gap-1.5 py-3 rounded-2xl border-2 border-dashed border-border hover:border-forest text-xs font-semibold text-muted-foreground hover:text-forest bg-linen hover:bg-forest/5 transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Another Competitor</span>
+              </button>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={isSaving}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-foreground bg-card hover:bg-linen border border-border rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-primary-foreground bg-forest hover:bg-forest-strong rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isSaving ? "Saving..." : "Save Changes"}</span>
+                </button>
+              </div>
+            </>
           )}
         </div>
       ) : (

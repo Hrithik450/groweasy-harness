@@ -25,12 +25,6 @@ export const generateAudioToolDefinition = {
         description:
           "Voice ID or persona name from 'list_voice_catalog' (e.g. 'shivraj', 'dr-joshi', 'vanishree', 'kalyan', or an ElevenLabs voice ID).",
       },
-      storage: {
-        type: "string",
-        enum: ["tmp", "artifact"],
-        description:
-          "Storage tier: 'tmp' (default) for intermediate takes; 'artifact' for permanent deliverables.",
-      },
       modelId: {
         type: "string",
         description:
@@ -44,7 +38,6 @@ export const generateAudioToolDefinition = {
 export interface GenerateAudioArgs {
   text: string;
   voiceId?: string;
-  storage?: "tmp" | "artifact";
   modelId?: string;
 }
 
@@ -106,7 +99,6 @@ export async function executeGenerateAudio(
     mediaType: "audio/mpeg",
   });
   const attachment = toAttachmentReceipt(ref, "audio/mpeg", {
-    storage: args.storage || "tmp",
   });
 
   return {

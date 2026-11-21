@@ -1,11 +1,43 @@
-import { getDb, connectors, type Connector, type NewConnector } from "@/lib/db";
+import {
+  getDb,
+  connectors,
+  type Connector,
+  type ConnectorSlug,
+  type NewConnector,
+  type ProviderSlug,
+} from "@/lib/db";
 import { uuidv7 } from "@/lib/utils/uuid";
-import { eq, and, sql, or } from "drizzle-orm";
 import { sanitizeUserId } from "@/lib/utils/utils";
+import { eq, and, ne, or, sql, desc } from "drizzle-orm";
+import { PROVIDER_CONNECTOR_SLUGS } from "@/lib/constants";
+
+/** Normalize a brand URL into its instance key: lowercase host without `www.`. */
+export function normalizeInstanceKey(url: string): string | null {
+  try {
+    const parsed = new URL(url.startsWith("http") ? url : `https://${url}`);
+    return parsed.hostname.toLowerCase().replace(/^www\./, "") || null;
+  } catch {
+    return null;
+  }
+}
 
 /**
- * Upserts a connector connection for a user (inserts or updates on conflict).
- * Matches on unique (userId, slug).
+ * Identity of a connector instance. Business profiles are keyed by their
+ * brand domain; every other connector keeps the single "default" instance.
+ */
+function deriveInstance(slug: string, metadata: unknown): string | undefined {
+  if (slug !== "businessProfile") return undefined;
+  const url = (metadata as { url?: unknown } | null | undefined)?.url;
+  if (typeof url !== "string" || !url.trim()) return undefined;
+  return normalizeInstanceKey(url) ?? undefined;
+}
+
+/**
+ * Upserts one connector instance for a user.
+ *
+ * Matches on (userId, slug, instance). The instance comes from the caller,
+ * else the profile URL, else the existing primary row. A brand-new instance
+ * becomes primary only when the user has no primary for that slug yet.
  */
 export function upsertConnector(data: NewConnector): Connector {
   const effectiveUserId = sanitizeUserId(data.userId);
@@ -17,6 +49,25 @@ export function upsertConnector(data: NewConnector): Connector {
   const now = new Date().toISOString();
 
   return db.transaction((tx) => {
+    const primary =
+      tx
+        .select()
+        .from(connectors)
+        .where(
+          and(
+            eq(connectors.userId, effectiveUserId),
+            eq(connectors.slug, data.slug),
+            eq(connectors.isPrimary, true),
+          ),
+        )
+        .get() ?? null;
+
+    const instance =
+      data.instance?.trim() ||
+      deriveInstance(data.slug, data.metadata) ||
+      primary?.instance ||
+      "default";
+
     const existing =
       tx
         .select()
@@ -25,6 +76,7 @@ export function upsertConnector(data: NewConnector): Connector {
           and(
             eq(connectors.userId, effectiveUserId),
             eq(connectors.slug, data.slug),
+            eq(connectors.instance, instance),
           ),
         )
         .get() ?? null;
@@ -59,6 +111,25 @@ export function upsertConnector(data: NewConnector): Connector {
           ? (data.metadata as Record<string, unknown>)
           : existing?.metadata || null;
 
+    const isPrimary =
+      data.isPrimary !== undefined
+        ? data.isPrimary
+        : (existing?.isPrimary ?? false) || primary === null;
+
+    if (isPrimary) {
+      tx.update(connectors)
+        .set({ isPrimary: false, updatedAt: now })
+        .where(
+          and(
+            eq(connectors.userId, effectiveUserId),
+            eq(connectors.slug, data.slug),
+            ne(connectors.instance, instance),
+            eq(connectors.isPrimary, true),
+          ),
+        )
+        .run();
+    }
+
     return tx
       .insert(connectors)
       .values({
@@ -66,6 +137,8 @@ export function upsertConnector(data: NewConnector): Connector {
         id: id,
         userId: effectiveUserId,
         slug: data.slug,
+        instance,
+        isPrimary,
         providerSlug: data.providerSlug,
         accessToken: accessToken,
         refreshToken: refreshToken,
@@ -77,9 +150,10 @@ export function upsertConnector(data: NewConnector): Connector {
         updatedAt: now,
       })
       .onConflictDoUpdate({
-        target: [connectors.userId, connectors.slug],
+        target: [connectors.userId, connectors.slug, connectors.instance],
         set: {
           providerSlug: data.providerSlug,
+          isPrimary,
           accessToken,
           refreshToken: refreshToken || sql`connectors.refresh_token`,
           permissions: permissions || sql`connectors.permissions_json`,
@@ -94,25 +168,94 @@ export function upsertConnector(data: NewConnector): Connector {
   });
 }
 
-/**
- * Returns all active/configured connectors for a specific user.
- */
+/** Makes one instance the primary for its (userId, slug). */
+export function setPrimaryConnector(
+  userId: string,
+  slug: string,
+  instance: string,
+): boolean {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  return db.transaction((tx) => {
+    const target =
+      tx
+        .select()
+        .from(connectors)
+        .where(
+          and(
+            eq(connectors.userId, userId),
+            eq(connectors.slug, slug),
+            eq(connectors.instance, instance),
+          ),
+        )
+        .get() ?? null;
+    if (!target) return false;
+
+    tx.update(connectors)
+      .set({ isPrimary: false, updatedAt: now })
+      .where(
+        and(
+          eq(connectors.userId, userId),
+          eq(connectors.slug, slug),
+          ne(connectors.instance, instance),
+          eq(connectors.isPrimary, true),
+        ),
+      )
+      .run();
+
+    tx.update(connectors)
+      .set({ isPrimary: true, updatedAt: now })
+      .where(
+        and(
+          eq(connectors.userId, userId),
+          eq(connectors.slug, slug),
+          eq(connectors.instance, instance),
+        ),
+      )
+      .run();
+
+    return true;
+  });
+}
+
+/** Returns all connector instances for a specific user. */
 export function getConnectorsByUserId(userId: string): Connector[] {
   const db = getDb();
   return db
     .select()
     .from(connectors)
     .where(eq(connectors.userId, userId))
-    .orderBy(sql`${connectors.slug} ASC`)
+    .orderBy(
+      sql`${connectors.slug} ASC`,
+      desc(connectors.isPrimary),
+      desc(connectors.updatedAt),
+    )
+    .all();
+}
+
+/** Returns every instance of one connector type for a user. */
+export function getConnectorsByUserIdAndSlug(
+  userId: string,
+  slug: ConnectorSlug,
+): Connector[] {
+  const db = getDb();
+  return db
+    .select()
+    .from(connectors)
+    .where(and(eq(connectors.userId, userId), eq(connectors.slug, slug)))
+    .orderBy(desc(connectors.isPrimary), desc(connectors.updatedAt))
     .all();
 }
 
 /**
- * Retrieves a single connector connection for a user by connector slug (e.g. "businessProfile", "metaAds").
+ * Retrieves one connector instance by slug. Without an instance key it
+ * returns the primary row, falling back to the most recently updated one.
  */
 export function getConnectorByUserIdAndSlug(
   userId: string,
-  slug: string,
+  slug: ConnectorSlug,
+  instance?: string,
 ): Connector | null {
   const db = getDb();
   return (
@@ -122,14 +265,10 @@ export function getConnectorByUserIdAndSlug(
       .where(
         and(
           eq(connectors.userId, userId),
-          or(
-            eq(connectors.slug, slug),
-            slug === "metaAds"
-              ? eq(connectors.slug, "meta")
-              : slug === "businessProfile"
-                ? eq(connectors.slug, "businessProfile")
-                : undefined,
-          ),
+          eq(connectors.slug, slug),
+          instance
+            ? eq(connectors.instance, instance)
+            : eq(connectors.isPrimary, true),
         ),
       )
       .get() ?? null
@@ -137,11 +276,13 @@ export function getConnectorByUserIdAndSlug(
 }
 
 /**
- * Retrieves a single connector connection for a user by providerSlug (e.g. "meta", "adsEasy").
+ * Retrieves a connector instance by providerSlug (e.g. "meta", "adsEasy").
+ * Without an instance key it returns the primary row.
  */
 export function getConnectorByUserIdAndProviderSlug(
   userId: string,
-  providerSlug: string,
+  providerSlug: ProviderSlug,
+  instance?: string,
 ): Connector | null {
   const db = getDb();
   return (
@@ -153,19 +294,11 @@ export function getConnectorByUserIdAndProviderSlug(
           eq(connectors.userId, userId),
           or(
             eq(connectors.providerSlug, providerSlug),
-            eq(connectors.slug, providerSlug),
-            providerSlug === "meta"
-              ? or(
-                  eq(connectors.providerSlug, "metaAds"),
-                  eq(connectors.slug, "metaAds"),
-                )
-              : providerSlug === "adsEasy"
-                ? or(
-                    eq(connectors.providerSlug, "businessProfile"),
-                    eq(connectors.slug, "businessProfile"),
-                  )
-                : undefined,
+            eq(connectors.slug, PROVIDER_CONNECTOR_SLUGS[providerSlug]),
           ),
+          instance
+            ? eq(connectors.instance, instance)
+            : eq(connectors.isPrimary, true),
         ),
       )
       .get() ?? null
@@ -173,11 +306,14 @@ export function getConnectorByUserIdAndProviderSlug(
 }
 
 /**
- * Sets connection status to 'disconnected' and removes access token for security by connector slug.
+ * Disconnects one instance: status flips and credentials clear, while the
+ * stored profile/metadata is kept. Without an instance key the primary row is
+ * targeted so sibling instances stay connected.
  */
 export function disconnectConnectorBySlug(
   userId: string,
   slug: string,
+  instance?: string,
 ): boolean {
   const db = getDb();
   const now = new Date().toISOString();
@@ -188,23 +324,32 @@ export function disconnectConnectorBySlug(
       status: "disconnected",
       accessToken: null,
       refreshToken: null,
-      metadata: null,
       permissions: null,
       expiresAt: null,
       updatedAt: now,
     })
-    .where(and(eq(connectors.userId, userId), eq(connectors.slug, slug)))
+    .where(
+      and(
+        eq(connectors.slug, slug),
+        eq(connectors.userId, userId),
+        instance
+          ? eq(connectors.instance, instance)
+          : eq(connectors.isPrimary, true),
+      ),
+    )
     .run();
 
   return result.changes > 0;
 }
 
 /**
- * Deletes a connection completely from the database.
+ * Deletes a connection. Pass an instance key to delete only that instance;
+ * without one, every instance of the slug/provider is removed.
  */
 export function deleteConnector(
   userId: string,
   slugOrProviderSlug: string,
+  instance?: string,
 ): boolean {
   const db = getDb();
   const result = db
@@ -228,6 +373,7 @@ export function deleteConnector(
                 )
               : undefined,
         ),
+        instance ? eq(connectors.instance, instance) : undefined,
       ),
     )
     .run();

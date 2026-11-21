@@ -56,12 +56,26 @@ export interface BusinessProfileGeography {
   countries?: Country[];
 }
 
+/** One creative URL of a competitor ad. */
+export interface CompetitorAdMedia {
+  kind: "video" | "image";
+  url: string;
+}
+
+/** One recent competitor ad, keyed by its Meta Ad Library ID. */
+export interface CompetitorAd {
+  /** Meta Ad Library ID; media follows from the scraper cache by this value. */
+  id: string;
+  /** Every creative URL captured for this ad. */
+  media: CompetitorAdMedia[];
+}
+
 export interface CompetitorProfileItem {
   name: string;
   logo?: string;
   website?: string;
   overview?: string;
-  keywords?: BusinessProfileKeywords;
+  ads?: CompetitorAd[];
 }
 
 export interface BusinessProfileCompetitors {

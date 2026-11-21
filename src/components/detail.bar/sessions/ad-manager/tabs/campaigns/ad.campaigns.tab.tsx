@@ -6,10 +6,7 @@ import {
   ChevronDown,
   CheckCircle2,
   Radio,
-  RefreshCw,
 } from "lucide-react";
-import { toast } from "sonner";
-import { useDetailBarStore } from "@/store/detail.bar.store";
 import type {
   Campaign,
   AdManagerDetailBarData,
@@ -54,7 +51,6 @@ export function CampaignsTab({
   const [openCampaignId, setOpenCampaignId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<CampaignFilterStatus>("ALL");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const pager = useBarPager<Campaign>(session?.id, "campaigns");
   const visibleCampaigns = pager.items;
@@ -71,33 +67,6 @@ export function CampaignsTab({
   const currentFilterLabel =
     FILTER_OPTIONS.find((option) => option.value === statusFilter)?.label ||
     "All statuses";
-
-  const handleRefresh = async () => {
-    if (isRefreshing || !session?.id) return;
-    setIsRefreshing(true);
-    try {
-      const res = await fetch(
-        `/api/sessions/${session.id}/detail.bar?field=campaigns&refresh=1`,
-      );
-      if (!res.ok) throw new Error(`bar refresh ${res.status}`);
-
-      const page = (await res.json()) as {
-        items?: unknown[];
-        nextCursor?: string | null;
-      };
-      if (Array.isArray(page.items)) {
-        useDetailBarStore
-          .getState()
-          .replacePage("campaigns", null, page.items, page.nextCursor ?? null);
-      }
-      toast.success("Campaigns refreshed");
-    } catch (err) {
-      console.error("Failed to refresh campaigns:", err);
-      toast.error("Failed to refresh campaigns");
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
 
   const openCampaign = openCampaignId
     ? visibleCampaigns.find(
@@ -128,23 +97,6 @@ export function CampaignsTab({
         </span>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          {session?.id && (
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              aria-label="Refresh campaigns"
-              className={`p-1.5 text-muted-foreground hover:text-foreground bg-card hover:bg-muted rounded-none border border-border transition-colors cursor-pointer disabled:opacity-60 ${FOCUS_RING}`}
-            >
-              <RefreshCw
-                className={`w-3.5 h-3.5 ${
-                  isRefreshing ? "animate-spin text-brand" : ""
-                }`}
-                aria-hidden="true"
-              />
-            </button>
-          )}
-
           {/* Status filter dropdown */}
           <div className="relative">
             <button

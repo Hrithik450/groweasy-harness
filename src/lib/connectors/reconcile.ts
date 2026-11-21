@@ -24,7 +24,7 @@ export const STALE_SYNC_MS = 6 * 60 * 1000;
  * @param row - the stored connector, or `null`/`undefined` when absent.
  * @returns the connector with a stale run already cleared, or the input.
  */
-export function reconcileSyncStatus<T extends Connector | null | undefined>(
+export function reconcileStatus<T extends Connector | null | undefined>(
   row: T,
 ): T {
   if (!row || row.status !== "running") return row;
@@ -37,6 +37,7 @@ export function reconcileSyncStatus<T extends Connector | null | undefined>(
     upsertConnector({
       userId: row.userId,
       slug: row.slug,
+      instance: row.instance,
       providerSlug: row.providerSlug,
       status: "error",
     });

@@ -29,14 +29,8 @@ export const dubAudioToolDefinition = {
         description:
           "Target language to dub the speech into: 'Hindi', 'Kannada', or 'English'. Hinglish is not supported.",
       },
-      storage: {
-        type: "string",
-        enum: ["tmp", "artifact"],
-        description:
-          "Storage tier: 'tmp' (default) for intermediate dialogue dubs; 'artifact' for permanent deliverables.",
-      },
     },
-    required: ["inputPath", "targetLanguage", "storage"],
+    required: ["inputPath", "targetLanguage"],
   },
 };
 
@@ -61,7 +55,6 @@ function mapToLanguageCode(lang: string): string {
 export interface DubAudioArgs {
   inputPath: string;
   targetLanguage: "Hindi" | "Kannada" | "English" | string;
-  storage: "tmp" | "artifact";
 }
 
 export interface DubAudioResult {
@@ -201,7 +194,6 @@ export async function executeDubAudio(
     mediaType: "audio/mpeg",
   });
   const attachment = toAttachmentReceipt(ref, "audio/mpeg", {
-    storage: args.storage || "tmp",
   });
 
   return {

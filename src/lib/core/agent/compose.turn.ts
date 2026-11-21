@@ -1,5 +1,5 @@
 /**
- * Instructions and tools for one session turn.
+ * System instructions for one session turn.
  *
  * Capability belongs to the session slug, not to the caller: a human prompt, a
  * cron job, and a system route all compose the same way.
@@ -8,18 +8,12 @@
  */
 
 import type { Session } from "@/lib/db";
-import type { ModelToolSchema } from "@/lib/llm/llm/driver";
 import {
   compileBusinessProfilePrompt,
   compileSystemPrompt,
 } from "@/lib/prompts";
 import { getConnectorByUserIdAndSlug } from "@/lib/repositories/connectors.repo";
-import { getToolDefinitionsForSlug } from "@/lib/tools";
-
-export interface TurnComposition {
-  instructions: string;
-  tools: readonly ModelToolSchema[];
-}
+import { getSkillUpdates, SkillUpdatesPrompt } from "@/lib/skills/updates";
 
 /** Tabs a surface owns, and the tool plus skill that fills each one. */
 const SURFACE_TABS: Record<string, ReadonlyArray<string>> = {
@@ -33,9 +27,9 @@ const SURFACE_TABS: Record<string, ReadonlyArray<string>> = {
     "Creatives — `updateCreatives` (finished image or video assets)",
   ],
   adStrategist: [
-    "Daily reports — `updateReports` (one UI-block report per day)",
+    "Daily reports — `updateDailyReport` (one UI-block report per day)",
     "Campaign brief — `updateCampaignBriefs` (one brief per campaign plan)",
-    "Competitor research — `updateCompetitorResearch` (only new findings)",
+    "Competitor research — `saveCompetitorResearch` (only new findings)",
   ],
 };
 
@@ -53,9 +47,11 @@ function surfaceSection(slug: string | null | undefined): string {
   ].join("\n");
 }
 
-/** Instructions and tools for one session, chosen by its slug. */
-export function composeTurn(session: Session): TurnComposition {
-  const tools = getToolDefinitionsForSlug(session.slug);
+/** System instructions for one session, re-read on each model step. */
+export function composeInstructions(session: Session): string {
+  const skillUpdates = SkillUpdatesPrompt(getSkillUpdates(session.id));
+  const withSkillUpdates = (instructions: string): string =>
+    skillUpdates ? `${skillUpdates}\n\n${instructions}` : instructions;
 
   if (session.slug === "businessProfile") {
     const connector = getConnectorByUserIdAndSlug(
@@ -64,13 +60,11 @@ export function composeTurn(session: Session): TurnComposition {
     );
     const brandUrl = (connector?.metadata as { url?: unknown } | null)?.url;
     if (typeof brandUrl === "string" && brandUrl.trim().length > 0) {
-      return {
-        instructions: compileBusinessProfilePrompt(brandUrl.trim()),
-        tools,
-      };
+      return withSkillUpdates(compileBusinessProfilePrompt(brandUrl.trim()));
     }
   }
 
-  const instructions = `${compileSystemPrompt(session.title)}${surfaceSection(session.slug)}`;
-  return { instructions, tools };
+  return withSkillUpdates(
+    `${compileSystemPrompt(session.title)}${surfaceSection(session.slug)}`,
+  );
 }

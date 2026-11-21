@@ -2,25 +2,14 @@ import {
   getOpenAIClient,
   getOpenAIEmbeddingModel,
 } from "@/lib/core/agent/client";
+import { EMBEDDING_BATCH_SIZE } from "./policy";
+
+/** OpenAI's per-input cap; canonical ad text is already URL-free. */
+const MAX_EMBEDDING_CHARS = 20_000;
 
 /**
- * Strips raw URLs, markdown images, and markdown links on the fly for semantic embedding.
- * Keeps link text if available.
- */
-export function stripUrlsForEmbedding(content: string): string {
-  if (!content) return "";
-  return content
-    .replace(/!\[.*?\]\([^\)]*\)/g, "") // remove markdown images
-    .replace(/\[([^\]]*)\]\([^\)]*\)/g, "$1") // preserve markdown link anchor text
-    .replace(/https?:\/\/\S+/g, "") // remove bare URLs
-    .replace(/[ \t]+/g, " ") // normalize horizontal spaces
-    .replace(/\n\s*\n+/g, "\n") // normalize multiple newlines
-    .trim();
-}
-
-/**
- * Computes cosine similarity between two unit vectors (dot product).
- * Since OpenAI embeddings are unit normalized (L2 norm = 1.0), dot product equals cosine similarity.
+ * Cosine similarity between two unit vectors. OpenAI embeddings are unit
+ * normalized, so the dot product is the cosine.
  */
 export function dotProduct(
   a: Float32Array | number[],
@@ -34,119 +23,52 @@ export function dotProduct(
   return Math.max(0, Math.min(1, sum));
 }
 
-/**
- * Small seam around the embedding provider. Tests can inject a deterministic
- * fake; production uses {@link createOpenAIEmbeddingProvider}.
- */
+/** Small seam around the embedding provider so tests can inject a fake. */
 export interface EmbeddingProvider {
   readonly model: string;
   embed(texts: string[]): Promise<Float32Array[]>;
 }
 
-/**
- * Production provider backed by the target's batched OpenAI helpers. Keeping
- * the model id on the object lets the pipeline key embedding reuse on it.
- */
 export function createOpenAIEmbeddingProvider(): EmbeddingProvider {
-  return {
-    model: getOpenAIEmbeddingModel(),
-    embed: (texts) => getBatchEmbeddings(texts),
-  };
-}
-
-/**
- * Computes vector embeddings in optimal 20-item batches using OpenAI Embeddings API.
- * Chunks of 20 execute concurrently via Promise.all for minimal latency and maximum throughput.
- */
-export async function getBatchEmbeddings(
-  texts: string[],
-  batchSize = 20,
-): Promise<Float32Array[]> {
-  if (texts.length === 0) return [];
-
   const client = getOpenAIClient();
   if (!client) {
-    throw new Error(
-      "OpenAI client not configured. Please ensure OPENAI_API_KEY is set in environment.",
-    );
+    throw new Error("OPENAI_API_KEY is required for ad embeddings.");
   }
-
-  const MAX_EMBEDDING_CHARS = 20000;
-  const cleanedTexts = texts.map((text) => {
-    const cleaned = stripUrlsForEmbedding(text) ?? " ";
-    return cleaned.length > MAX_EMBEDDING_CHARS
-      ? cleaned.slice(0, MAX_EMBEDDING_CHARS)
-      : cleaned;
-  });
   const model = getOpenAIEmbeddingModel();
 
-  const chunks: Array<{ startIndex: number; items: string[] }> = [];
-  for (let i = 0; i < cleanedTexts.length; i += batchSize) {
-    chunks.push({
-      startIndex: i,
-      items: cleanedTexts.slice(i, i + batchSize),
-    });
-  }
+  return {
+    model,
+    embed: async (texts) => {
+      if (texts.length === 0) return [];
+      const input = texts.map((text) =>
+        text.length > MAX_EMBEDDING_CHARS
+          ? text.slice(0, MAX_EMBEDDING_CHARS)
+          : text,
+      );
 
-  const chunkResults = await Promise.all(
-    chunks.map(async (chunk) => {
-      const response = await client.embeddings.create({
-        model,
-        input: chunk.items,
+      const results: Float32Array[] = new Array(input.length);
+      const chunks: number[] = [];
+      for (let i = 0; i < input.length; i += EMBEDDING_BATCH_SIZE) {
+        chunks.push(i);
+      }
+
+      const responses = await Promise.all(
+        chunks.map((start) =>
+          client.embeddings.create({
+            model,
+            input: input.slice(start, start + EMBEDDING_BATCH_SIZE),
+          }),
+        ),
+      );
+
+      responses.forEach((response, chunkIndex) => {
+        const start = chunks[chunkIndex];
+        for (const item of response.data) {
+          results[start + item.index] = new Float32Array(item.embedding);
+        }
       });
 
-      const sorted = response.data.sort((a, b) => a.index - b.index);
-      return {
-        startIndex: chunk.startIndex,
-        vectors: sorted.map((item) => new Float32Array(item.embedding)),
-      };
-    }),
-  );
-
-  const results: Float32Array[] = new Array(cleanedTexts.length);
-  for (const chunk of chunkResults) {
-    for (let j = 0; j < chunk.vectors.length; j++) {
-      results[chunk.startIndex + j] = chunk.vectors[j];
-    }
-  }
-
-  return results;
-}
-
-/**
- * Computes vector embedding for a single text string (delegates to getBatchEmbeddings).
- */
-export async function getEmbedding(text: string): Promise<Float32Array> {
-  const [vec] = await getBatchEmbeddings([text]);
-  return vec ?? new Float32Array(1536);
-}
-
-/**
- * Efficiently computes relevance scores for multiple ads against a single search query.
- * The query and ad embeddings are calculated in batch.
- */
-export async function calculateBatchRelevance(
-  query: string,
-  adTexts: string[],
-): Promise<number[]> {
-  if (!query.trim() || adTexts.length === 0) {
-    return adTexts.map(() => 0);
-  }
-
-  const allEmbeddings = await getBatchEmbeddings([query, ...adTexts]);
-  const queryVec = allEmbeddings[0];
-  const adVecs = allEmbeddings.slice(1);
-
-  return adVecs.map((adVec) => dotProduct(queryVec, adVec));
-}
-
-/**
- * Computes semantic relevance score between a single query and ad text (delegates to calculateBatchRelevance).
- */
-export async function calculateRelevance(
-  query: string,
-  adText: string,
-): Promise<number> {
-  const [score] = await calculateBatchRelevance(query, [adText]);
-  return score ?? 0;
+      return results;
+    },
+  };
 }

@@ -273,7 +273,7 @@ async function executeHostTool(
       userId: session?.userId,
       sessionId: session?.id,
       // Tools that point back at their own message (briefs, research) cite this.
-      ...(input.turnId !== undefined ? { turnId: input.turnId } : {}),
+      ...(input.turn !== undefined ? { turn: input.turn } : {}),
       ...(emitEvent !== undefined ? { emitEvent } : {}),
     },
   });

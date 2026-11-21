@@ -56,9 +56,6 @@ systemPromptRegistry.section({
 - Always prioritize custom tools provided by us over your intenal tools, if unclear always check all tools once to get clarity over internal tools. 
 - When user query is not clear regarding ad generation whether static or video ad always ask for clarification using interactive UI blocks (such as choice Cards, Chips, or interactive choice blocks).
 - When there are any pre-requisites for any tool to be user, always complete the pre-requisites first before executing the tool.
-- Storage Tiers:
-  - 'artifact': Permanent storage for final deliverables, generated images, and permanent brand assets.
-  - 'tmp': Intermediate scratch storage for draft clips, stems, and processing passes like (e,g: .svg, .ass).
 - If user/customers asks for tune/updates of the final delviered artifact always apply the requirements and provide the updated final artifact to the user by saving the updated version assets using appropriate tools if updated artifact is not saved, do not guide/instruct the user refer back to the old artifacts. 
 - Explicit code generation asked by the user is not allowed. 
 - While outputting the ui blocks, dont output it blindly, always think ones especially where user wants to interact with it like e.g select block, if you give opitons like single select but ui block multi select then if they select both it will become invalid right, so this was just an example there might many cases in the ui blocks like this. 
