@@ -136,8 +136,10 @@ export async function executeReadImagesTool(
       } catch {
         filePath = null;
       }
-      filePath ??= fs.existsSync(url) ? url : null;
-      if (!filePath || !fs.existsSync(filePath)) {
+      // Runtime paths are user/tool supplied; excluding them from bundler
+      // tracing avoids pulling the whole project into the server output.
+      filePath ??= fs.existsSync(/*turbopackIgnore: true*/ url) ? url : null;
+      if (!filePath || !fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
         missing.push(url);
         continue;
       }
