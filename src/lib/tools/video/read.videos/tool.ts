@@ -193,11 +193,11 @@ export async function executeReadVideosTool(
         } catch {
           resolvedPath = null;
         }
-        if (!resolvedPath && fs.existsSync(rawPath)) {
+        if (!resolvedPath && fs.existsSync(/*turbopackIgnore: true*/ rawPath)) {
           resolvedPath = rawPath;
         }
 
-        if (!resolvedPath || !fs.existsSync(resolvedPath)) {
+        if (!resolvedPath || !fs.existsSync(/*turbopackIgnore: true*/ resolvedPath)) {
           throw new Error(`Video file not found on disk: ${rawPath}`);
         }
 

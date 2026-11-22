@@ -169,9 +169,9 @@ export async function executeRenderCaptions(
     videoResolved = null;
   }
   const processVideoPath =
-    videoResolved ?? (fs.existsSync(videoPathRaw) ? videoPathRaw : "");
+    videoResolved ?? (fs.existsSync(/*turbopackIgnore: true*/ videoPathRaw) ? videoPathRaw : "");
 
-  if (!fs.existsSync(processVideoPath)) {
+  if (!fs.existsSync(/*turbopackIgnore: true*/ processVideoPath)) {
     throw new Error(`Video file not found at ${videoPathRaw}`);
   }
 
@@ -218,7 +218,7 @@ export async function executeRenderCaptions(
         );
       }
 
-      const fileStream = fs.createReadStream(extractedWav);
+      const fileStream = fs.createReadStream(/*turbopackIgnore: true*/ extractedWav);
       const transcription = (await client.audio.transcriptions.create({
         file: fileStream,
         model: "whisper-1",
@@ -276,7 +276,7 @@ export async function executeRenderCaptions(
       "yellow",
       args.position || "chest",
     );
-    fs.writeFileSync(assPath, assContent, "utf-8");
+    fs.writeFileSync(/*turbopackIgnore: true*/ assPath, assContent, "utf-8");
 
     // 3. Burn subtitles into video using FFmpeg
     await executeFfmpeg(
@@ -301,7 +301,7 @@ export async function executeRenderCaptions(
       ffmpegBin,
     );
 
-    const captionedBuffer = fs.readFileSync(outputMp4);
+    const captionedBuffer = fs.readFileSync(/*turbopackIgnore: true*/ outputMp4);
     const ref = await getAttachmentStore().saveFile({
       data: captionedBuffer,
       mediaType: "video/mp4",

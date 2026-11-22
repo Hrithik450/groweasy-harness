@@ -144,7 +144,7 @@ export async function executeReadImagesTool(
         continue;
       }
 
-      const stat = fs.statSync(filePath);
+      const stat = fs.statSync(/*turbopackIgnore: true*/ filePath);
       const filename = path.basename(filePath);
       const ext = path.extname(filePath).toLowerCase();
       const realMimeType = getMimeTypeFromExt(ext) || "image/png";

@@ -179,10 +179,10 @@ export async function executeFfmpegTool(
     // 6. Check if an output file was generated
     if (
       targetOutputPath &&
-      fs.existsSync(targetOutputPath) &&
-      fs.statSync(targetOutputPath).size > 0
+      fs.existsSync(/*turbopackIgnore: true*/ targetOutputPath) &&
+      fs.statSync(/*turbopackIgnore: true*/ targetOutputPath).size > 0
     ) {
-      const bytes = fs.statSync(targetOutputPath).size;
+      const bytes = fs.statSync(/*turbopackIgnore: true*/ targetOutputPath).size;
       const mimeType = getMimeTypeFromExt(ext);
       const isVideo = mimeType.startsWith("video/");
       const isAudio = mimeType.startsWith("audio/");

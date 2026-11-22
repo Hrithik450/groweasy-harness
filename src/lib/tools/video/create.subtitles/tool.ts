@@ -133,7 +133,7 @@ export async function executeCreateSubtitles(args: CreateSubtitlesArgs) {
   const audio = await localAudio(audioPath);
   try {
     const transcript = await client.audio.transcriptions.create({
-      file: fs.createReadStream(audio.path),
+      file: fs.createReadStream(/*turbopackIgnore: true*/ audio.path),
       model: "whisper-1",
       response_format: "verbose_json",
       ...(args.language?.trim() ? { language: args.language.trim() } : {}),

@@ -86,16 +86,16 @@ export async function executeConvertAccent(
     resolved = null;
   }
   const processInputPath =
-    resolved ?? (fs.existsSync(inputPathRaw) ? inputPathRaw : "");
+    resolved ?? (fs.existsSync(/*turbopackIgnore: true*/ inputPathRaw) ? inputPathRaw : "");
 
-  if (!fs.existsSync(processInputPath)) {
+  if (!fs.existsSync(/*turbopackIgnore: true*/ processInputPath)) {
     throw new Error(`Input file not found at ${inputPathRaw}`);
   }
 
   const voiceId = resolveVoiceId((args.voiceId ?? "").trim());
 
   // 2. Read audio file directly
-  const fileBuffer = fs.readFileSync(processInputPath);
+  const fileBuffer = fs.readFileSync(/*turbopackIgnore: true*/ processInputPath);
   const filename = path.basename(processInputPath);
   const ext = path.extname(processInputPath).toLowerCase();
   const mimeType = ext === ".wav" ? "audio/wav" : "audio/mpeg";

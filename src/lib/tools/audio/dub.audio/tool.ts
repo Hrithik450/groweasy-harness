@@ -93,16 +93,16 @@ export async function executeDubAudio(
     resolved = null;
   }
   const processInputPath =
-    resolved ?? (fs.existsSync(inputPathRaw) ? inputPathRaw : "");
+    resolved ?? (fs.existsSync(/*turbopackIgnore: true*/ inputPathRaw) ? inputPathRaw : "");
 
-  if (!fs.existsSync(processInputPath)) {
+  if (!fs.existsSync(/*turbopackIgnore: true*/ processInputPath)) {
     throw new Error(`Input audio file not found at ${inputPathRaw}`);
   }
 
   const targetLangCode = mapToLanguageCode(rawTargetLang);
 
   // 2. Prepare FormData for official ElevenLabs /v1/dubbing endpoint
-  const fileBuffer = fs.readFileSync(processInputPath);
+  const fileBuffer = fs.readFileSync(/*turbopackIgnore: true*/ processInputPath);
   const filename = path.basename(processInputPath);
   const ext = path.extname(processInputPath).toLowerCase();
   const mimeType = ext === ".wav" ? "audio/wav" : "audio/mpeg";
