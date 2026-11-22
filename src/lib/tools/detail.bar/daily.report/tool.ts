@@ -10,6 +10,10 @@ import { uuidv7 } from "@/lib/utils/uuid";
 import { reportIsoDate } from "@/lib/utils/report.date";
 import type { DailyReport } from "@/lib/detail.bar/types";
 import { validateAndNormalizeUI } from "@/lib/generative.ui";
+import {
+  formatRejection,
+  validateUIBlockFormat,
+} from "@/lib/skills/format.judge";
 
 export const updateDailyReportToolDefinition = {
   type: "function" as const,
@@ -65,6 +69,12 @@ export async function executeUpdateDailyReportTool(
     const normalized = validateAndNormalizeUI(args.blocks);
     if (!normalized) {
       return errorResult("Missing required argument 'blocks'.");
+    }
+    // The report is the daily-report skill's final artifact. If the model
+    // loaded that skill this turn, refuse a format that does not match it.
+    const verdict = await validateUIBlockFormat(normalized, input.context);
+    if (verdict !== null && !verdict.pass) {
+      return errorResult(formatRejection(verdict));
     }
     blocks = normalized;
   } catch (err: unknown) {

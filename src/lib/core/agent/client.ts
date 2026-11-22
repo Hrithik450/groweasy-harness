@@ -38,6 +38,19 @@ export function getOpenAIModel(): string {
   );
 }
 
+/**
+ * Small, stateless model used for one-shot format judging. Falls back to the
+ * turn model so a deployment without `OPENAI_JUDGE_MODEL` still works.
+ */
+export function getOpenAIJudgeModel(): string {
+  return (
+    process.env.OPENAI_JUDGE_MODEL?.trim() ||
+    process.env.OPENAI_MODEL?.trim() ||
+    process.env.OPENAI_AGENT_MODEL?.trim() ||
+    "gpt-6.1-sol"
+  );
+}
+
 /** Embedding model used by the scraper's similarity search. */
 export function getOpenAIEmbeddingModel(): string {
   return process.env.OPENAI_EMBEDDING_MODEL?.trim() || "text-embedding-3-small";
