@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth/session";
-import { exchangeMetaCodeForToken } from "@/lib/auth/meta";
-import { getPublicOrigin } from "@/lib/auth/public.origin";
+import {
+  exchangeMetaCodeForToken,
+  getPublicOrigin,
+  getSessionFromRequest,
+} from "@/lib/auth";
 import { syncMetaConnector } from "@/lib/connectors/meta.ads";
+import {
+  activateCronJobsByRequires,
+  ensureDefaultCronJobsByUserId,
+} from "@/lib/repositories";
+import { DEFAULT_META_CRON_JOBS } from "@/lib/repositories/defaults";
 import { syncCampaignsDetailBar } from "@/lib/detail.bar/external/meta.campaigns";
-import { ensureMetaCronSchedule, metaUserId } from "@/lib/cron/activation";
-import { getConnectorByUserIdAndProviderSlug } from "@/lib/services";
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl;
@@ -55,26 +60,19 @@ export async function GET(req: NextRequest) {
 
   try {
     const { accessToken } = await exchangeMetaCodeForToken(code, origin);
-    const previous = await getConnectorByUserIdAndProviderSlug(user.id, "meta");
-    const previousMetaUserId = metaUserId(previous.data?.metadata);
-
     await syncMetaConnector({
       context: { userId: user.id, providerSlug: "meta", accessToken },
     });
-    await ensureMetaCronSchedule(user.id, previousMetaUserId);
+
+    ensureDefaultCronJobsByUserId(user.id, DEFAULT_META_CRON_JOBS);
+    activateCronJobsByRequires(user.id, "metaAds");
 
     // The Campaigns tab is Meta's: fill it as soon as the account connects.
     await syncCampaignsDetailBar(user.id).catch((err) =>
       console.error("[Meta OAuth] Campaign sync failed:", err),
     );
 
-    const returnUrl = new URL(
-      `${safeReturnTo}${separator}meta_connected=true`,
-      origin,
-    );
-    // Re-open the Meta modal so it can consume the OAuth return.
-    returnUrl.searchParams.set("open_connector", "metaAds");
-    return NextResponse.redirect(returnUrl);
+    return NextResponse.redirect(new URL(safeReturnTo, origin));
   } catch (err: unknown) {
     console.error("[Meta OAuth Callback Error]", err);
     return NextResponse.redirect(

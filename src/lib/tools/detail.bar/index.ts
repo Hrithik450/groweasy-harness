@@ -1,5 +1,5 @@
 export * from "./alerts/tool";
-export * from "./fetch.projections/tool";
+export * from "./fetch.detail.bar/tool";
 export * from "./suggestions/tool";
 export * from "./campaign.briefs/tool";
 export * from "./ads.classifier/tool";

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getOwnedSessionById } from "@/lib/repositories/sessions.repo";
-import { getAuthSessionFromRequest } from "@/lib/auth/session";
+import { getOwnedSessionById } from "@/lib/repositories";
+import { getAuthSessionFromRequest } from "@/lib/auth";
 import { enqueuePrompt, subscribeEvents } from "@/lib/core/agent/registry";
 import { ensureAgentForSession } from "@/lib/session/agent.host";
 import type { UserMessage } from "@/lib/llm/llm/message";

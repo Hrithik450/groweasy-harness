@@ -7,7 +7,7 @@ description: "On-demand 9-section campaign brief that turns business profile, li
 
 - **Ground the numbers:** budget, targets, and baselines come from verified account data. Never invent a benchmark or a target that was not supplied.
 - **One brief per request:** a brief is a decision document, not a brainstorm. Keep it tight and buildable.
-- **Save the brief:** `updateCampaignBriefs` stores the title plus a two-line gist (under 240 characters). The full brief stays in your chat message, and the saved row jumps back to it.
+- **Save the brief:** `updateCampaignBriefs` stores the title, a two-line gist (under 240 characters), and the same UI-block spec you rendered. The saved brief opens on its own page, so it survives the chat scrolling away.
 
 ## Clarifications
 
@@ -107,6 +107,10 @@ The reference example is the required output bar, not inspiration. Match its sec
 7. **Data components.** ProgressBar for budget share (values total 100), Table for audiences, deliverables and tests, Badge for roles and launch statuses.
 8. **Copy is original.** Quoted hooks are the only other people's words. No invented numbers, proof or benchmarks.
 9. **No fallback.** If validation fails, correct the UI block and render again. Never switch to Markdown, plain text or a Markdown table.
+10. **Cards are choices or actions, never both.** A compact choice card may set `selectable: true` and contains no Button child. An action surface composes a Button child and never sets `selectable`.
+11. **Cards submit directly.** Pressing a card's Button sends that action; selection alone never submits.
+12. **Only Chips are selectable for multi-select.** Chips sit first or last with one SubmitBar beside them. If they would fall mid-content, use an inline Button.
+13. **Always leave a commit path.** Every block ends in a Button or a SubmitBar.
 
 **Sections, in this order:**
 
@@ -430,10 +434,12 @@ Below is the required campaign brief output standard, not inspiration. Your brie
 
 ### Step 4: Save
 
+- Render the complete brief with `renderUIBlock` first. Only after it passes, save the same `blocks`; the save tool does not re-check format.
 - Render the brief in session as one UI block with `renderUIBlock`, using the 9-section reference structure.
 - Never write a Markdown version, and never fall back to Markdown if block validation fails; correct the block.
 - Keep the gist to two lines: objective and the one decision that matters.
-- Save with `updateCampaignBriefs`. The tool stores the current assistant message id and session so the saved brief can jump back to this message.
-- A brief saved in this session jumps to the message here. A brief whose source message belongs to another session opens as a document instead.
+- Save with `updateCampaignBriefs`, passing `blocks` as the same flat `{ root, elements }` spec you rendered. A title-only re-save may omit `blocks`; the saved spec is kept.
+- Quote the exact brief URL the tool returns. Never build one yourself.
+- The saved brief opens on its own page, so it survives long chats and can be shared.
 - After saving, if the block does not already end in an interactive question, render a small single-select Chips + SubmitBar: "What's next?" with up to 4 relevant options (create the campaign, generate the ads, edit the brief, schedule a review). If it already asks, keep it and make its options equally relevant.
 - Keep this as a short follow-up block; never force a question into the brief's reference layout.

@@ -4,16 +4,15 @@
   <!-- Cream offset backplate (hard shadow) -->
   <rect x="14" y="16" width="76" height="76" rx="6" fill="#F4EBDD"/>
 
-  <!-- Stem tucks under the face -->
-  <rect x="40.75" y="82" width="2.5" height="13" fill="#141210"/>
-
   <!-- Main face -->
   <rect x="4" y="6" width="76" height="76" rx="6" fill="#E8932E"/>
-  <g>
-    <rect x="21" y="27" width="16" height="6" rx="1" fill="#141210"/>
-    <rect x="47" y="27" width="16" height="6" rx="1" fill="#141210"/>
-    <circle cx="31" cy="42" r="6.3" fill="#141210"/>
-    <circle cx="53" cy="42" r="6.3" fill="#141210"/>
+  <g fill="#141210">
+    <path d="M22 29.9 C25.5 26.5 32.5 26.5 36 29.9 C36.9 30.9 36.9 31.9 36 32.9 C32.5 31.6 25.5 31.6 22 32.9 C21.1 31.9 21.1 30.9 22 29.9 Z"/>
+    <path d="M62 29.9 C58.5 26.5 51.5 26.5 48 29.9 C47.1 30.9 47.1 31.9 48 32.9 C51.5 31.6 58.5 31.6 62 32.9 C62.9 31.9 62.9 30.9 62 29.9 Z"/>
+    <circle cx="31" cy="42" r="6.3"/>
+    <circle cx="53" cy="42" r="6.3"/>
   </g>
-  <rect x="32" y="61" width="20" height="5.5" rx="1.5" fill="#141210"/>
+
+  <!-- Rounded smile -->
+  <path d="M34.4 62.6 Q42 68.6 49.6 62.6" fill="none" stroke="#141210" stroke-width="4.2" stroke-linecap="round"/>
 </svg>

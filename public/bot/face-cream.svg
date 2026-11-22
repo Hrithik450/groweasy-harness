@@ -7,15 +7,12 @@
   <!-- Main face -->
   <rect x="4" y="6" width="76" height="76" rx="6" fill="#F6F0E2"/>
   <g fill="#141210">
-    <rect x="21" y="27.5" width="16" height="5.5" rx="1" transform="rotate(-7 29 30.25)"/>
-    <rect x="47" y="27.5" width="16" height="5.5" rx="1" transform="rotate(7 55 30.25)"/>
+    <path d="M22 29.9 C25.5 26.5 32.5 26.5 36 29.9 C36.9 30.9 36.9 31.9 36 32.9 C32.5 31.6 25.5 31.6 22 32.9 C21.1 31.9 21.1 30.9 22 29.9 Z" transform="rotate(-7 29 31.4)"/>
+    <path d="M62 29.9 C58.5 26.5 51.5 26.5 48 29.9 C47.1 30.9 47.1 31.9 48 32.9 C51.5 31.6 58.5 31.6 62 32.9 C62.9 31.9 62.9 30.9 62 29.9 Z" transform="rotate(7 55 31.4)"/>
     <circle cx="29" cy="42" r="7.2"/>
     <circle cx="55" cy="42" r="7.2"/>
   </g>
-  <path d="M34 63 Q42 69 50 63" fill="none" stroke="#141210" stroke-width="3.5" stroke-linecap="round"/>
 
-  <!-- Four-point star -->
-  <g transform="translate(80 10)">
-    <path d="M0 -8.5 L2.2 -2.2 L8.5 0 L2.2 2.2 L0 8.5 L-2.2 2.2 L-8.5 0 L-2.2 -2.2 Z" fill="#EF6A4A"/>
-  </g>
+  <!-- Refined slim smile -->
+  <path d="M34.5 62.8 Q42 68.4 49.5 62.8" fill="none" stroke="#141210" stroke-width="3.2" stroke-linecap="round"/>
 </svg>

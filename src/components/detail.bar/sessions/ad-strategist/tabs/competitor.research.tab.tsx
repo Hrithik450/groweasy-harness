@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Compass,
-  Users2,
-  Sparkles,
-  MessageSquare,
-  ArrowUpRight,
-  Tag,
-} from "lucide-react";
+import { Compass, Users2, Sparkles, Tag } from "lucide-react";
 import type {
   DetailBarTabProps,
   AdStrategistDetailBarData,
@@ -18,11 +11,11 @@ import { useBarPager } from "@/hooks/use.bar.pager";
 import {
   DetailBarEmptyState,
   DetailBarLoadOlder,
+  DetailBarViewLink,
 } from "@/components/detail.bar/common";
 
 export function CompetitorResearchTab({
   session,
-  handleNavigation,
 }: DetailBarTabProps<AdStrategistDetailBarData>) {
   const { connector } = useBusinessProfile();
   const brandUrl = (connector?.metadata as { url?: string })?.url;
@@ -58,28 +51,17 @@ export function CompetitorResearchTab({
     <div className="space-y-3 pb-6">
       {/* Cards Stream */}
       <div className="space-y-3">
-        {items.map((item, index) => {
+        {items.map((item) => {
           const dateStr = new Date(item.createdAt).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
           });
-          const canJump = Boolean(item.turnId);
-          const jump = () => {
-            if (canJump && item.turnId) {
-              handleNavigation?.(item.turnId, {
-                createdAt: item.createdAt,
-                sourceSessionId: item.sourceSessionId,
-              });
-            }
-          };
+          const hasSpec = Boolean(item.blocks);
 
           return (
             <div
-              key={item.turnId || index}
-              onClick={canJump ? jump : undefined}
-              className={`group relative rounded-2xl p-4 border border-border bg-card hover:border-brand/40 hover:shadow-sm transition-all shadow-2xs ${
-                canJump ? "cursor-pointer" : ""
-              }`}
+              key={item.id}
+              className="group relative rounded-2xl p-4 border border-border bg-card hover:border-brand/40 hover:shadow-sm transition-all shadow-2xs"
             >
               {/* Top Row: Title + Date */}
               <div className="flex items-start justify-between gap-2.5 mb-2">
@@ -163,23 +145,14 @@ export function CompetitorResearchTab({
                 </div>
               )}
 
-              {/* Footer: Jump to chat */}
-              {canJump && (
+              {/* Footer: open the saved page when one exists. */}
+              {hasSpec ? (
                 <div className="flex items-center justify-end pt-2.5 border-t border-border-subtle">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      jump();
-                    }}
-                    className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground group-hover:text-brand transition-colors shrink-0 cursor-pointer active:scale-95"
-                  >
-                    <MessageSquare className="w-3 h-3 text-muted-2 group-hover:text-brand" />
-                    <span>Jump to chat</span>
-                    <ArrowUpRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                  </button>
+                  <DetailBarViewLink
+                    href={`/c/${session?.id ?? ""}/research/${encodeURIComponent(item.id)}`}
+                  />
                 </div>
-              )}
+              ) : null}
             </div>
           );
         })}

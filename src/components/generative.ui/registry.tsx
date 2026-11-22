@@ -1850,14 +1850,10 @@ export const { registry } = defineRegistry(catalog, {
       );
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Button: ({
-      props,
-      emit,
-    }: {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      props: any;
-      emit: (name: string) => void;
-    }) => {
+    Button: ({ props }: { props: any }) => {
+      const { isSubmitted = false } = useContext(GenerativeUIContext);
+      const { execute } = useActions();
+      const [isSubmitting, setIsSubmitting] = useState(false);
       const isSecondary =
         props.variant === "secondary" || props.variant === "outline";
       const isDanger =
@@ -1872,15 +1868,27 @@ export const { registry } = defineRegistry(catalog, {
             ? "bg-card border border-border-strong text-foreground/80 hover:bg-muted hover:border-border-strong"
             : "bg-brand hover:bg-brand-hover text-primary-foreground shadow-xs font-medium";
 
+      const submit = async () => {
+        if (isSubmitting || props.disabled || isSubmitted) return;
+        setIsSubmitting(true);
+        try {
+          await execute({
+            action: "submit",
+            params: { values: { action: props.value ?? props.label } },
+          });
+        } finally {
+          setIsSubmitting(false);
+        }
+      };
+
       return (
         <button
           type="button"
-          disabled={props.disabled}
-          onClick={() => {
-            emit("press");
-          }}
+          disabled={props.disabled || isSubmitting || isSubmitted}
+          onClick={() => void submit()}
           className={`inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none ${btnStyle}`.trim()}
         >
+          {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
           {props.label}
         </button>
       );

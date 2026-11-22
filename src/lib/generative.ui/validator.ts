@@ -27,6 +27,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function hasDescendantType(
+  elements: Record<string, CanonicalUINode>,
+  rootId: string,
+  type: string,
+  seen = new Set<string>(),
+): boolean {
+  if (seen.has(rootId)) return false;
+  seen.add(rootId);
+  const element = elements[rootId];
+  if (!element) return false;
+  for (const childId of element.children ?? []) {
+    if (elements[childId]?.type === type) return true;
+    if (hasDescendantType(elements, childId, type, seen)) return true;
+  }
+  return false;
+}
+
 function cloneElements(
   elements: Record<string, CanonicalUINode>,
 ): Record<string, CanonicalUINode> {
@@ -191,6 +208,39 @@ function validateSpec(spec: CanonicalUIMesssage): void {
           }
         });
       }
+    }
+
+    // Cards are either compact choices or action cards, never both.
+    if (
+      element.type === "Card" &&
+      (element.props as { selectable?: boolean }).selectable &&
+      hasDescendantType(elements, elId, "Button")
+    ) {
+      throw new Error(
+        `Invalid Card ("${elId}"): a selectable card cannot contain a Button. Use selectable cards for compact choices, or a Button for a direct action card.`,
+      );
+    }
+  }
+
+  // Selectable Chips are a commit group: they must sit first or last.
+  for (const [elId, element] of Object.entries(elements)) {
+    const children = element.children;
+    if (!Array.isArray(children) || children.length === 0) continue;
+    const chipIndexes = children
+      .map((childId, index) =>
+        elements[childId]?.type === "Chips" ? index : -1,
+      )
+      .filter((index) => index >= 0);
+    if (chipIndexes.length === 0) continue;
+    const atStart = chipIndexes.every((index, position) => index === position);
+    const atEnd = chipIndexes.every(
+      (index, position) =>
+        index === children.length - chipIndexes.length + position,
+    );
+    if (!atStart && !atEnd) {
+      throw new Error(
+        `Invalid Chips inside "${elId}": selectable chips must be the first or last group so their submit control sits directly beside them.`,
+      );
     }
   }
 }

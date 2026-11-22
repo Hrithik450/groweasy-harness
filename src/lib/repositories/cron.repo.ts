@@ -118,7 +118,6 @@ export function ensureDefaultCronJobsByUserId(
 export function activateCronJobsByRequires(
   userId: string,
   requires: string,
-  immediate = true,
 ): number {
   const safeUserId = sanitizeUserId(userId);
   if (!safeUserId) return 0;
@@ -134,13 +133,8 @@ export function activateCronJobsByRequires(
     .all();
 
   let changes = 0;
-  let offsetMinutes = 0;
   for (const job of due) {
-    const nextRunAt = immediate
-      ? new Date(now.getTime() + offsetMinutes * 60_000)
-      : nextOccurrenceForTiming(job.timing, now);
-    if (immediate) offsetMinutes += 1;
-
+    const nextRunAt = nextOccurrenceForTiming(job.timing, now);
     changes += db
       .update(cronJobs)
       .set({

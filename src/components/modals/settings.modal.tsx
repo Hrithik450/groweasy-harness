@@ -1,12 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import {
-  User,
-  Settings as SettingsIcon,
-  X,
-  ExternalLink,
-} from "lucide-react";
+import { User, Settings as SettingsIcon, X } from "lucide-react";
 import { useModalStore } from "@/store/modal.store";
 import { useUserStore } from "@/store/user.store";
 import { ModalPortal } from "./modal.portal";
@@ -132,18 +127,10 @@ export function SettingsModal() {
                       </div>
                     </div>
                   </div>
-
-                  <button
-                    type="button"
-                    className="shrink-0 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <span>More account information</span>
-                    <ExternalLink className="w-3.5 h-3.5 text-muted-2" />
-                  </button>
                 </div>
 
                 {/* Topped-up balance Card */}
-                <div className="border border-border/90 rounded-2xl p-5 bg-card shadow-2xs space-y-4">
+                <div className="border border-border/90 rounded-2xl p-5 bg-card shadow-2xs">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground font-medium">
                       Topped-up balance
@@ -151,24 +138,6 @@ export function SettingsModal() {
                     <span className="text-lg font-bold text-foreground font-mono">
                       $0.00
                     </span>
-                  </div>
-
-                  <div className="pt-3 border-t border-border-subtle flex items-center justify-between">
-                    <span className="text-xs text-muted-2">More</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        className="px-3.5 py-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:text-foreground hover:bg-linen transition-colors cursor-pointer shadow-2xs"
-                      >
-                        View usage
-                      </button>
-                      <button
-                        type="button"
-                        className="px-4 py-1.5 rounded-lg bg-forest hover:bg-forest-strong text-primary-foreground text-xs font-semibold transition-colors cursor-pointer shadow-xs"
-                      >
-                        Top up
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>

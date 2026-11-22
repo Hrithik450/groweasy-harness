@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthSessionFromRequest } from "@/lib/auth/session";
-import { exchangeShopifyCodeForToken } from "@/lib/auth/shopify";
-import { getPublicOrigin } from "@/lib/auth/public.origin";
+import {
+  exchangeShopifyCodeForToken,
+  getAuthSessionFromRequest,
+  getPublicOrigin,
+} from "@/lib/auth";
 import {
   sanitizeShopDomain,
   syncShopifyConnector,

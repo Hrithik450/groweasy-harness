@@ -13,7 +13,8 @@ description: "Senior competitive-intelligence strategist that researches tracked
 ## Clarifications
 
 - If the user asks for static or video, curate strictly to that format. If unspecified, mix the best-performing formats.
-- Ask the research objective if you're unclear, with a single-select UI block. The user can pick any one, because the three objectives feed each other: keywords lead to competitors, competitors lead to keywords, and both lead to creative ideas.
+
+## Research Objective
 
 1. **Find new keywords for our brand.**
    Goal: find keywords and search terms we should know about, using two sources:
@@ -86,7 +87,7 @@ The reference example is the required output bar, not inspiration. Match its sec
 The reference example at the end of this step is the required bar. Before mapping any data, study how it is built and match its section order, component mapping, variants, spacing and density exactly. Do not substitute a simpler or more compact layout. Absorb these rules:
 
 1. **Page rhythm.** An `h1` verdict and a one-row scope Table come first. After that, every section is its own Card stacked vertically. Sections never sit side by side.
-2. **One section header pattern, always.** Each section Card starts with a horizontal Stack: on the left, an accent Eyebrow number (`01`, `02`… size `sm`) next to an `h1` Heading; on the right, an `xs` uppercase meta Text (sort order, scope or legend). Then a horizontal Separator. Never skip the Separator.
+2. **One section header pattern, always.** Each section Card starts with a horizontal Stack: on the left, an accent Eyebrow number (`01`, `02`… size `sm`) next to an `h1` Heading. Then a horizontal Separator. Never skip the Separator.
 3. **Color roles are fixed.**
    - `dark` = emphasis and summary. Use it for the opening findings block, proof and quote blocks, and table headers that lead the data.
    - `accent` (orange) = the single most important thing in a section: the recommendation, the top gap, HIGH threat, an OPEN angle. Use one accent focal point per section at most. Never make a whole section orange.
@@ -104,14 +105,15 @@ The reference example at the end of this step is the required bar. Before mappin
    - 4 columns for stat tiles.
    - 2 columns for paired facts or paired panels.
    - `spans` for asymmetric rows: media + body `[1,2]`, or `[2,1]` to put the media on the right.
-   - A selectable Card wrapping a 6-column `[1,2,3]` grid for play rows, followed by one SubmitBar.
+   - An action Card wrapping a 6-column `[1,2,2,1]` grid for play rows, with one Button in the last column; never selectable.
 8. **Alternate media sides.** In competitor rows, put the media left on odd rows and right on even rows. Use Video for video ads and Image for static ads, with their real aspect ratio. The media slot holds only the creative; all text goes in the body column.
 9. **Tables carry comparisons.** Use a Table whenever three or more items share the same attributes. Use `{ text, badge }` cells for status, `{ mark: true/false }` for uses / doesn't use, and `highlightRows` for the user's own brand row.
 10. **Share data uses ProgressBar rows.** Use one ProgressBar per bucket; the buckets add up to 100% and reconcile with the ads counted. Use `dark` for most bars, `accent` for the bucket that matters most, and `grey` for the smallest.
 11. **Short copy, quoted hooks.** Competitor hooks are their exact words in curly quotes. Our proposals are original wording. Headings are short statements, not questions. No hype words, no emoji.
 12. **Density.** Section meta lines in uppercase, one idea per Text, and no paragraphs longer than the Text word limit. If something needs more words, it needs another component.
-13. **Interactive choices end in a SubmitBar.** Wrap each option in a Card with `selectable: true`, the same `name` for the group, and a unique `value`. A single SubmitBar sends the selected value. Never use standalone Buttons for choosing an option; only the SubmitBar sends the answer.
-14. **Every ad card shows its category.** Before the proof/hook Card, add a muted Eyebrow with the Step 3 category: `LONG-RUNNING WINNER`, `POTENTIAL WINNER`, or `SCALING CREATIVE`. If an ad fits none, write `SIGNAL`; never invent a winner.
+13. **Cards are choices or actions, never both.** A compact choice card may set `selectable: true` and must contain no Button child. An action surface composes a Button child and must never set `selectable`. Cards submit directly, Pressing a card's Button sends that action immediately; selecting a compact card never submits by itself.
+14. **Only Chips are selectable for multi-select.** Chips must sit first or last in their parent, with one SubmitBar beside them. If Chips would fall mid-content, place an inline Button instead.
+15. **Every ad card shows its category.** Before the proof/hook Card, add a muted Eyebrow with the Step 3 category: `LONG-RUNNING WINNER`, `POTENTIAL WINNER`, or `SCALING CREATIVE`. If an ad fits none, write `SIGNAL`; never invent a winner.
 
 ---
 
@@ -136,7 +138,7 @@ These are the sections that make a strong competitor report. The reference order
 | Creative patterns     | Enough ads to show a split                       | ProgressBar format share + repeated hooks with counts + top CTA                                                                                                             |
 | Offers & pricing      | Prices or offers are visible                     | Table with the user's row highlighted (placeholders if unknown)                                                                                                             |
 | Gaps to own           | Always, when there is at least one evidenced gap | 3-column gap Cards; the strongest is `accent`                                                                                                                               |
-| Recommended plays     | Always                                           | Selectable play Cards (single-select `name`, one per play) with number, name + line, Format / Audience / Reads; one SubmitBar "Make this ad"                                |
+| Recommended plays     | Always                                           | Action Cards (never selectable): number, name + line, Format / Audience / Reads, plus a Button in each card. No SubmitBar.                                                  |
 
 **Adapt to the query type:**
 
@@ -369,8 +371,8 @@ Below is one high-quality competitor report built from a phrase search. It is th
     "s9-heading": {"type": "Heading", "props": {"text": "Recommended plays", "level": "h1"}},
     "s9-meta": {"type": "Text", "props": {"text": "READY FOR AD CREATOR", "size": "xs"}},
     "s9-div": {"type": "Separator", "props": {"orientation": "horizontal"}},
-    "s9-list": {"type": "Stack", "props": {"direction": "vertical", "gap": "md", "align": "stretch", "justify": "start"}, "children": ["p1", "p1d", "p2", "p2d", "p3", "s9-submit"]},
-    "p1": {"type": "Card", "props": {"variant": "light", "selectable": true, "name": "play", "value": "Pressed Monday"}, "children": ["p1-grid"]},
+    "s9-list": {"type": "Stack", "props": {"direction": "vertical", "gap": "md", "align": "stretch", "justify": "start"}, "children": ["p1", "p1d", "p2", "p2d", "p3"]},
+    "p1": {"type": "Card", "props": {"variant": "light"}, "children": ["p1-grid"]},
     "p1-num": {"type": "Eyebrow", "props": {"text": "01", "size": "xl", "variant": "accent"}},
     "p1-main": {"type": "Stack", "props": {"direction": "vertical", "gap": "sm", "align": "stretch", "justify": "start"}, "children": ["p1-name", "p1-desc"]},
     "p1-name": {"type": "Heading", "props": {"text": "Pressed Monday", "level": "h2"}},
@@ -386,7 +388,7 @@ Below is one high-quality competitor report built from a phrase search. It is th
     "p1-reads-h": {"type": "Eyebrow", "props": {"text": "Reads", "size": "sm", "variant": "muted"}},
     "p1-reads-t": {"type": "Text", "props": {"text": "Ghani Gold on proof", "size": "sm"}},
     "p1d": {"type": "Separator", "props": {"orientation": "horizontal"}},
-    "p2": {"type": "Card", "props": {"variant": "light", "selectable": true, "name": "play", "value": "Better first bottle"}, "children": ["p2-grid"]},
+    "p2": {"type": "Card", "props": {"variant": "light"}, "children": ["p2-grid"]},
     "p2-num": {"type": "Eyebrow", "props": {"text": "02", "size": "xl", "variant": "accent"}},
     "p2-main": {"type": "Stack", "props": {"direction": "vertical", "gap": "sm", "align": "stretch", "justify": "start"}, "children": ["p2-name", "p2-desc"]},
     "p2-name": {"type": "Heading", "props": {"text": "Better first bottle", "level": "h2"}},
@@ -402,7 +404,7 @@ Below is one high-quality competitor report built from a phrase search. It is th
     "p2-reads-h": {"type": "Eyebrow", "props": {"text": "Reads", "size": "sm", "variant": "muted"}},
     "p2-reads-t": {"type": "Text", "props": {"text": "PureDrop on value", "size": "sm"}},
     "p2d": {"type": "Separator", "props": {"orientation": "horizontal"}},
-    "p3": {"type": "Card", "props": {"variant": "light", "selectable": true, "name": "play", "value": "Kadai recipes"}, "children": ["p3-grid"]},
+    "p3": {"type": "Card", "props": {"variant": "light"}, "children": ["p3-grid"]},
     "p3-num": {"type": "Eyebrow", "props": {"text": "03", "size": "xl", "variant": "accent"}},
     "p3-main": {"type": "Stack", "props": {"direction": "vertical", "gap": "sm", "align": "stretch", "justify": "start"}, "children": ["p3-name", "p3-desc"]},
     "p3-name": {"type": "Heading", "props": {"text": "Kadai recipes", "level": "h2"}},
@@ -417,22 +419,24 @@ Below is one high-quality competitor report built from a phrase search. It is th
     "p3-reads": {"type": "Stack", "props": {"direction": "vertical", "gap": "sm", "align": "stretch", "justify": "start"}, "children": ["p3-reads-h", "p3-reads-t"]},
     "p3-reads-h": {"type": "Eyebrow", "props": {"text": "Reads", "size": "sm", "variant": "muted"}},
     "p3-reads-t": {"type": "Text", "props": {"text": "Everyone on relevance", "size": "sm"}},
-    "p1-grid": {"type": "Grid", "props": {"columns": 6, "spans": [{"colSpan": 1}, {"colSpan": 2}, {"colSpan": 3}]}, "children": ["p1-num", "p1-main", "p1-meta"]},
-    "p2-grid": {"type": "Grid", "props": {"columns": 6, "spans": [{"colSpan": 1}, {"colSpan": 2}, {"colSpan": 3}]}, "children": ["p2-num", "p2-main", "p2-meta"]},
-    "p3-grid": {"type": "Grid", "props": {"columns": 6, "spans": [{"colSpan": 1}, {"colSpan": 2}, {"colSpan": 3}]}, "children": ["p3-num", "p3-main", "p3-meta"]},
-    "s9-submit": {"type": "SubmitBar", "props": {"label": "Make this ad", "statusText": "Pick one play"}}
+    "p1-grid": {"type": "Grid", "props": {"columns": 6, "spans": [{"colSpan": 1}, {"colSpan": 2}, {"colSpan": 2}, {"colSpan": 1}]}, "children": ["p1-num", "p1-main", "p1-meta", "p1-btn"]},
+    "p2-grid": {"type": "Grid", "props": {"columns": 6, "spans": [{"colSpan": 1}, {"colSpan": 2}, {"colSpan": 2}, {"colSpan": 1}]}, "children": ["p2-num", "p2-main", "p2-meta", "p2-btn"]},
+    "p3-grid": {"type": "Grid", "props": {"columns": 6, "spans": [{"colSpan": 1}, {"colSpan": 2}, {"colSpan": 2}, {"colSpan": 1}]}, "children": ["p3-num", "p3-main", "p3-meta", "p3-btn"]},
+    "p1-btn": {"type": "Button", "props": {"label": "Make this ad", "variant": "dark", "value": "Pressed Monday"}},
+    "p2-btn": {"type": "Button", "props": {"label": "Make this ad", "variant": "dark", "value": "Better first bottle"}},
+    "p3-btn": {"type": "Button", "props": {"label": "Make this ad", "variant": "dark", "value": "Kadai recipes"}}
   }
 }</ui-block>
 
 ### Step 5: Persist
 
-- Fetch existing research first. Save only when new competitors, keywords, or ad IDs are found (`saveCompetitorResearch`).
+- Render the complete report with `renderUIBlock` first. Only after it passes, save the same `blocks`; the save tool does not re-check format.
+- Fetch existing research first. Save only when new competitors, keywords, or ad IDs are found. Save with `saveCompetitorResearch`, passing `blocks` as the same flat `{ root, elements }` spec you rendered so the finding opens on its own page.
+- Quote the exact research URL the tool returns. Never build one yourself.
 - If new direct competitors or phrases emerged, fetch the profile and persist only new entries (`updateBusinessProfile`).
 - Turn the report's verified winners and open gaps into idea cards. Before writing them, compare against the `ideas` backlog loaded in Step 1: skip any title, hook, or core angle that already exists, including near-duplicates.
 - Save only genuinely new ideas with `updateIdeas` (omit `id`; at most 10 per call). Use `COMPETITOR WINNER` for a pattern remade from a verified ad, `VARIANT` for a change to one of our existing creatives, and `FROM INSIGHTS` for an open gap.
-- Never write idea JSON in the chat reply. If `updateIdeas` fails, say so; never present an idea as saved when it was not.
-- After saving, if the report does not already end in an interactive question, render a small single-select Chips + SubmitBar: "What's next?" with up to 4 relevant options (create a campaign brief, research more competitors, explore new keywords, refresh this report). If it already asks, keep it and make its options equally relevant.
-- Keep this as a short follow-up block; never force a question into the report's reference layout.
+- After saving, if the report does not already end in an interactive question, render a small single-select Chips + SubmitBar: "What's next?" with up to 4 relevant options (create a campaign brief, research more competitors, explore new keywords, refresh this report, or anything which would be a possible next step, There is no forcce that you should render these 4 only). If it already asks, keep that only and make its options equally relevant.
 
 ---
 

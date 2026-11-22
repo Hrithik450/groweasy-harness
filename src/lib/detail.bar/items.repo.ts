@@ -8,7 +8,17 @@
  */
 import { getDb } from "@/lib/db/database";
 import { detailBarItems } from "@/lib/db/schema/schema";
-import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
 
 export type DetailBarItem = typeof detailBarItems.$inferSelect;
 
@@ -118,6 +128,29 @@ export function readAllRootRows(
         eq(detailBarItems.sessionId, sessionId),
         eq(detailBarItems.field, field),
         isNull(detailBarItems.parentId),
+      ),
+    )
+    .orderBy(desc(detailBarItems.seq), desc(detailBarItems.id))
+    .all();
+}
+
+/** Roots created in `[startIso, endIso)`, newest first. */
+export function getDetailBarPagesInDateRange(
+  sessionId: string,
+  field: string,
+  startIso: string,
+  endIso: string,
+): DetailBarItem[] {
+  return getDb()
+    .select()
+    .from(detailBarItems)
+    .where(
+      and(
+        eq(detailBarItems.sessionId, sessionId),
+        eq(detailBarItems.field, field),
+        isNull(detailBarItems.parentId),
+        gte(detailBarItems.createdAt, startIso),
+        lt(detailBarItems.createdAt, endIso),
       ),
     )
     .orderBy(desc(detailBarItems.seq), desc(detailBarItems.id))

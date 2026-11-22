@@ -10,19 +10,20 @@
  */
 
 import { cookies } from "next/headers";
-import type { UserRecord } from "@/lib/db";
-import { createAnonymousUser, getUserByUserId } from "@/lib/services";
+import type { PublicUser, User } from "@/lib/db";
+import { getUserByUserId } from "@/lib/services";
 import {
   SESSION_COOKIE_NAME,
   createSession,
   sessionCookieOptions,
+  toPublicUser,
   verifySession,
 } from "./session";
 
 /**
  * Sets the session cookie using the Next.js cookies() API.
  */
-export async function setSessionCookie(user: UserRecord): Promise<void> {
+export async function setSessionCookie(user: User | PublicUser): Promise<void> {
   const token = await createSession(user);
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
@@ -39,7 +40,7 @@ export async function clearSessionCookie(): Promise<void> {
 /**
  * Reads and verifies the current session user from incoming cookies.
  */
-export async function getSessionFromCookies(): Promise<UserRecord | null> {
+export async function getSessionFromCookies(): Promise<PublicUser | null> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
@@ -47,7 +48,7 @@ export async function getSessionFromCookies(): Promise<UserRecord | null> {
     const u = await verifySession(token);
     if (!u?.id) return null;
     const res = await getUserByUserId(u.id);
-    return res.success && res.data ? res.data : null;
+    return res.success && res.data ? toPublicUser(res.data) : null;
   } catch {
     return null;
   }

@@ -3,12 +3,12 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import {
   getSessionJournal,
-  getSessionViewByUserIdAndSessionId,
+  getSessionByUserIdAndSessionId,
 } from "@/lib/services";
 import { Chat } from "@/components/chat/chat";
-import type { SessionView } from "@/lib/core/session/view";
+import type { Session } from "@/lib/db";
 import type { SessionJournalChange } from "@/lib/session/journal";
-import { getSessionFromCookies } from "@/lib/auth/session.server";
+import { getSessionFromCookies } from "@/lib/auth";
 import type { DetailBarState } from "@/lib/detail.bar/state";
 import { getDetailBarState } from "@/lib/detail.bar/snapshot";
 import { repairSessionTail } from "@/lib/session/agent.host";
@@ -28,7 +28,7 @@ export default async function Page({ params }: PageProps) {
     redirect("/");
   }
 
-  const sessionRes = await getSessionViewByUserIdAndSessionId(
+  const sessionRes = await getSessionByUserIdAndSessionId(
     user.id,
     sessionId,
   );
@@ -53,7 +53,7 @@ export default async function Page({ params }: PageProps) {
   );
 }
 
-async function PageComponent({ session }: { session: SessionView }) {
+async function PageComponent({ session }: { session: Session }) {
   let initialDetailBar: DetailBarState = {};
   try {
     initialDetailBar = await getDetailBarState(session.id);

@@ -151,6 +151,7 @@ export const getUIBlockPrompt = () => `UI block syntax:
 
 Output a flat spec: { "root": "<elementId>", "elements": { "<elementId>": { "type", "props", "children"?: ["<childId>"] } } }.
 Every entry in "children" is an element id from the same "elements" map. Never inline a nested component object.
+Interaction: any Button submits its value (or label) with the current selections. Cards are either compact choices (\`selectable\`, no Button child) or action surfaces that compose a Button child and are never selectable. Only Chips are multi-select, placed first or last with one SubmitBar. Always leave a commit path.
 
 Example:
 \`\`\`json

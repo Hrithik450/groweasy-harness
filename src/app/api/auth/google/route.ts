@@ -3,8 +3,9 @@ import {
   AUTH_SESSION_COOKIE_NAME,
   attachAuthSession,
   getAuthSessionFromRequest,
-} from "@/lib/auth/session";
-import { verifyGoogleIdToken } from "@/lib/auth/google";
+  toPublicUser,
+  verifyGoogleIdToken,
+} from "@/lib/auth";
 import { rebindUserWithGoogle } from "@/lib/services";
 
 export async function GET(req: NextRequest) {
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
 
     const response = NextResponse.json({
       success: true,
-      user,
+      user: toPublicUser(user),
     });
 
     return await attachAuthSession(response, user);

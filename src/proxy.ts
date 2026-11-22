@@ -4,7 +4,7 @@ import {
   authSessionCookieOptions,
   createAuthSession,
   verifyAuthSession,
-} from "@/lib/auth/session";
+} from "@/lib/auth";
 import {
   createAnonymousUser,
   getUserByUserId,

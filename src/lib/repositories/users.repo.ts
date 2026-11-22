@@ -1,9 +1,9 @@
-import { getDb, users, type UserRecord, type NewUserRecord } from "@/lib/db";
+import { getDb, users, type User, type NewUser } from "@/lib/db";
 import { eq, or, sql } from "drizzle-orm";
 import { uuidv7 } from "@/lib/utils/uuid";
 
-export function createUser(data: NewUserRecord): {
-  user: UserRecord;
+export function createUser(data: NewUser): {
+  user: User;
   created: boolean;
 } {
   const db = getDb();
@@ -71,7 +71,7 @@ export function createUser(data: NewUserRecord): {
 /**
  * Creates or retrieves an anonymous guest user.
  */
-export function createAnonymousUser(): UserRecord {
+export function createAnonymousUser(): User {
   const db = getDb();
 
   const id = uuidv7();
@@ -98,7 +98,7 @@ export function createAnonymousUser(): UserRecord {
  * This updates the existing user row in-place so all existing sessions,
  * chat history, and connectors remain preserved.
  */
-export function rebindUserWithGoogle(data: NewUserRecord): UserRecord {
+export function rebindUserWithGoogle(data: NewUser): User {
   const db = getDb();
 
   const now = new Date().toISOString();
@@ -194,7 +194,7 @@ export function rebindUserWithGoogle(data: NewUserRecord): UserRecord {
   });
 }
 
-export function getUserByUserId(id: string): UserRecord | null {
+export function getUserByUserId(id: string): User | null {
   const db = getDb();
   return (
     db
@@ -205,7 +205,7 @@ export function getUserByUserId(id: string): UserRecord | null {
   );
 }
 
-export function getUserByEmail(email: string): UserRecord | null {
+export function getUserByEmail(email: string): User | null {
   const db = getDb();
   return (
     db
@@ -216,11 +216,41 @@ export function getUserByEmail(email: string): UserRecord | null {
   );
 }
 
-export function getUsers(): UserRecord[] {
+export function getUsers(): User[] {
   const db = getDb();
   return db
     .select()
     .from(users)
     .orderBy(sql`${users.createdAt} DESC`)
     .all();
+}
+
+export function setUserPasswordHash(
+  userId: string,
+  passwordHash: string,
+): User | null {
+  const db = getDb();
+  return (
+    db
+      .update(users)
+      .set({ passwordHash, updatedAt: new Date().toISOString() })
+      .where(eq(users.id, userId))
+      .returning()
+      .get() ?? null
+  );
+}
+
+export function markUserOnboarded(
+  userId: string,
+  at = new Date().toISOString(),
+): User | null {
+  const db = getDb();
+  return (
+    db
+      .update(users)
+      .set({ onboardedAt: at, updatedAt: at })
+      .where(eq(users.id, userId))
+      .returning()
+      .get() ?? null
+  );
 }

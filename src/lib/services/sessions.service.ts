@@ -1,5 +1,4 @@
 import * as repo from "@/lib/repositories";
-import { toSessionView, type SessionView } from "@/lib/core/session/view";
 import { DEFAULT_SESSIONS } from "./default";
 import type { Session, NewSession } from "@/lib/db";
 import type { Response } from "./types";
@@ -85,58 +84,6 @@ export async function getDefaultSession(
     const message = error instanceof Error ? error.message : String(error);
     return { success: false, error: message };
   }
-}
-
-/**
- * Returns all sessions for the given authenticated user in the wire-safe
- * client shape. Use this from server components that pass data into client
- * components; keep `getSessionsByUserId` for server-internal callers.
- */
-export async function getSessionsByUserIdView(
-  userId: string,
-): Promise<Response<SessionView[]>> {
-  const result = await getSessionsByUserId(userId);
-  if (!result.success || !result.data) {
-    return { success: result.success, error: result.error };
-  }
-  return {
-    success: true,
-    data: result.data.map((session) => toSessionView(session)),
-  };
-}
-
-/**
- * Retrieves the user's default/first session in the wire-safe client shape.
- */
-export async function getDefaultSessionView(
-  userId: string,
-): Promise<Response<SessionView | undefined>> {
-  const result = await getDefaultSession(userId);
-  if (!result.success || !result.data) {
-    return { success: result.success, error: result.error };
-  }
-  return {
-    success: true,
-    data: toSessionView(result.data),
-  };
-}
-
-/**
- * Retrieves a session by ID strictly scoped to the authenticated user in the
- * wire-safe client shape.
- */
-export async function getSessionViewByUserIdAndSessionId(
-  userId: string,
-  sessionId: string,
-): Promise<Response<SessionView | undefined>> {
-  const result = await getSessionByUserIdAndSessionId(userId, sessionId);
-  if (!result.success || !result.data) {
-    return { success: result.success, error: result.error };
-  }
-  return {
-    success: true,
-    data: toSessionView(result.data),
-  };
 }
 
 /**

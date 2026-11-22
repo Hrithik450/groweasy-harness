@@ -127,6 +127,20 @@
       "when": 1795500000000,
       "tag": "0017_detail_bar_turn_anchors",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1795600000000,
+      "tag": "0018_onboarding_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1795700000000,
+      "tag": "0019_drop_last_delivery_at",
+      "breakpoints": true
     }
   ]
 }

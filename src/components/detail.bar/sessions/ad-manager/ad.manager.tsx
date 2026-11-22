@@ -33,7 +33,6 @@ export function AdManagerDetailBar({
   isStreaming,
   handleSubmit,
   handleUpdateData,
-  handleNavigation,
 }: DetailBarComponentProps<AdManagerDetailBarData>) {
   const [activeTab, setActiveTab] = useState<TabKey>("campaigns");
 
@@ -56,7 +55,6 @@ export function AdManagerDetailBar({
     isStreaming,
     handleSubmit,
     handleUpdateData,
-    handleNavigation,
   };
 
   const activeLabel =

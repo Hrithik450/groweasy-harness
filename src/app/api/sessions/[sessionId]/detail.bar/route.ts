@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAuthSessionFromRequest } from "@/lib/auth/session";
-import { getOwnedSessionById } from "@/lib/repositories/sessions.repo";
+import { getAuthSessionFromRequest } from "@/lib/auth";
+import { getOwnedSessionById } from "@/lib/repositories";
 import { barOwner, isDetailBarField } from "@/lib/detail.bar/fields";
 import {
   updateDetailBarItem,

@@ -17,7 +17,7 @@ export function ClosingSection() {
         </p>
         <div className="flex min-w-0 flex-wrap items-center gap-3 max-[600px]:w-full max-[600px]:flex-col max-[600px]:items-stretch">
           <LandingButton href="/c" variant="dark">
-            Start now
+            Get started
           </LandingButton>
           <span className="break-words [font-family:var(--font-jetbrains-mono)] text-[13px] leading-[1.6] text-muted-foreground max-[600px]:text-[12px]">
             read-only · 2 min · [PRICING / TRIAL LINE] · agencies:

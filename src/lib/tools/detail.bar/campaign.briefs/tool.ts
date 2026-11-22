@@ -8,6 +8,7 @@ import {
 } from "@/lib/detail.bar/service";
 import { uuidv7 } from "@/lib/utils/uuid";
 import type { CampaignBrief } from "@/lib/detail.bar/types";
+import { validateAndNormalizeUI } from "@/lib/generative.ui";
 
 export const updateCampaignBriefsToolDefinition = {
   type: "function" as const,
@@ -15,7 +16,7 @@ export const updateCampaignBriefsToolDefinition = {
   preSkills: "campaign-brief",
   description:
     "Prerequisite: campaign-brief skill is a prerequisite.\n\n" +
-    "Saves one campaign brief session. The brief links back to the assistant message that produced it when the message id is known.",
+    "Saves one campaign brief as a UI-block spec into the Ad Strategist Campaign brief tab. The saved brief opens on its own page, so it survives the chat scrolling away.",
   parameters: {
     type: "object",
     properties: {
@@ -30,7 +31,13 @@ export const updateCampaignBriefsToolDefinition = {
       summary: {
         type: "string",
         description:
-          "Two-line gist of the brief: the objective and the one decision that matters. The full brief stays in your message.",
+          "Two-line gist of the brief: the objective and the one decision that matters. The full brief stays in the saved blocks.",
+      },
+      blocks: {
+        type: "object",
+        description:
+          "Flat UI-block spec { root, elements } for the brief page: the same block you rendered in chat.",
+        additionalProperties: true,
       },
     },
     required: ["title", "summary"],
@@ -38,7 +45,7 @@ export const updateCampaignBriefsToolDefinition = {
 };
 
 export type UpdateCampaignBriefsArgs = Partial<
-  Omit<CampaignBrief, "createdAt" | "turnId" | "sourceSessionId">
+  Omit<CampaignBrief, "createdAt" | "sourceSessionId">
 >;
 
 type UpdateCampaignBriefsOutput = {
@@ -73,12 +80,21 @@ export async function executeUpdateCampaignBriefsTool(
     );
   }
 
+  let blocks: Record<string, unknown> | undefined;
+  if (args.blocks != null) {
+    try {
+      const normalized = validateAndNormalizeUI(args.blocks);
+      if (!normalized) {
+        return errorResult("Missing required argument 'blocks'.");
+      }
+      blocks = normalized;
+    } catch (err: unknown) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   const now = Date.now();
   const id = trimmed(args.id) || uuidv7();
-  const turnId =
-    input.context?.turn !== undefined
-      ? `turn-${input.context.turn}`
-      : "";
   const sourceSessionId = trimmed(input.context?.sessionId);
 
   const session = resolveDetailBarSession(userId, "campaignBriefs");
@@ -95,10 +111,20 @@ export async function executeUpdateCampaignBriefsTool(
     summary,
     createdAt: existing?.createdAt ?? new Date(now).toISOString(),
   };
-  if (turnId) data.turnId = turnId;
   if (sourceSessionId) data.sourceSessionId = sourceSessionId;
+  else if (existing?.sourceSessionId) {
+    data.sourceSessionId = existing.sourceSessionId;
+  }
+  // Keep an existing spec on a title-only update; legacy rows stay spec-less.
+  if (blocks !== undefined) data.blocks = blocks;
+  else if (existing?.blocks) data.blocks = existing.blocks;
 
   upsertDetailBarItems(session, "campaignBriefs", [{ id, data }]);
+
+  const url =
+    data.blocks !== undefined
+      ? ` View it at /c/${session.id}/briefs/${id}.`
+      : "";
 
   return {
     success: true,
@@ -106,7 +132,7 @@ export async function executeUpdateCampaignBriefsTool(
       contentParts: [
         {
           type: "input_text",
-          text: `Saved campaign brief "${title}" as ${id}.`,
+          text: `Saved campaign brief "${title}" as ${id}.${url}`,
         },
       ],
     },

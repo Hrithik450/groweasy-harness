@@ -25,6 +25,9 @@ export const SESSION_TRANSPORT_ERROR_EVENT = "transport/error";
 /** SSE event name for connector status changes, muxed onto the session stream. */
 export const SESSION_CONNECTOR_EVENT = "connector";
 
+/** SSE event name for an onboarding-status change. */
+export const SESSION_ONBOARDING_EVENT = "onboarding";
+
 /** SSE event name for one detail-bar field replacement. */
 export const SESSION_DETAIL_BAR_EVENT = "detail-bar";
 

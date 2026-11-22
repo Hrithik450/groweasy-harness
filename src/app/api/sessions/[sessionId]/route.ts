@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { updateSession, deleteSession } from "@/lib/services";
-import { getOwnedSessionById } from "@/lib/repositories/sessions.repo";
-import { getSessionFromRequest } from "@/lib/auth/session";
+import { getOwnedSessionById } from "@/lib/repositories";
+import { getSessionFromRequest } from "@/lib/auth";
 import type { Session } from "@/lib/db";
-import { toSessionView } from "@/lib/core/session/view";
 import type { DetailBarState } from "@/lib/detail.bar/state";
 import { getDetailBarState } from "@/lib/detail.bar/snapshot";
 
@@ -30,9 +29,7 @@ export async function GET(
   }
 
   // Bar data travels as its own projection; `extra` keeps only metadata.
-  const view = {
-    ...toSessionView(session),
-  };
+  const view = session;
   let detailBar: DetailBarState = {};
   try {
     detailBar = await getDetailBarState(session.id);
@@ -73,9 +70,7 @@ export async function PATCH(
       );
     }
 
-    const view = {
-      ...toSessionView(updated),
-    };
+    const view = updated;
     let detailBar: DetailBarState = {};
     try {
       detailBar = await getDetailBarState(updated.id);

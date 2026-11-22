@@ -2,18 +2,19 @@
 
 import { toast } from "sonner";
 import React, { useEffect } from "react";
-import type { Session, User, ConnectorSlug } from "@/lib/db";
+import type { PublicUser, Session, ConnectorSlug } from "@/lib/db";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { SettingsModal } from "@/components/modals/settings.modal";
 import { ImageboxModal } from "@/components/modals/image.lightbox.modal";
 import { ConnectorsRuntime } from "@/components/connectors/connectors.runtime";
+import { OnboardingWizard } from "@/components/onboarding/onboarding.wizard";
 import { useSessionStore } from "@/store/session.store";
 import { useUserStore } from "@/store/user.store";
 import { useConnectorStore } from "@/store/connector.store";
 
 interface AppShellProps {
   initialSessions: Session[];
-  initialUser?: User | null;
+  initialUser?: PublicUser | null;
   children: React.ReactNode;
 }
 
@@ -71,6 +72,7 @@ export function AppShell({
       <SettingsModal />
       <ImageboxModal />
       <ConnectorsRuntime />
+      <OnboardingWizard sessionId={initialSessions[0]?.id} />
     </>
   );
 }

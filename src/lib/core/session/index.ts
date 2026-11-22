@@ -11,5 +11,4 @@
 
 export * from "./types";
 export * from "./events";
-export * from "./view";
 export * from "./repair";

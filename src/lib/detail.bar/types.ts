@@ -3,18 +3,13 @@ import type { DetailBarField, BarStatus } from "@/lib/detail.bar/fields";
 import type {
   DetailBarRegistry,
   DetailBarComponentProps,
-  DetailBarNavigationOptions,
 } from "@/components/detail.bar/registry";
-export type {
-  DetailBarRegistry,
-  DetailBarComponentProps,
-  DetailBarNavigationOptions,
-};
+export type { DetailBarRegistry, DetailBarComponentProps };
 import type { MetaCampaign } from "@/lib/connectors/meta.ads/types";
 
 /** Props one tab receives from its bar: the payload is already unwrapped. */
 export interface DetailBarTabProps<TData = unknown> {
-  session?: import("@/lib/core/session/view").SessionView;
+  session?: import("@/lib/db").Session;
   isStreaming?: boolean;
   handleSubmit?: (
     content: string,
@@ -29,10 +24,6 @@ export interface DetailBarTabProps<TData = unknown> {
     id: string;
     patch: Record<string, unknown>;
   }) => Promise<void>;
-  handleNavigation?: (
-    turnId: string,
-    options?: DetailBarNavigationOptions,
-  ) => void;
 }
 
 // DetailBar UI Tab Configuration
@@ -274,8 +265,6 @@ export interface DailyReport extends BarRowRef {
 export interface CompetitorResearchItem extends BarRowRef {
   title: string;
   content: string;
-  /** Chat transcript anchor (`turn-<n>`) that produced it. */
-  turnId?: string;
   /** Chat that ran the research; findings are shared across that surface. */
   sourceSessionId?: string;
   newCompetitors: string[];
@@ -284,6 +273,8 @@ export interface CompetitorResearchItem extends BarRowRef {
     staticAds?: string[];
     videoAds?: string[];
   };
+  /** Saved UI-block spec; absent on legacy rows written before pages. */
+  blocks?: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -291,9 +282,9 @@ export interface CampaignBrief extends BarRowRef {
   title: string;
   /** Two-line gist; the full brief is the message it points at. */
   summary?: string;
-  /** Chat transcript anchor (`turn-<n>`) that produced it. */
-  turnId?: string;
   sourceSessionId?: string;
+  /** Saved UI-block spec; absent on legacy rows written before pages. */
+  blocks?: Record<string, unknown>;
 }
 
 export interface AdStrategistDetailBarData {

@@ -49,7 +49,7 @@ export function Header() {
             The team
           </a>
           <LandingButton href="/c" variant="nav">
-            Start now
+            Get started
           </LandingButton>
         </nav>
       </Container>

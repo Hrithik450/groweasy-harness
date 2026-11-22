@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import remarkGfm from "remark-gfm";
 import ReactMarkdown from "react-markdown";
+import { useEffect, useState } from "react";
 import {
-  AlertTriangle,
-  ChevronDown,
   Clock,
   Coins,
+  Wrench,
   Paperclip,
   StopCircle,
-  Wrench,
+  ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
 import type { ContentBlock } from "@/lib/llm/llm/message";
 import type {
@@ -25,8 +25,8 @@ import { BlockHost } from "@/components/generative.ui/block.host";
 import { UserVideoViewer } from "@/components/video/user.video.viewer";
 import { ChatVideoPlayer } from "@/components/video/chat.video.player";
 import { UserImageGallery } from "@/components/image/user.image.viewer";
+import { toolLabel, userErrorMessage } from "../tool.labels";
 import { markdownComponents } from "@/components/utils";
-import { toolLabel, USER_ERROR_MESSAGE } from "./tool.labels";
 
 type ImageBlock = Extract<ContentBlock, { type: "image" }>;
 type VideoBlock = Extract<ContentBlock, { type: "video" }>;
@@ -251,7 +251,9 @@ function ToolCallRow({ node }: { node: ToolCallChatNode }) {
     <div className="flex flex-col gap-1 text-[11px] text-muted-foreground min-w-0">
       <div className="flex items-center gap-2 min-w-0">
         <Wrench className="w-3 h-3 shrink-0" />
-        <span className="break-words min-w-0">{toolLabel(node.name, node.args)}</span>
+        <span className="break-words min-w-0">
+          {toolLabel(node.name, node.args, node.callId)}
+        </span>
         <span className={`shrink-0 ${statusClass}`}>{node.status}</span>
         {node.durationMs !== undefined && node.durationMs > 0 && (
           <span className="font-mono shrink-0">
@@ -261,7 +263,7 @@ function ToolCallRow({ node }: { node: ToolCallChatNode }) {
       </div>
       {node.error !== undefined && (
         <p className="pl-5 text-destructive break-words leading-relaxed">
-          {USER_ERROR_MESSAGE}
+          {userErrorMessage()}
         </p>
       )}
     </div>
@@ -282,7 +284,7 @@ function TurnEndView({ node }: { node: TurnEndChatNode }) {
     return (
       <div className="flex items-center gap-2 p-3 rounded-none bg-destructive-tint dark:bg-destructive/10 border border-destructive/25 dark:border-destructive/25 text-xs text-destructive dark:text-destructive">
         <AlertTriangle className="w-4 h-4 shrink-0 text-destructive" />
-        <span>{USER_ERROR_MESSAGE}</span>
+        <span>{userErrorMessage()}</span>
       </div>
     );
   }

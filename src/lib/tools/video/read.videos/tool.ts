@@ -7,7 +7,8 @@ import {
   analyzeVideoBuffer,
   checkVideoPipelineHealth,
   buildAgentVideoPayload,
-  type VideoPipelineOptions,
+  normalizeVideoPipelineOptions,
+  VIDEO_HARD_MAX_FPS,
 } from "@/lib/core/agent/video";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
 
@@ -16,7 +17,12 @@ export const readVideosToolDefinition = {
   name: "readVideos",
   description:
     "Visually inspects and analyzes videos via speech transcript, keyframes, and metadata. " +
-    "Inspect in small chunks (e.g. 5-10s segments like 0-5s, 5-10s) using startTime and endTime to stay under the output size limit.",
+    "By default it returns a coarse overview. To inspect fast motion deeply at any point on the timeline, " +
+    "choose ONE sampling control per video: `timestamps` (exact seconds), `frameCount` (evenly spaced frames), " +
+    "or `fps` (sampling rate), optionally bounded by `startTime`/`endTime`. " +
+    `The hard ceiling is ${VIDEO_HARD_MAX_FPS} frames per second; fps above ${VIDEO_HARD_MAX_FPS} is clamped and reported. ` +
+    "You may request up to 120 frames per call. Requests that exceed the 5 fps ceiling or capacity are clamped/rejected with a clear message. " +
+    "Use timestamps for one precise fast-motion moment; use frameCount with startTime/endTime for a deep range scan.",
   parameters: {
     type: "object",
     properties: {
@@ -34,12 +40,33 @@ export const readVideosToolDefinition = {
             startTime: {
               type: "number",
               description:
-                "Start time in seconds (optional). Keep segments short (5-10s).",
+                "Start time in seconds (optional, >= 0). Bounds timestamps or the frameCount/fps timeline.",
             },
             endTime: {
               type: "number",
               description:
-                "End time in seconds (optional). Keep segments short (5-10s).",
+                "End time in seconds (optional, > startTime). Bounds timestamps or the frameCount/fps timeline.",
+            },
+            fps: {
+              type: "number",
+              description:
+                `Sampling rate (optional). Must be > 0 and <= ${VIDEO_HARD_MAX_FPS}; values above ` +
+                `${VIDEO_HARD_MAX_FPS} are clamped and reported. Do not combine with frameCount or timestamps.`,
+            },
+            frameCount: {
+              type: "integer",
+              minimum: 1,
+              description:
+                "Desired number of evenly spaced frames from the requested timeline (optional). " +
+                "Do not combine with fps or timestamps. Capped at 120 per call; if the 5 fps ceiling " +
+                "allows fewer frames, the response says so.",
+            },
+            timestamps: {
+              type: "array",
+              items: { type: "number" },
+              description:
+                "Exact timestamps in seconds to capture (optional). Minimum spacing 0.2s (5 fps), " +
+                "maximum 120 entries. Do not combine with fps or frameCount. Respects startTime/endTime bounds.",
             },
           },
           required: ["inputPath"],
@@ -55,6 +82,9 @@ export interface ReadVideosArgs {
     inputPath: string;
     startTime?: number;
     endTime?: number;
+    fps?: number;
+    frameCount?: number;
+    timestamps?: number[];
   }>;
 }
 
@@ -97,11 +127,24 @@ export async function executeReadVideosTool(
     const rawPath = item?.inputPath?.trim();
     if (!rawPath) continue;
 
-    const startTime =
-      typeof item.startTime === "number"
-        ? Math.max(0, item.startTime)
-        : undefined;
-    const endTime = typeof item.endTime === "number" ? item.endTime : undefined;
+    let normalized;
+    try {
+      normalized = normalizeVideoPipelineOptions({
+        startTime: item.startTime,
+        endTime: item.endTime,
+        fps: item.fps,
+        frameCount: item.frameCount,
+        timestamps: item.timestamps,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${rawPath}: ${msg}`);
+      continue;
+    }
+
+    const { options, notices } = normalized;
+    const startTime = options.startTime;
+    const endTime = options.endTime;
 
     const segmentDuration =
       startTime !== undefined && endTime !== undefined
@@ -109,17 +152,11 @@ export async function executeReadVideosTool(
         : (endTime ?? undefined);
 
     if (segmentDuration !== undefined && segmentDuration > 60) {
-      throw new Error(
-        `Segment duration (${segmentDuration.toFixed(1)}s) exceeds maximum allowed duration of 60 seconds.`,
+      errors.push(
+        `${rawPath}: Segment duration (${segmentDuration.toFixed(1)}s) exceeds the maximum allowed duration of 60 seconds.`,
       );
+      continue;
     }
-
-    const options: VideoPipelineOptions = {
-      fps: 2,
-      maxFrames: 80,
-      startTime,
-      endTime,
-    };
 
     try {
       let result;
@@ -167,13 +204,18 @@ export async function executeReadVideosTool(
         result = await analyzeVideoPath(resolvedPath, options);
       }
 
+      // Exact timestamps deliberately target a small part of a longer video,
+      // so the full-video duration guard does not apply to them.
+      const hasTimestamps = options.timestamps !== undefined;
       if (
+        !hasTimestamps &&
         startTime === undefined &&
         endTime === undefined &&
         result.metadata.durationSeconds > 60.5
       ) {
         throw new Error(
-          `Video duration (${Math.round(result.metadata.durationSeconds)}s) exceeds 60 seconds limit. Please specify startTime and endTime to inspect a segment of 60 seconds or less.`,
+          `Video duration (${Math.round(result.metadata.durationSeconds)}s) exceeds 60 seconds limit. ` +
+            `Specify startTime/endTime (60 seconds or less), timestamps, or frameCount to inspect a bounded timeline.`,
         );
       }
 
@@ -182,12 +224,35 @@ export async function executeReadVideosTool(
           ? ` [Segment: ${startTime ?? 0}s → ${endTime ?? result.metadata.durationSeconds}s]`
           : " [Full Video]";
 
+      const samplingParts: string[] = [];
+      if (result.stats.samplingMode) {
+        samplingParts.push(result.stats.samplingMode);
+      }
+      if (result.stats.framesRequested != null) {
+        samplingParts.push(`requested ${result.stats.framesRequested}`);
+      }
+      if (result.stats.framesReturned != null) {
+        samplingParts.push(`returned ${result.stats.framesReturned}`);
+      }
+      const samplingLine =
+        samplingParts.length > 0
+          ? `- Sampling: ${samplingParts.join(" | ")}\n`
+          : "";
+
+      const notes = [...notices];
+      if (result.stats.samplingNote) notes.push(result.stats.samplingNote);
+      const noteLine =
+        notes.length > 0 ? `> Note: ${notes.join(" ")}\n` : "";
+
       const videoHeader: InputContentParam = {
         type: "input_text",
         text:
           `### Video ${idx + 1}/${rawVideos.length}: ${rawPath}${segmentLabel}\n` +
           `- Duration: ${result.metadata.durationSeconds}s | Format: ${result.metadata.aspectRatio} | FPS: ${result.metadata.fps}\n` +
-          `- Frames: ${result.stats.keyframeCount} | Vision tokens: ~${result.stats.estimatedVisionTokens}\n\n`,
+          `- Frames: ${result.stats.keyframeCount} | Vision tokens: ~${result.stats.estimatedVisionTokens}\n` +
+          samplingLine +
+          noteLine +
+          `\n`,
       };
 
       const payload = buildAgentVideoPayload(result);

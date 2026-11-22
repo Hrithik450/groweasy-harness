@@ -133,7 +133,7 @@ import {
   fetchDetailBarToolDefinition,
   FetchDetailBarArgs,
   executeFetchDetailBarTool,
-} from "./detail.bar/fetch.projections/tool";
+} from "./detail.bar/fetch.detail.bar/tool";
 import {
   skillToolDefinition,
   executeSkillTool,
@@ -496,11 +496,13 @@ export function getToolDefinitionsForSlug(
       scrapeWebPageToolDefinition,
       webSearchToolDefinition,
       searchAdLibraryToolDefinition,
-      fetchImageTypesToolDefinition,
       readImagesToolDefinition,
       readVideosToolDefinition,
       fetchBusinessProfileToolDefinition,
       updateBusinessProfileToolDefinition,
+      fetchDetailBarToolDefinition,
+      saveCompetitorResearchToolDefinition,
+      renderUIBlockToolDefinition,
       fetchShopifyProductsToolDefinition,
       fetchShopifyCollectionsToolDefinition,
       skillToolDefinition,

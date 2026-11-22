@@ -44,8 +44,16 @@ const FACE_W = 76;
 const FACE_H = 76;
 const FACE_CX = FACE_X + FACE_W / 2;
 const FACE_CY = FACE_Y + FACE_H / 2;
-const STAR_PATH =
-  "M0 -8.5 L2.2 -2.2 L8.5 0 L2.2 2.2 L0 8.5 L-2.2 2.2 L-8.5 0 L-2.2 -2.2 Z";
+
+/** Soft tapered brow: rounded tips, gentle arch, thickest in the middle. */
+const BROW_LEFT_PATH =
+  "M22 29.9 C25.5 26.5 32.5 26.5 36 29.9 C36.9 30.9 36.9 31.9 36 32.9 C32.5 31.6 25.5 31.6 22 32.9 C21.1 31.9 21.1 30.9 22 29.9 Z";
+const BROW_RIGHT_PATH =
+  "M62 29.9 C58.5 26.5 51.5 26.5 48 29.9 C47.1 30.9 47.1 31.9 48 32.9 C51.5 31.6 58.5 31.6 62 32.9 C62.9 31.9 62.9 30.9 62 29.9 Z";
+const CREAM_BROW_TILT = {
+  left: "rotate(-7 29 31.4)",
+  right: "rotate(7 55 31.4)",
+} as const;
 
 const IDLE_RENDER = {
   eyeX: 0,
@@ -356,11 +364,6 @@ export function BotDollAvatar({
           fill={palette.plate}
         />
 
-        {/* Amber's stem tucks under the face before the face is painted. */}
-        {isAmber && (
-          <rect x={40.75} y={82} width={2.5} height={13} fill={palette.ink} />
-        )}
-
         <rect
           x={FACE_X}
           y={FACE_Y}
@@ -370,8 +373,8 @@ export function BotDollAvatar({
           fill={palette.face}
         />
 
-        {/* Brows: flat bars except cream's slight tilt; they follow the gaze
-            at reduced amplitude so they do not read as frozen. */}
+        {/* Brows: soft tapered arches, cream tilted; they follow the gaze at
+            reduced amplitude so they do not read as frozen. */}
         <g
           fill={palette.ink}
           transform={`translate(${(render.eyeX * 0.5).toFixed(2)} ${(
@@ -380,27 +383,13 @@ export function BotDollAvatar({
         >
           {isCream ? (
             <>
-              <rect
-                x={21}
-                y={27.5}
-                width={16}
-                height={5.5}
-                rx={1}
-                transform="rotate(-7 29 30.25)"
-              />
-              <rect
-                x={47}
-                y={27.5}
-                width={16}
-                height={5.5}
-                rx={1}
-                transform="rotate(7 55 30.25)"
-              />
+              <path d={BROW_LEFT_PATH} transform={CREAM_BROW_TILT.left} />
+              <path d={BROW_RIGHT_PATH} transform={CREAM_BROW_TILT.right} />
             </>
           ) : (
             <>
-              <rect x={21} y={27} width={16} height={6} rx={1} />
-              <rect x={47} y={27} width={16} height={6} rx={1} />
+              <path d={BROW_LEFT_PATH} />
+              <path d={BROW_RIGHT_PATH} />
             </>
           )}
         </g>
@@ -432,51 +421,19 @@ export function BotDollAvatar({
           )}
         </g>
 
-        {/* Mouth: flat bar everywhere except cream's small smile. */}
-        {isCream ? (
-          <path
-            d="M34 63 Q42 69 50 63"
-            fill="none"
-            stroke={palette.ink}
-            strokeWidth={3.5}
-            strokeLinecap="round"
-          />
-        ) : (
-          <rect
-            x={32}
-            y={61}
-            width={20}
-            height={5.5}
-            rx={1.5}
-            fill={palette.ink}
-          />
-        )}
+        {/* Mouth: a rounded smile stroke; cream keeps a slimmer line. */}
+        <path
+          d={
+            isCream
+              ? "M34.5 62.8 Q42 68.4 49.5 62.8"
+              : "M34.4 62.6 Q42 68.6 49.6 62.6"
+          }
+          fill="none"
+          stroke={palette.ink}
+          strokeWidth={isCream ? 3.2 : 4.2}
+          strokeLinecap="round"
+        />
 
-        {/* Cream's four-point star twinkles; reduced motion leaves it still. */}
-        {isCream && (
-          <g transform="translate(80 10)">
-            <g>
-              <path d={STAR_PATH} fill="#EF6A4A" />
-              {!reducedMotion && (
-                <>
-                  <animate
-                    attributeName="opacity"
-                    values="0.55;1;0.55"
-                    dur="3.4s"
-                    repeatCount="indefinite"
-                  />
-                  <animateTransform
-                    attributeName="transform"
-                    type="scale"
-                    values="0.9;1.08;0.9"
-                    dur="3.4s"
-                    repeatCount="indefinite"
-                  />
-                </>
-              )}
-            </g>
-          </g>
-        )}
       </svg>
 
       {withShadow && (

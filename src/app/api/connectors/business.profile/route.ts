@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getConnectorByUserIdAndSlug, upsertConnector } from "@/lib/services";
-import { getAuthSessionFromRequest } from "@/lib/auth/session";
+import { getSessionByUserIdAndSlug } from "@/lib/repositories";
+import { getAuthSessionFromRequest } from "@/lib/auth";
 import { reconcileStatus } from "@/lib/connectors/reconcile";
 import { toBrowserConnector } from "@/lib/connectors/registry";
 import {
@@ -32,6 +33,8 @@ export async function GET(req: NextRequest) {
             >,
           )
         : null,
+      // Hidden analyzer session; the process feed streams its tool calls.
+      sessionId: getSessionByUserIdAndSlug(user.id, "businessProfile")?.id ?? null,
     });
   } catch (err) {
     return NextResponse.json(

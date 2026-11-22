@@ -34,7 +34,6 @@ export function AdStrategistDetailBar({
   isStreaming,
   handleSubmit,
   handleUpdateData,
-  handleNavigation,
 }: DetailBarComponentProps<AdStrategistDetailBarData>) {
   const tabs = [
     { key: "reports", label: "Daily reports" },
@@ -62,14 +61,11 @@ export function AdStrategistDetailBar({
     initialIdsRef.current = null;
   }
   if (initialIdsRef.current === null && pager.hydrated) {
-    initialIdsRef.current = new Set(
-      researches.map((r, i) => r.turnId || r.createdAt || String(i)),
-    );
+    initialIdsRef.current = new Set(researches.map((r) => r.id));
   }
 
   const newResearchCount = researches.filter(
-    (r, i) =>
-      !initialIdsRef.current?.has(r.turnId || r.createdAt || String(i)),
+    (r) => !initialIdsRef.current?.has(r.id),
   ).length;
 
   const badgeCount: Record<string, number> = {
@@ -132,7 +128,6 @@ export function AdStrategistDetailBar({
           isStreaming={isStreaming}
           handleSubmit={handleSubmit}
           handleUpdateData={handleUpdateData}
-          handleNavigation={handleNavigation}
         />
       </div>
     </div>

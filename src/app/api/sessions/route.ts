@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth/session";
+import { getSessionFromRequest } from "@/lib/auth";
 import { getSessionsByUserId, createSession } from "@/lib/services";
-import { toSessionView } from "@/lib/core/session/view";
 
 /**
  * GET /api/sessions
@@ -10,10 +9,8 @@ import { toSessionView } from "@/lib/core/session/view";
 export async function GET(req: Request) {
   const user = await getSessionFromRequest(req);
   const res = user?.id ? await getSessionsByUserId(user.id) : null;
-  // The list only needs metadata; bar data is read from the projection.
-  const sessions = (res?.data || []).map((session) => ({
-    ...toSessionView(session),
-  }));
+  // The list only needs session rows; bar data is read from the projection.
+  const sessions = res?.data || [];
   return NextResponse.json({ sessions, threads: sessions });
 }
 
@@ -50,10 +47,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const view = {
-      ...toSessionView(res.data),
-    };
-    return NextResponse.json({ session: view, thread: view }, { status: 201 });
+    const session = res.data;
+    return NextResponse.json(
+      { session, thread: session },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("Failed to create session:", error);
     return NextResponse.json(

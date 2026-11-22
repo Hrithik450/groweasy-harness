@@ -1,22 +1,19 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight, BarChart3 } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { useBarPager } from "@/hooks/use.bar.pager";
 import { groupByDay } from "@/lib/utils/day.group";
 import { isReportToday, reportDateLabels } from "@/lib/utils/report.date";
 import {
   DetailBarEmptyState,
   DetailBarLoadOlder,
+  DetailBarViewLink,
 } from "@/components/detail.bar/common";
 import type {
   AdStrategistDetailBarData,
   DailyReport,
   DetailBarTabProps,
 } from "@/lib/detail.bar/types";
-
-const FOCUS_RING =
-  "focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground";
 
 /** One report row: the date tile, the gist, and the page it opens. */
 function ReportRow({
@@ -55,13 +52,9 @@ function ReportRow({
           {report.summary}
         </p>
 
-        <Link
+        <DetailBarViewLink
           href={`/c/${sessionId}/reports/${encodeURIComponent(report.id)}`}
-          className={`self-end inline-flex items-center gap-1 min-h-7 px-2.5 py-1 mt-0.5 border border-input bg-card text-foreground hover:bg-muted rounded-lg text-[11.5px] font-semibold transition-colors cursor-pointer ${FOCUS_RING}`}
-        >
-          <span>View</span>
-          <ArrowRight className="w-3 h-3" aria-hidden="true" />
-        </Link>
+        />
       </div>
     </article>
   );

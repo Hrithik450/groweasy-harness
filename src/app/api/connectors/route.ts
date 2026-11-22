@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getConnectorsByUserId } from "@/lib/services";
-import { getAuthSessionFromRequest } from "@/lib/auth/session";
+import { getAuthSessionFromRequest } from "@/lib/auth";
 import {
   AVAILABLE_CONNECTORS,
   toBrowserConnector,

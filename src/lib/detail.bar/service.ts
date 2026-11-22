@@ -274,6 +274,18 @@ export function readBarItemForSession(
   return row ? rowToItem(row) : null;
 }
 
+/** Read one card by id and tab, so a page cannot open another tab's row. */
+export function readBarItemForSessionField(
+  sessionId: string,
+  field: DetailBarField,
+  id: string,
+): DetailBarCard | null {
+  const session = getSessionById(sessionId);
+  if (!session) return null;
+  const row = getDetailBarItemById(session.id, id);
+  return row && row.field === field ? rowToItem(row) : null;
+}
+
 /** The newest card in one root tab, or `null` when it is empty. */
 export function latestBarItemFor(
   userId: string,

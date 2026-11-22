@@ -125,11 +125,10 @@ export const SESSION_SUGGESTIONS: Record<
 /** Composer chips next to the input, one set per bar. */
 export const SESSION_CHIPS: Record<SessionSlug, readonly string[]> = {
   adManager: [
-    "Account health",
-    "Review alerts",
-    "Shift budgets",
-    "Competitor ads",
-    "Schedule daily scan",
+    "Create new campaign",
+    "Optimize campaigns",
+    "Rebalance budgets",
+    "Audit my ad account",
   ],
   adCreator: ["New static ad", "Image to video", "Ad ideas", "UGC variant"],
   adStrategist: [
@@ -147,6 +146,14 @@ export const SESSION_CHIPS: Record<SessionSlug, readonly string[]> = {
   ],
 };
 
+/** Composer placeholder, one per bar. Short enough to stay on one line. */
+export const SESSION_PLACEHOLDERS: Record<SessionSlug, string> = {
+  adManager: "Ask anything about campaigns, budgets, or account health.",
+  adCreator: "Ask anything about creatives, hooks, or video ads.",
+  adStrategist: "Ask anything about strategy, competitors, or campaigns.",
+  businessProfile: "Ask anything about your brand, competitors, or keywords.",
+};
+
 function slugKey(slug?: string | null): SessionSlug {
   return slug && slug in SESSION_SUGGESTIONS
     ? (slug as SessionSlug)
@@ -161,4 +168,8 @@ export function suggestionsFor(
 
 export function chipsFor(slug?: string | null): readonly string[] {
   return SESSION_CHIPS[slugKey(slug)];
+}
+
+export function placeholderFor(slug?: string | null): string {
+  return SESSION_PLACEHOLDERS[slugKey(slug)];
 }

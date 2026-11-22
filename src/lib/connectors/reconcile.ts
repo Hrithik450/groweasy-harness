@@ -10,7 +10,7 @@
  */
 
 import type { Connector } from "@/lib/db";
-import { syncCronJobsForConnector } from "@/lib/cron/activation";
+import { deactivateCronJobsByRequires } from "@/lib/repositories";
 import { upsertConnector } from "@/lib/repositories/connectors.repo";
 
 /** How long a `running` scan may stay silent before it is presumed dead. */
@@ -41,7 +41,7 @@ export function reconcileStatus<T extends Connector | null | undefined>(
       providerSlug: row.providerSlug,
       status: "error",
     });
-    syncCronJobsForConnector(row.userId, row.slug, "error");
+    deactivateCronJobsByRequires(row.userId, row.slug);
   } catch (error) {
     console.warn(
       `[Connector] Could not release stale run for ${row.slug}:`,

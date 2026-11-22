@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth/session";
-import { getMetaOAuthLoginUrl, isMetaOAuthConfigured } from "@/lib/auth/meta";
-import { getPublicOrigin } from "@/lib/auth/public.origin";
+import {
+  getMetaOAuthLoginUrl,
+  getPublicOrigin,
+  getSessionFromRequest,
+  isMetaOAuthConfigured,
+} from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   const origin = getPublicOrigin(req);

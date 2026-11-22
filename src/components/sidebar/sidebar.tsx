@@ -3,8 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useState, useEffect, useRef } from "react";
-import type { SessionView, UserView } from "@/lib/core/session/view";
-import { PanelLeft, X, Settings, LogOut, UserRound } from "lucide-react";
+import type { PublicUser, Session } from "@/lib/db";
+import {
+  PanelLeft,
+  PanelLeftOpen,
+  X,
+  Settings,
+  LogOut,
+  UserRound,
+} from "lucide-react";
 import { useSidebarStore } from "@/store/sidebar.store";
 import { useSessionStore } from "@/store/session.store";
 import { useModalStore } from "@/store/modal.store";
@@ -18,7 +25,7 @@ import { BotDollAvatar, botVariantForRole } from "@/components/bot.doll.loader";
 export function SidebarBotAvatar({
   session,
 }: {
-  session: SessionView;
+  session: Session;
   index?: number;
 }) {
   return (
@@ -36,8 +43,8 @@ const MAX_LEFT_WIDTH = 360;
 const DEFAULT_LEFT_WIDTH = 260;
 
 interface SidebarProps {
-  initialSessions?: SessionView[];
-  initialUser?: UserView | null;
+  initialSessions?: Session[];
+  initialUser?: PublicUser | null;
 }
 
 export function Sidebar({
@@ -88,10 +95,14 @@ export function Sidebar({
         e.preventDefault();
         openSettingsModal();
       }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        toggleLeftCollapsed();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [openSettingsModal]);
+  }, [openSettingsModal, toggleLeftCollapsed]);
 
   const handleStartResize = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -382,6 +393,20 @@ export function Sidebar({
           </div>
         )}
       </aside>
+
+      {/* Reopen control: desktop only, shown only while collapsed. */}
+      {isLeftCollapsed && (
+        <button
+          id="sidebar-left-open-btn"
+          type="button"
+          onClick={toggleLeftCollapsed}
+          title="Show sidebar (⌘B)"
+          aria-label="Show sidebar"
+          className="hidden md:flex fixed left-3 top-3 z-50 h-8 w-8 items-center justify-center border border-border bg-card text-foreground shadow-sm hover:bg-muted transition-colors cursor-pointer"
+        >
+          <PanelLeftOpen className="w-4 h-4" />
+        </button>
+      )}
     </>
   );
 }

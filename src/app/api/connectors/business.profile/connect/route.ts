@@ -5,11 +5,11 @@ import {
   isAgentRunning,
   whenAgentIdle,
 } from "@/lib/core/agent/registry";
-import { ensureAgentForSession } from "@/lib/session/agent.host";
 import { MessageId } from "@/lib/llm/llm/brand";
 import { randomUUID } from "@/lib/utils/uuid";
-import { getAuthSessionFromRequest } from "@/lib/auth/session";
-import { activateCronJobsForConnector } from "@/lib/cron/activation";
+import { getAuthSessionFromRequest } from "@/lib/auth";
+import { activateCronJobsByRequires } from "@/lib/repositories";
+import { ensureAgentForSession } from "@/lib/session/agent.host";
 import {
   resolveSession,
   upsertConnector,
@@ -53,7 +53,6 @@ export async function POST(req: NextRequest) {
       slug: "businessProfile",
       title: "Brand Brain Analyzer",
       reuse: true,
-      // The analyzer is background machinery, not a chat the user owns.
       hidden: true,
     });
 
@@ -189,7 +188,7 @@ export async function POST(req: NextRequest) {
     }
 
     await ensureDefaultCronJobs(user.id, DEFAULT_BUSINESS_PROFILE_CRON_JOBS);
-    activateCronJobsForConnector(user.id, "businessProfile", false);
+    activateCronJobsByRequires(user.id, "businessProfile");
 
     return NextResponse.json({
       success: true,

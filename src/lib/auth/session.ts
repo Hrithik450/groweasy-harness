@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
-import type { UserRecord } from "@/lib/db";
+import type { PublicUser, User } from "@/lib/db";
 import { getUserByUserId } from "@/lib/services";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -8,12 +8,23 @@ export const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 const JWT_EXPIRY = "7d";
 
+/** A full user row or its already-sanitized public projection. */
+type SessionUser = User | PublicUser;
+
 function getAuthSecretKey(): Uint8Array {
   const secret = process.env.AUTH_SECRET;
   if (!secret) {
     throw new Error("AUTH_SECRET environment variable is not set");
   }
   return new TextEncoder().encode(secret);
+}
+
+/**
+ * Drops the credential hash before a user leaves the auth boundary.
+ */
+export function toPublicUser(user: SessionUser): PublicUser {
+  const { passwordHash: _passwordHash, ...safeUser } = user as User;
+  return safeUser;
 }
 
 export function sessionCookieOptions() {
@@ -29,9 +40,9 @@ export function sessionCookieOptions() {
 /**
  * Signs a short-lived JWT embedding the session user.
  */
-export async function createSession(user: UserRecord): Promise<string> {
+export async function createSession(user: SessionUser): Promise<string> {
   const secret = getAuthSecretKey();
-  return new SignJWT({ user })
+  return new SignJWT({ user: toPublicUser(user) })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(JWT_EXPIRY)
@@ -41,13 +52,14 @@ export async function createSession(user: UserRecord): Promise<string> {
 /**
  * Verifies a session JWT and returns the embedded user, or null if invalid/expired.
  */
-export async function verifySession(token: string): Promise<UserRecord | null> {
+export async function verifySession(token: string): Promise<PublicUser | null> {
   const secret = getAuthSecretKey();
   try {
     const { payload } = await jwtVerify(token, secret);
-    const u = (payload as { user: UserRecord }).user;
+    const u = (payload as { user?: SessionUser }).user;
     if (!u) return null;
-    return u;
+    // Tokens minted before the hash was stripped still carry it.
+    return toPublicUser(u);
   } catch {
     return null;
   }
@@ -58,7 +70,7 @@ export async function verifySession(token: string): Promise<UserRecord | null> {
  */
 export async function attachSessionCookie<T extends NextResponse>(
   response: T,
-  user: UserRecord,
+  user: SessionUser,
 ): Promise<T> {
   const token = await createSession(user);
   response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
@@ -71,7 +83,7 @@ export async function attachSessionCookie<T extends NextResponse>(
  */
 export async function getSessionFromRequest(
   req: Request | NextRequest,
-): Promise<UserRecord | null> {
+): Promise<PublicUser | null> {
   try {
     let token: string | undefined;
 
@@ -101,7 +113,9 @@ export async function getSessionFromRequest(
       const u = await verifySession(token);
       if (u?.id) {
         const userRes = await getUserByUserId(u.id);
-        if (userRes.success && userRes.data) return userRes.data;
+        if (userRes.success && userRes.data) {
+          return toPublicUser(userRes.data);
+        }
       }
     }
 
@@ -110,7 +124,7 @@ export async function getSessionFromRequest(
     if (anonId && anonId.trim()) {
       const anonRes = await getUserByUserId(anonId.trim());
       if (anonRes.success && anonRes.data) {
-        return anonRes.data;
+        return toPublicUser(anonRes.data);
       }
     }
   } catch {
@@ -120,7 +134,7 @@ export async function getSessionFromRequest(
 }
 
 // Names the proxy and route handlers were written against. Cookie-store reads
-// that need `next/headers` live in `@/lib/auth/session.server`.
+// that need `next/headers` live in `@/lib/auth`'s session.server module.
 export const AUTH_SESSION_COOKIE_NAME = SESSION_COOKIE_NAME;
 
 /** {@link sessionCookieOptions} under its original name. */
@@ -129,19 +143,19 @@ export function authSessionCookieOptions() {
 }
 
 /** {@link createSession} under its original name. */
-export function createAuthSession(user: UserRecord): Promise<string> {
+export function createAuthSession(user: SessionUser): Promise<string> {
   return createSession(user);
 }
 
 /** {@link verifySession} under its original name. */
-export function verifyAuthSession(token: string): Promise<UserRecord | null> {
+export function verifyAuthSession(token: string): Promise<PublicUser | null> {
   return verifySession(token);
 }
 
 /** {@link attachSessionCookie} under its original name. */
 export function attachAuthSession<T extends NextResponse>(
   response: T,
-  user: UserRecord,
+  user: SessionUser,
 ): Promise<T> {
   return attachSessionCookie(response, user);
 }
@@ -149,6 +163,6 @@ export function attachAuthSession<T extends NextResponse>(
 /** {@link getSessionFromRequest} under its original name. */
 export function getAuthSessionFromRequest(
   req: Request | NextRequest,
-): Promise<UserRecord | null> {
+): Promise<PublicUser | null> {
   return getSessionFromRequest(req);
 }

@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { getSessionViewByUserIdAndSessionId } from "@/lib/services";
-import { getSessionFromCookies } from "@/lib/auth/session.server";
+import { getSessionByUserIdAndSessionId } from "@/lib/services";
+import { getSessionFromCookies } from "@/lib/auth";
 import { readBarItemForSession } from "@/lib/detail.bar/service";
 import { GenerativeUIRenderer } from "@/components/generative.ui/renderer";
 import type { DailyReport } from "@/lib/detail.bar/types";
@@ -28,7 +28,7 @@ export default async function ReportPage({ params }: PageProps) {
   const user = await getSessionFromCookies();
   if (!user) redirect("/");
 
-  const sessionRes = await getSessionViewByUserIdAndSessionId(
+  const sessionRes = await getSessionByUserIdAndSessionId(
     user.id,
     sessionId,
   );

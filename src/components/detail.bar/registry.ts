@@ -8,17 +8,10 @@ import { AdManagerDetailBar } from "./sessions/ad-manager";
 import { AdCreatorDetailBar } from "./sessions/ad-creator";
 import { AdStrategistDetailBar } from "./sessions/ad-strategist";
 
-export interface DetailBarNavigationOptions {
-  /** Item creation time, used to resolve legacy non-anchor turn ids. */
-  createdAt?: string;
-  /** Chat that produced the item, when it differs from the bar's session. */
-  sourceSessionId?: string;
-}
-
 export interface DetailBarComponentProps<TData = unknown> {
   /** Only carried so the bar's card types can be inferred; never rendered. */
   data?: TData;
-  session?: import("@/lib/core/session/view").SessionView;
+  session?: import("@/lib/db").Session;
   isStreaming?: boolean;
   handleSubmit?: (
     content: string,
@@ -29,10 +22,6 @@ export interface DetailBarComponentProps<TData = unknown> {
     id: string;
     patch: Record<string, unknown>;
   }) => Promise<void>;
-  handleNavigation?: (
-    turnId: string,
-    options?: DetailBarNavigationOptions,
-  ) => void;
 }
 
 export const DETAIL_BAR_REGISTRY = {

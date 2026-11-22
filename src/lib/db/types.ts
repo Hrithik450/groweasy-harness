@@ -34,18 +34,16 @@ import {
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
-/** Compatibility aliases retained by the auth/storage layer. */
-export type UserRecord = User;
-export type NewUserRecord = NewUser;
+/**
+ * User row safe outside auth internals. The credential hash never crosses the
+ * boundary into client props, API responses, or cookies.
+ */
+export type PublicUser = Omit<User, "passwordHash">;
 
 // --- Sessions --------------------------------------------------------------
 
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
-
-/** Compatibility aliases retained by the legacy repositories. */
-export type SessionRecord = Session;
-export type NewSessionRecord = NewSession;
 
 /** Canonical session slugs seeded for each user. */
 export type SessionSlug = (typeof SESSION_SLUGS)[number];

@@ -28,6 +28,7 @@ description: "Senior brand-intelligence strategist that inspects a brand website
 1. Fetch the current business profile via `fetchBusinessProfile`. Determine cold start vs refresh.
 2. On refresh of the same brand: read existing `branding`, `keywords`, `geography`, and `competitors`; keep verified tokens and custom user edits; record all existing competitor names and domains.
 3. Pull supporting context when useful: Meta ad accounts, campaigns, ad sets, ads; Shopify products and features for store brands.
+4. Read existing competitor research with `fetchDetailBar` (field `competitorResearches`). Keep the competitor names, domains and keywords already covered so Step 4 does not duplicate them.
 
 ### Step 2: Brand inspection and design tokens
 
@@ -62,4 +63,6 @@ Scrape the primary website for:
 
 ### Step 5: Persist
 
-- Save the complete structured payload with the business profile persistence tool (`saveBusinessProfile`).
+1. Render the completed profile as a UI block with `renderUIBlock` first. Do not save until it passes.
+2. Save the complete structured payload with `updateBusinessProfile`.
+3. Save the new competitors and their ads with `saveCompetitorResearch`. Include only findings not already in `competitorResearches`, and pass the competitor report `blocks` spec you rendered so the finding opens on its own page.

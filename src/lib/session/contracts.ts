@@ -2,11 +2,8 @@
 
 import { z } from "zod";
 
-export { toSessionView } from "@/lib/core/session/view";
-export type { SessionView } from "@/lib/core/session/view";
-
-/** Shape the client validates a projected session against. */
-export const sessionViewSchema = z
+/** Shape the client validates a session payload against. */
+export const sessionSchema = z
   .object({
     id: z.string(),
     title: z.string().optional(),

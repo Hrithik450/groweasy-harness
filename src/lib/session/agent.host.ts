@@ -21,7 +21,7 @@ import {
 } from "@/lib/core/session/types";
 import type { Session as SessionRow } from "@/lib/db";
 
-/** Fields a header needs; a `SessionView` carries exactly these. */
+/** Fields a header needs; every stored session row carries these. */
 type SessionIdentity = Pick<SessionRow, "id" | "userId" | "createdAt">;
 
 /** Durable identity of a stored session, in agent terms. */

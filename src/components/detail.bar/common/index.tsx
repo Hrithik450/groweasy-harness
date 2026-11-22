@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { PanelRightClose, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, PanelRightClose, RefreshCw } from "lucide-react";
 import { useSidebarStore } from "@/store/sidebar.store";
 import { useBarRefresh } from "@/hooks/use.bar.refresh";
 import type { DetailBarField } from "@/lib/detail.bar/fields";
@@ -91,6 +92,25 @@ export function DetailBarRefresh({
       />
       {showLabel && <span>Refresh</span>}
     </button>
+  );
+}
+
+/** The one "View" affordance on a saved-card list, matching the Reports tab. */
+export function DetailBarViewLink({
+  href,
+  label = "View",
+}: {
+  href: string;
+  label?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="self-end inline-flex items-center gap-1 min-h-7 px-2.5 py-1 mt-0.5 border border-input bg-card text-foreground hover:bg-muted rounded-lg text-[11.5px] font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+    >
+      <span>{label}</span>
+      <ArrowRight className="w-3 h-3" aria-hidden="true" />
+    </Link>
   );
 }
 

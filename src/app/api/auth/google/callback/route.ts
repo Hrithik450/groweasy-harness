@@ -1,8 +1,11 @@
 import { rebindUserWithGoogle } from "@/lib/services";
 import { NextRequest, NextResponse } from "next/server";
-import { exchangeGoogleCodeForUser } from "@/lib/auth/google";
-import { attachSessionCookie, getSessionFromRequest } from "@/lib/auth/session";
-import { getPublicOrigin } from "@/lib/auth/public.origin";
+import {
+  attachSessionCookie,
+  exchangeGoogleCodeForUser,
+  getPublicOrigin,
+  getSessionFromRequest,
+} from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   const origin = getPublicOrigin(req);

@@ -119,8 +119,13 @@ export const catalog = defineCatalog(schema, {
           .optional()
           .describe("'dark' (default) for primary, 'light' for secondary"),
         disabled: z.boolean().optional(),
+        value: z
+          .string()
+          .optional()
+          .describe("value sent when pressed; defaults to the label"),
       }),
-      description: "Clickable button with label (max 2-3 words)",
+      description:
+        "Submit button. Pressing it commits the block with its value and any current selections.",
     },
     Link: {
       props: z.object({
@@ -236,7 +241,12 @@ export const catalog = defineCatalog(schema, {
           .string()
           .optional()
           .describe("value submitted when card is selected"),
-        selectable: z.boolean().optional(),
+        selectable: z
+          .boolean()
+          .optional()
+          .describe(
+            "compact choice card only: shows a radio and must NOT contain a Button; cards with an action are never selectable",
+          ),
         aspectRatio: z
           .enum(["9/16", "4/5", "1/1", "16/9", "3/2"])
           .optional()
@@ -251,7 +261,7 @@ export const catalog = defineCatalog(schema, {
           ),
       }),
       description:
-        "Surface container. Add children for composable content: Stack/Grid with Eyebrow, Heading, Text, Badge, and actions. When selectable=true, shows a radio indicator and acts as an interactive choice card within a `name` group.",
+        "Surface container. Two mutually exclusive modes: a compact choice card may set selectable=true (radio, no Button child); an action surface composes a Button child and must never be selectable.",
     },
     Grid: {
       props: z.object({
@@ -308,7 +318,7 @@ export const catalog = defineCatalog(schema, {
           ),
       }),
       description:
-        "The single submit control for a block: label (max 2-3 words) and optional statusText (max 3-5 words). Collects every selected value in the block and sends them as the user's answer.",
+        "Commit control for multi-select or several inline controls: label (max 2-3 words) and optional statusText (max 3-5 words). Not needed when a single selectable Card submits on click or a Button already commits.",
     },
     Image: {
       props: z.object({

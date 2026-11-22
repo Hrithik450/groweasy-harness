@@ -26,7 +26,6 @@ export function AdCreatorDetailBar({
   session,
   isStreaming,
   handleSubmit,
-  handleNavigation,
 }: DetailBarComponentProps<AdCreatorDetailBarData>) {
   const tabs = [
     { key: "ideas", label: "Ideas" },
@@ -86,7 +85,6 @@ export function AdCreatorDetailBar({
           session={session}
           isStreaming={isStreaming}
           handleSubmit={handleSubmit}
-          handleNavigation={handleNavigation}
         />
       </div>
     </div>

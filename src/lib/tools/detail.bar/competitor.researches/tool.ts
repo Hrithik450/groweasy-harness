@@ -8,6 +8,7 @@ import {
   upsertDetailBarItems,
   resolveDetailBarSession,
 } from "@/lib/detail.bar/service";
+import { validateAndNormalizeUI } from "@/lib/generative.ui";
 
 export const saveCompetitorResearchToolDefinition = {
   type: "function" as const,
@@ -15,7 +16,7 @@ export const saveCompetitorResearchToolDefinition = {
   preSkills: "competitor-research",
   description:
     "Prerequisite: competitor-research skill is a prerequisite.\n\n" +
-    "Saves a new competitive intelligence finding: competitor brands, search keywords, and winning ad IDs. Research rows are append-only; read previous research first and save only new findings.",
+    "Saves a new competitive intelligence finding as a UI-block spec into the Ad Strategist Competitor research tab: competitor brands, search keywords, and winning ad IDs. Research rows are append-only; read previous research first and save only new findings.",
   parameters: {
     type: "object",
     properties: {
@@ -27,7 +28,13 @@ export const saveCompetitorResearchToolDefinition = {
       content: {
         type: "string",
         description:
-          "20-30 words sentence strategic summary highlighting core findings, winning angles, pricing attacks, and creative takeaways.",
+          "20-30 words sentence strategic summary highlighting core findings, winning angles, pricing attacks, creative takeaways or anythiny etc.",
+      },
+      blocks: {
+        type: "object",
+        description:
+          "Flat UI-block spec { root, elements } for the research page: the same block you rendered in session.",
+        additionalProperties: true,
       },
       newCompetitors: {
         type: "array",
@@ -39,7 +46,7 @@ export const saveCompetitorResearchToolDefinition = {
         type: "array",
         items: { type: "string" },
         description:
-          "Array of high-performing hooks, category keywords, or angles identified (e.g. ['lifetime access']).",
+          "Array of category keywords, broad keywords or product/service keyword phrases (e.g. ['Whatsapp automation']).",
       },
       newAds: {
         type: "object",
@@ -48,27 +55,24 @@ export const saveCompetitorResearchToolDefinition = {
             type: "array",
             items: { type: "string" },
             description:
-              "Array of Meta Ad IDs or links for discovered static winning ads.",
+              "Array of Meta Ad IDs for discovered static winning ads.",
           },
           videoAds: {
             type: "array",
             items: { type: "string" },
             description:
-              "Array of Meta Ad IDs or links for discovered video winning ads.",
+              "Array of Meta Ad IDs for discovered video winning ads.",
           },
         },
         description: "Static and video ad IDs discovered during the research.",
       },
     },
-    required: ["title", "content", "newCompetitors"],
+    required: ["title", "content"],
   },
 };
 
 export type SaveCompetitorResearchArgs = Partial<
-  Omit<
-    CompetitorResearchItem,
-    "id" | "createdAt" | "turnId" | "sourceSessionId"
-  >
+  Omit<CompetitorResearchItem, "id" | "createdAt" | "sourceSessionId">
 >;
 
 export async function executeSaveCompetitorResearchTool(
@@ -113,6 +117,23 @@ export async function executeSaveCompetitorResearchTool(
   }
 
   try {
+    let blocks: Record<string, unknown> | undefined;
+    if (input.args?.blocks != null) {
+      const normalized = validateAndNormalizeUI(input.args.blocks);
+      if (!normalized) {
+        const errorMsg = "Missing required argument 'blocks'.";
+        return {
+          success: false,
+          data: {
+            contentParts: [{ type: "input_text", text: `Error: ${errorMsg}` }],
+          },
+          error: errorMsg,
+        };
+      }
+
+      blocks = normalized;
+    }
+
     const rawStatic = Array.isArray(newAds?.staticAds) ? newAds.staticAds : [];
     const rawVideo = Array.isArray(newAds?.videoAds) ? newAds.videoAds : [];
 
@@ -167,8 +188,6 @@ export async function executeSaveCompetitorResearchTool(
     const data: Record<string, unknown> = {
       title: title.trim(),
       content: (content || "").trim(),
-      turnId:
-        context?.turn !== undefined ? `turn-${context.turn}` : "",
       sourceSessionId: context?.sessionId ?? "",
       newCompetitors: Array.isArray(newCompetitors)
         ? newCompetitors.map((c) => String(c).trim()).filter(Boolean)
@@ -181,11 +200,18 @@ export async function executeSaveCompetitorResearchTool(
         videoAds: uniqueVideo,
       },
       createdAt: new Date().toISOString(),
+      ...(blocks !== undefined ? { blocks } : {}),
     };
 
     const [written] = upsertDetailBarItems(session, "competitorResearches", [
       { id, data },
     ]);
+
+    const writtenId = written?.id ?? id;
+    const url =
+      blocks !== undefined
+        ? ` View it at /c/${session.id}/research/${writtenId}.`
+        : "";
 
     return {
       success: true,
@@ -193,7 +219,7 @@ export async function executeSaveCompetitorResearchTool(
         contentParts: [
           {
             type: "input_text",
-            text: `Successfully saved competitor research "${String(data.title)}" as ${written?.id ?? id} in the session.${
+            text: `Successfully saved competitor research "${String(data.title)}" as ${writtenId} in the session. ${url}${
               droppedIds.length > 0
                 ? ` Dropped ${droppedIds.length} unverified ad reference(s) not returned by searchAdLibrary: ${droppedIds.join(", ")}.`
                 : ""

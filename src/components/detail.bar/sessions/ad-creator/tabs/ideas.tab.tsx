@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useBarPager } from "@/hooks/use.bar.pager";
 import { groupByDay } from "@/lib/utils/day.group";
 import { buildIdeaPrompt } from "@/lib/prompts/idea";
@@ -39,7 +38,7 @@ function IdeaMedia({
   );
 }
 
-/** Idea backlog for an ad-creator session: two equal cards per row. */
+/** Idea backlog for an ad-creator session: one card per row. */
 export function IdeasTab({
   session,
   isStreaming,
@@ -47,7 +46,6 @@ export function IdeasTab({
 }: AdCreatorTabProps) {
   const pager = useBarPager<Idea>(session?.id, "ideas");
   const groups = groupByDay(pager.items, (idea) => idea.createdAt);
-  const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
 
   if (pager.items.length === 0) {
     return (
@@ -60,22 +58,21 @@ export function IdeasTab({
   }
 
   return (
-    <div className="space-y-3 pb-6">
+    <div className="space-y-3 pb-6 font-sans">
       {groups.map((group) => (
         <section key={group.key} className="space-y-2">
           <div className="flex items-center gap-2">
-            <span className="shrink-0 text-[10.5px] font-bold uppercase tracking-wider font-mono text-muted-foreground">
+            <span className="shrink-0 text-[10.5px] font-bold uppercase tracking-wider font-sans text-muted-foreground">
               {group.label}
             </span>
             <span className="flex-1 h-px bg-border" />
-            <span className="shrink-0 text-[10.5px] font-mono text-muted-2">
+            <span className="shrink-0 text-[10.5px] font-sans text-muted-2">
               {group.items.length} {group.items.length === 1 ? "Idea" : "Ideas"}
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="flex flex-col gap-2.5">
             {group.items.map((idea) => {
-              const isOpen = Boolean(openIds[idea.id]);
               const formatLabel = [
                 idea.format === "video"
                   ? "Video"
@@ -98,9 +95,9 @@ export function IdeasTab({
               return (
                 <article
                   key={idea.id}
-                  className="h-full min-w-0 flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xs transition-all hover:border-brand/40 hover:shadow-sm"
+                  className="min-w-0 flex items-start gap-3 overflow-hidden rounded-2xl border border-border bg-card p-2.5 shadow-2xs transition-all hover:border-brand/40 hover:shadow-sm"
                 >
-                  <div className="relative aspect-[4/5] overflow-hidden bg-muted">
+                  <div className="relative w-[132px] sm:w-[148px] lg:w-[160px] shrink-0 self-start aspect-[4/5] overflow-hidden rounded-xl border border-border/70 bg-muted">
                     {idea.mediaUrl ? (
                       <IdeaMedia
                         url={idea.mediaUrl}
@@ -108,12 +105,12 @@ export function IdeasTab({
                         title={idea.title}
                       />
                     ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-muted-foreground">
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-2 text-center text-muted-foreground">
                         <Sparkles
-                          className="w-5 h-5 opacity-50"
+                          className="w-6 h-6 opacity-50"
                           aria-hidden="true"
                         />
-                        <span className="text-[9.5px] font-mono uppercase tracking-tight">
+                        <span className="text-[10px] font-sans uppercase tracking-tight">
                           {idea.format === "video"
                             ? "Video idea"
                             : "Static idea"}
@@ -122,93 +119,65 @@ export function IdeasTab({
                     )}
                   </div>
 
-                  <div className="flex flex-1 flex-col gap-2 p-3">
-                    <span className="inline-flex w-fit items-center text-[9.5px] font-bold tracking-[0.06em] uppercase font-mono bg-muted/90 text-muted-foreground border border-border/70 px-1.5 py-0.5 rounded-md">
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5 py-0.5">
+                    <span className="inline-flex w-fit items-center text-[9.5px] font-bold tracking-[0.06em] uppercase font-sans bg-muted/90 text-muted-foreground border border-border/70 px-1.5 py-0.5 rounded-md">
                       {sourceLabel}
                     </span>
 
-                    <h3 className="text-[12.5px] font-bold tracking-tight text-foreground leading-snug break-words line-clamp-1">
+                    <h3 className="text-[13px] font-bold tracking-tight text-foreground leading-snug break-words line-clamp-2">
                       {idea.title}
                     </h3>
 
-                    <p className="text-[11.5px] text-muted-foreground leading-snug break-words line-clamp-2">
+                    <p className="text-[12px] text-muted-foreground leading-snug break-words line-clamp-2">
                       {idea.description}
                     </p>
 
                     {hasDetails && (
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOpenIds((prev) => ({
-                              ...prev,
-                              [idea.id]: !prev[idea.id],
-                            }))
-                          }
-                          aria-expanded={isOpen}
-                          className="w-full flex items-center justify-between gap-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none"
-                        >
-                          <span className="text-foreground/80">View more</span>
-                          <ChevronDown
-                            className={`shrink-0 w-3.5 h-3.5 text-muted-2 transition-transform duration-250 ease-in-out ${
-                              isOpen ? "rotate-180 text-foreground/80" : ""
-                            }`}
-                            aria-hidden="true"
-                          />
-                        </button>
-
-                        <div
-                          className={`grid transition-[grid-template-rows,opacity] duration-250 ease-in-out ${
-                            isOpen
-                              ? "grid-rows-[1fr] opacity-100"
-                              : "grid-rows-[0fr] opacity-0 pointer-events-none"
-                          }`}
-                        >
-                          <div className="overflow-hidden">
-                            <div className="pt-1 space-y-1.5 text-[11px] leading-snug break-words text-muted-foreground">
-                              {formatLabel && (
-                                <p>
-                                  <span className="font-semibold text-foreground">
-                                    Format:
-                                  </span>{" "}
-                                  {formatLabel}
-                                </p>
-                              )}
-                              {idea.hook && (
-                                <p>
-                                  <span className="font-semibold text-foreground">
-                                    Hook:
-                                  </span>{" "}
-                                  {idea.hook}
-                                </p>
-                              )}
-                              {idea.makeFor && (
-                                <p>
-                                  <span className="font-semibold text-foreground">
-                                    What we make:
-                                  </span>{" "}
-                                  {idea.makeFor}
-                                </p>
-                              )}
-                              {idea.why && (
-                                <p>
-                                  <span className="font-semibold text-foreground">
-                                    Why:
-                                  </span>{" "}
-                                  {idea.why}
-                                </p>
-                              )}
-                            </div>
+                      <dl className="mt-0.5 space-y-1.5 text-[11px] leading-snug break-words">
+                        {formatLabel && (
+                          <div>
+                            <dt className="text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Format
+                            </dt>
+                            <dd className="text-foreground/80">
+                              {formatLabel}
+                            </dd>
                           </div>
-                        </div>
-                      </div>
+                        )}
+                        {idea.hook && (
+                          <div>
+                            <dt className="text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Hook
+                            </dt>
+                            <dd className="text-foreground/80">{idea.hook}</dd>
+                          </div>
+                        )}
+                        {idea.makeFor && (
+                          <div>
+                            <dt className="text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              What we make
+                            </dt>
+                            <dd className="text-foreground/80">
+                              {idea.makeFor}
+                            </dd>
+                          </div>
+                        )}
+                        {idea.why && (
+                          <div>
+                            <dt className="text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Why
+                            </dt>
+                            <dd className="text-foreground/80">{idea.why}</dd>
+                          </div>
+                        )}
+                      </dl>
                     )}
 
                     <button
                       type="button"
                       onClick={() =>
                         handleSubmit?.(buildIdeaPrompt(idea), {
-                          source: "detail-bar",
+                          source: "user",
                         })
                       }
                       disabled={isStreaming}

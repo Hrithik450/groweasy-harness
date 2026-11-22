@@ -1,6 +1,6 @@
 "use client";
 
-import type { SessionView } from "@/lib/core/session/view";
+import type { Session } from "@/lib/db";
 import React, { useEffect, useRef, useState } from "react";
 import { Loader2, ChevronLeft, X } from "lucide-react";
 import { useSidebarStore } from "@/store/sidebar.store";
@@ -23,17 +23,13 @@ const MAX_RIGHT_WIDTH = 580;
 const DEFAULT_RIGHT_WIDTH = 420;
 
 export interface DetailBarProps {
-  session: SessionView;
+  session: Session;
   initialData?: DetailBarState;
   isStreaming?: boolean;
   handleSubmit?: (
     content: string,
     options?: { source?: import("@/lib/session/prompt").PromptSource },
   ) => Promise<void> | void;
-  handleNavigation?: (
-    messageId: string,
-    options?: import("@/components/detail.bar/registry").DetailBarNavigationOptions,
-  ) => void;
 }
 
 export function DetailBar({
@@ -41,7 +37,6 @@ export function DetailBar({
   initialData,
   isStreaming = false,
   handleSubmit,
-  handleNavigation,
 }: DetailBarProps) {
   const [isDraggingRight, setIsDraggingRight] = useState(false);
   const [rightWidth, setRightWidth] = useState(DEFAULT_RIGHT_WIDTH);
@@ -181,7 +176,6 @@ export function DetailBar({
         isStreaming={isStreaming}
         handleSubmit={handleSubmit}
         handleUpdateData={handleUpdateData}
-        handleNavigation={handleNavigation}
       />
     );
 

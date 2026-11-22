@@ -7,10 +7,11 @@ import type {
   ProviderSlug,
 } from "@/lib/db";
 import type { ConnectorContext } from "@/lib/connectors/types";
-import { syncCronJobsForConnector } from "@/lib/cron/activation";
+import { deactivateCronJobsByRequires } from "@/lib/repositories";
 import { publish } from "@/lib/session/bus";
 import { userKey } from "@/lib/session/keys";
 import { SESSION_CONNECTOR_EVENT } from "@/lib/session/journal";
+import { publishOnboardingStatus } from "@/lib/onboarding/publish";
 import {
   AVAILABLE_CONNECTORS,
   toBrowserConnector,
@@ -48,6 +49,7 @@ function publishConnector(
       ) as unknown as Record<string, unknown>,
     },
   });
+  publishOnboardingStatus(userId);
 }
 
 /**
@@ -69,6 +71,7 @@ export async function upsertConnector(
         ) as unknown as Record<string, unknown>,
       },
     });
+    publishOnboardingStatus(result.userId);
     return { success: true, data: result };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -173,7 +176,7 @@ export async function disconnectConnectorBySlug(
 
     const data = repo.disconnectConnectorBySlug(userId, slug, instance);
     if (wasPrimary) {
-      syncCronJobsForConnector(userId, slug, "disconnected");
+      deactivateCronJobsByRequires(userId, slug);
     }
 
     publishConnector(userId, slug, instance);
@@ -194,7 +197,7 @@ export async function deleteConnector(
 ): Promise<Response<boolean>> {
   try {
     const data = repo.deleteConnector(userId, providerSlug, instance);
-    syncCronJobsForConnector(userId, providerSlug, null);
+    deactivateCronJobsByRequires(userId, providerSlug);
     publishConnector(userId, providerSlug, instance);
     return { success: true, data };
   } catch (error) {

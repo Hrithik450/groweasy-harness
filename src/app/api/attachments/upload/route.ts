@@ -1,6 +1,6 @@
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth/session";
+import { getSessionFromRequest } from "@/lib/auth";
 import {
   getMimeTypeFromExt,
   type ImageMediaType,

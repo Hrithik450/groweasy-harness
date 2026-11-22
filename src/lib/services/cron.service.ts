@@ -5,7 +5,9 @@ import { MessageId } from "@/lib/llm/llm/brand";
 import { randomUUID } from "@/lib/utils/uuid";
 import { enqueuePrompt, whenAgentIdle } from "@/lib/core/agent/registry";
 import { ensureAgentForSession } from "@/lib/session/agent.host";
+import { sessionEventsRepo } from "@/lib/session/persistence/events.repo";
 import { nextOccurrenceForTiming } from "@/lib/cron/schedule";
+import { publishOnboardingStatus } from "@/lib/onboarding/publish";
 import type { CronJob, NewCronJob } from "@/lib/db";
 import type { DefaultCronJobConfig } from "./default";
 import type { Response } from "./types";
@@ -18,10 +20,7 @@ import type { Response } from "./types";
 const runningJobs = new Set<string>();
 
 /** Next run time for a job's timing, or null when it cannot be computed. */
-function nextRunFor(
-  timing: CronJob["timing"],
-  from = new Date(),
-): Date | null {
+function nextRunFor(timing: CronJob["timing"], from = new Date()): Date | null {
   return nextOccurrenceForTiming(timing, from);
 }
 
@@ -42,7 +41,7 @@ export async function createCronJob(
         ? null
         : isImmediate
           ? new Date().toISOString()
-          : nextRunFor(data.timing)?.toISOString() ?? null;
+          : (nextRunFor(data.timing)?.toISOString() ?? null);
 
     const record = cronRepo.createCronJob({
       userId: data.userId,
@@ -169,8 +168,6 @@ export async function executeJob(
   }
   runningJobs.add(jobId);
 
-  const deliveredAt = new Date().toISOString();
-
   try {
     const session = sessionsRepo.getSessionByUserIdAndSessionId(
       job.userId,
@@ -187,12 +184,6 @@ export async function executeJob(
       `[CronService] Executing cron turn "${job.name}" (ID: ${job.id}) on session ${session.id}...`,
     );
 
-    // Delivery is the prompt entering the session, before the loop waits for
-    // the model; it stays observable even when the turn produces nothing.
-    cronRepo.updateCronJob(jobId, { lastDeliveryAt: deliveredAt });
-
-    // Same warm agent the chat uses: a scheduled turn queues behind a human
-    // one instead of racing it for the session log.
     await ensureAgentForSession(session);
     enqueuePrompt(
       session.id,
@@ -207,6 +198,19 @@ export async function executeJob(
       "queue",
     );
     await whenAgentIdle(session.id);
+
+    // The agent settling is not success; the turn's own end reason is.
+    const tail = await sessionEventsRepo.getLastTurnEnd(session.id);
+    if (tail?.type === "turn/end" && tail.data.reason.kind !== "completed") {
+      const reason = tail.data.reason;
+      const detail =
+        reason.kind === "error"
+          ? typeof reason.error === "string"
+            ? reason.error
+            : reason.error.message
+          : reason.kind;
+      throw new Error(`Cron turn ended with ${reason.kind}: ${detail}`);
+    }
 
     const finishedAt = new Date().toISOString();
     const next = job.timing.kind === "at" ? null : nextRunFor(job.timing);
@@ -241,6 +245,7 @@ export async function executeJob(
     return { success: false, error: errMsg };
   } finally {
     runningJobs.delete(jobId);
+    publishOnboardingStatus(job.userId);
   }
 }
 
@@ -279,4 +284,3 @@ export async function ensureDefaultCronJobs(
     return { success: false, error: message };
   }
 }
-

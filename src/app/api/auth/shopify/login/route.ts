@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth/session";
-import { getPublicOrigin } from "@/lib/auth/public.origin";
 import {
   buildShopifyOAuthLoginUrl,
+  getPublicOrigin,
+  getSessionFromRequest,
   isShopifyOAuthConfigured,
-} from "@/lib/auth/shopify";
+} from "@/lib/auth";
 
 /**
  * GET /api/auth/shopify/login

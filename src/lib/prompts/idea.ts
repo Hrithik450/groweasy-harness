@@ -1,5 +1,5 @@
 /**
- * Hidden prompt a user sends when they build an ad from a saved idea.
+ * Prompt a user sends when they build an ad from a saved idea.
  *
  * Client-safe: no filesystem or registry access, so UI components can import
  * this module without pulling the server-only prompt compiler into the bundle.

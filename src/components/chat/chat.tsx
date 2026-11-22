@@ -21,12 +21,15 @@ import { useChatStore, type PendingPrompt } from "@/store/chat.store";
 import { useChatNodes, useIsStreaming, usePagination } from "@/store/selectors";
 import type { ChatNode } from "./nodes";
 import { useSessionStore } from "@/store/session.store";
-import type { SessionView } from "@/lib/core/session/view";
+import type { Session } from "@/lib/db";
 import type { SessionJournalChange } from "@/lib/session/journal";
 import type { DetailBarState } from "@/lib/detail.bar/state";
 import { ChatHeader } from "./header";
 import { ChatEmptyState } from "./empty";
-import { chipsFor } from "@/lib/constants/session.suggestions";
+import {
+  chipsFor,
+  placeholderFor,
+} from "@/lib/constants/session.suggestions";
 import { DetailBar } from "./detail.bar";
 import { TurnView, UserMarkdown } from "./turn";
 import { ChatInputForm } from "./input.form";
@@ -34,7 +37,7 @@ import { ChiefThinking } from "../chief.thinking";
 import { BotDollLoader, botVariantForRole } from "../bot.doll.loader";
 
 interface MainChatProps {
-  initialSession: SessionView;
+  initialSession: Session;
   initialJournal: SessionJournalChange;
   initialDetailBar: DetailBarState;
 }
@@ -476,6 +479,7 @@ export function Chat({
                 {isStreaming && (
                   <ChiefThinking
                     agentName={initialSession.title}
+                    slug={initialSession.slug}
                     avatarVariant={botVariantForRole(initialSession.slug)}
                   />
                 )}
@@ -506,7 +510,7 @@ export function Chat({
               onKeyDown={handleKeyDown}
               isStreaming={isStreaming}
               onStop={stopStream}
-              placeholder={`Ask ${initialSession.title} or request a marketing campaign...`}
+              placeholder={placeholderFor(initialSession.slug)}
             />
           </div>
         </div>
@@ -517,7 +521,6 @@ export function Chat({
         isStreaming={isStreaming}
         initialData={initialDetailBar}
         handleSubmit={handleSendMessage}
-        handleNavigation={handleNavigation}
       />
     </div>
   );

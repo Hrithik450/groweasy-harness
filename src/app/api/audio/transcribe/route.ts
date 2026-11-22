@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { toFile } from "openai";
-import { getSessionFromRequest } from "@/lib/auth/session";
+import { getSessionFromRequest } from "@/lib/auth";
 import { getOpenAIClient } from "@/lib/core/agent/client";
 
 export const maxDuration = 60;

@@ -278,6 +278,35 @@ export class SessionEventsRepository {
       .get();
   }
 
+  /** Last turn boundary, with its outcome payload. */
+  async getLastTurnEnd(
+    sessionId: SessionId | string,
+  ): Promise<SessionEvent | undefined> {
+    const row = getDb()
+      .select({
+        seq: sessionEvents.seq,
+        time: sessionEvents.time,
+        data: sessionEvents.data,
+      })
+      .from(sessionEvents)
+      .where(
+        and(
+          eq(sessionEvents.sessionId, sessionId),
+          eq(sessionEvents.type, "turn/end"),
+        ),
+      )
+      .orderBy(desc(sessionEvents.seq))
+      .limit(1)
+      .get();
+    if (!row) return undefined;
+    return {
+      type: "turn/end",
+      time: row.time,
+      seq: row.seq as SessionEvent["seq"],
+      data: row.data as Extract<SessionEvent, { type: "turn/end" }>["data"],
+    };
+  }
+
   /** Read one event range and the cursor pointing at the page before it. */
   private readWindow(
     sessionId: SessionId | string,

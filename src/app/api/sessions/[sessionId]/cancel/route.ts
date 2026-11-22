@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAuthSessionFromRequest } from "@/lib/auth/session";
-import { getOwnedSessionById } from "@/lib/repositories/sessions.repo";
+import { getAuthSessionFromRequest } from "@/lib/auth";
+import { getOwnedSessionById } from "@/lib/repositories";
 import { cancelAgent } from "@/lib/core/agent/registry";
 
 /**

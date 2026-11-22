@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app.shell";
 import { getSessionsByUserId } from "@/lib/services";
-import { getSessionFromCookies } from "@/lib/auth/session.server";
+import { getSessionFromCookies } from "@/lib/auth";
 
 export const instant = false;
 

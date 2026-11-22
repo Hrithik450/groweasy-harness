@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionJournal } from "@/lib/services";
-import { getAuthSessionFromRequest } from "@/lib/auth/session";
-import { getOwnedSessionById } from "@/lib/repositories/sessions.repo";
+import { getAuthSessionFromRequest } from "@/lib/auth";
+import { getOwnedSessionById } from "@/lib/repositories";
 
 export async function GET(
   req: Request,

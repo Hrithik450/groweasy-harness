@@ -1,10 +1,11 @@
 "use client";
 
-import { FileText, MessageSquare, ArrowUpRight } from "lucide-react";
+import { FileText } from "lucide-react";
 import { useBarPager } from "@/hooks/use.bar.pager";
 import {
   DetailBarEmptyState,
   DetailBarLoadOlder,
+  DetailBarViewLink,
 } from "@/components/detail.bar/common";
 import type {
   AdStrategistDetailBarData,
@@ -26,10 +27,9 @@ function briefDate(brief: CampaignBrief): string | undefined {
   return undefined;
 }
 
-/** Saved campaign briefs; only briefs written in this session are jumpable. */
+/** Saved campaign briefs; rows with a saved page open their own route. */
 export function CampaignBriefsTab({
   session,
-  handleNavigation,
 }: DetailBarTabProps<AdStrategistDetailBarData>) {
   const pager = useBarPager<CampaignBrief>(session?.id, "campaignBriefs");
 
@@ -46,23 +46,12 @@ export function CampaignBriefsTab({
   return (
     <div className="space-y-3 pb-6">
       {pager.items.map((brief) => {
-        const canJump = Boolean(brief.turnId);
-        const jump = () => {
-          if (canJump && brief.turnId) {
-            handleNavigation?.(brief.turnId, {
-              createdAt: brief.createdAt,
-              sourceSessionId: brief.sourceSessionId,
-            });
-          }
-        };
+        const hasSpec = Boolean(brief.blocks);
 
         return (
           <article
             key={brief.id}
-            onClick={canJump ? jump : undefined}
-            className={`group relative rounded-2xl p-4 border border-border bg-card hover:border-brand/40 hover:shadow-sm transition-all shadow-2xs ${
-              canJump ? "cursor-pointer" : ""
-            }`}
+            className="group relative rounded-2xl p-4 border border-border bg-card hover:border-brand/40 hover:shadow-sm transition-all shadow-2xs"
           >
             {/* Top Row: Title + Date */}
             <div className="flex items-start justify-between gap-2.5 mb-2">
@@ -81,23 +70,14 @@ export function CampaignBriefsTab({
               </p>
             ) : null}
 
-            {/* Footer: Jump to chat */}
-            {canJump && (
+            {/* Footer: open the saved page when one exists. */}
+            {hasSpec ? (
               <div className="flex items-center justify-end pt-2.5 border-t border-border-subtle">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    jump();
-                  }}
-                  className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground group-hover:text-brand transition-colors shrink-0 cursor-pointer active:scale-95"
-                >
-                  <MessageSquare className="w-3 h-3 text-muted-2 group-hover:text-brand" />
-                  <span>Jump to chat</span>
-                  <ArrowUpRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </button>
+                <DetailBarViewLink
+                  href={`/c/${session?.id ?? ""}/briefs/${encodeURIComponent(brief.id)}`}
+                />
               </div>
-            )}
+            ) : null}
           </article>
         );
       })}

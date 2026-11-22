@@ -1,4 +1,5 @@
 import * as cronRepo from "@/lib/repositories/cron.repo";
+import { isAgentRunning } from "@/lib/core/agent/registry";
 import { executeJob } from "@/lib/services/cron.service";
 
 /**
@@ -9,7 +10,11 @@ class CronWorker {
   private timer: NodeJS.Timeout | null = null;
   private isProcessing = false;
   private intervalMs = 30_000; // 30 seconds
-  private concurrencyLimit = 2; // Max parallel agent turns on VPS
+  private concurrencyLimit = 100; // Max parallel cron turns across sessions
+  /** Pending job id -> session id; a repeated due tick never duplicates. */
+  private queue = new Map<string, string>();
+  /** Running job id -> session id; the session half prevents collisions. */
+  private active = new Map<string, string>();
 
   /**
    * Starts the background cron worker loop.
@@ -65,19 +70,20 @@ class CronWorker {
       const now = new Date().toISOString();
       const dueJobs = cronRepo.findDueCronJobs(now);
 
-      if (dueJobs.length === 0) {
-        return;
+      if (dueJobs.length > 0) {
+        console.log(
+          `[CronWorker] Found ${dueJobs.length} due cron job(s) ready for execution.`,
+        );
+        // Queue by job id: a missed month is still one entry per job, not one
+        // per missed occurrence. A busy session keeps its job queued.
+        for (const job of dueJobs) {
+          this.enqueue(job.id, job.sessionId);
+        }
       }
 
-      console.log(
-        `[CronWorker] Found ${dueJobs.length} due cron job(s) ready for execution.`,
-      );
-
-      // Process with concurrency limit to protect VPS resources and avoid rate limits
-      for (let i = 0; i < dueJobs.length; i += this.concurrencyLimit) {
-        const batch = dueJobs.slice(i, i + this.concurrencyLimit);
-        await Promise.allSettled(batch.map((job) => executeJob(job.id)));
-      }
+      // Always retry the backlog: a human turn that was running last tick
+      // must not strand an already-queued job.
+      this.drain();
     } catch (err) {
       console.error("[CronWorker] Error during tick cycle:", err);
     } finally {
@@ -85,13 +91,60 @@ class CronWorker {
     }
   }
 
+  /** Whether this job is actively executing in the worker. */
+  public isRunning(jobId: string): boolean {
+    return this.active.has(jobId);
+  }
+
+  /** Queue one job at most once, even if several ticks find it due. */
+  private enqueue(jobId: string, sessionId: string): void {
+    if (!this.queue.has(jobId) && !this.active.has(jobId)) {
+      this.queue.set(jobId, sessionId);
+    }
+  }
+
+  /** Start queued jobs while respecting global and per-session concurrency. */
+  private drain(): void {
+    while (this.active.size < this.concurrencyLimit) {
+      const busy = new Set(this.active.values());
+      const next = [...this.queue].find(
+        ([, sessionId]) =>
+          !busy.has(sessionId) && !isAgentRunning(sessionId),
+      );
+      if (!next) return;
+
+      const [jobId, sessionId] = next;
+      this.queue.delete(jobId);
+      this.active.set(jobId, sessionId);
+
+      void executeJob(jobId)
+        .catch((error) => {
+          console.error(`[CronWorker] Job ${jobId} failed:`, error);
+        })
+        .finally(() => {
+          this.active.delete(jobId);
+          this.drain();
+        });
+    }
+  }
+
   /**
-   * Triggers an immediate execution for a specific job without waiting for the next tick.
+   * Queue a job for immediate execution without waiting for the next tick.
+   * If its session is busy, the job waits instead of being dropped.
    */
   public async triggerNow(
     jobId: string,
   ): Promise<{ success: boolean; error?: string }> {
-    return executeJob(jobId);
+    const job = cronRepo.getCronJobById(jobId);
+    if (!job) {
+      return { success: false, error: `Cron job ${jobId} not found` };
+    }
+    if (job.status !== "active") {
+      return { success: false, error: `Cron job ${jobId} is not active` };
+    }
+    this.enqueue(job.id, job.sessionId);
+    this.drain();
+    return { success: true };
   }
 }
 

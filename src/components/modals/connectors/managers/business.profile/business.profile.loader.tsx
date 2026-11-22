@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BotDollAvatar } from "@/components/bot.doll.loader";
+import { BusinessProfileProcess } from "@/components/business.profile/process.feed";
 
 export const BUSINESS_PROFILE_LOADING_MESSAGES: string[] = [
   "Connecting to your website and mapping site architecture...",
@@ -75,15 +76,17 @@ export function BusinessProfileAnalysisLoader() {
           Hold on, this deep scan may take up to 5 minutes
         </h4>
         <div className="min-h-[56px] mt-2 flex items-start justify-center">
-          <p
-            className={`text-base sm:text-[18px] text-muted-foreground leading-relaxed transition-all duration-250 ease-in-out ${
+          <div
+            className={`transition-all duration-250 ease-in-out ${
               fade
                 ? "opacity-100 transform translate-y-0"
                 : "opacity-0 transform -translate-y-1"
             }`}
           >
-            {BUSINESS_PROFILE_LOADING_MESSAGES[messageIndex]}
-          </p>
+            <BusinessProfileProcess
+              fallback={BUSINESS_PROFILE_LOADING_MESSAGES[messageIndex]}
+            />
+          </div>
         </div>
       </div>
     </div>

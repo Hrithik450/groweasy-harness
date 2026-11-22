@@ -24,7 +24,7 @@ export function Hero() {
               variant="primary"
               className="flex-auto max-[980px]:flex-1 max-[600px]:w-full max-[600px]:flex-none"
             >
-              Start now
+              Get started
             </LandingButton>
             <LandingButton
               href="#one"

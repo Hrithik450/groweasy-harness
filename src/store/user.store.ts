@@ -1,10 +1,10 @@
 "use client";
 
 import { create } from "zustand";
-import type { UserRecord } from "@/lib/db";
+import type { PublicUser } from "@/lib/db";
 
 interface UserState {
-  user: UserRecord | null;
+  user: PublicUser | null;
   isLoading: boolean;
   logout: () => Promise<void>;
 }

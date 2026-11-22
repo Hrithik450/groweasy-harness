@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthSessionFromRequest } from "@/lib/auth/session";
+import { getAuthSessionFromRequest } from "@/lib/auth";
 import { disconnectConnectorBySlug } from "@/lib/services";
 
 /**

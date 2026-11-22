@@ -441,10 +441,6 @@ html[data-sidebar-left="collapsed"] #sidebar-left {
   border-right-width: 0px !important;
 }
 
-html[data-sidebar-left="collapsed"] #sidebar-left-open-btn {
-  display: flex !important;
-}
-
 /* Route panels slide in from the right edge, like a sheet over the chat. */
 @keyframes panelSlideInRight {
   from {

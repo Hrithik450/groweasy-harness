@@ -13,7 +13,7 @@
 import { MessageId } from "@/lib/llm/llm/brand";
 import type { Message } from "@/lib/llm/llm/message";
 import type { SessionEvent } from "@/lib/core/session/events";
-import { cronTurnSet, projectCompaction } from "@/lib/core/compaction/region";
+import { projectCompaction } from "@/lib/core/compaction/region";
 
 /**
  * Derive the full model-visible conversation from session events.
@@ -28,18 +28,12 @@ export function toChatMessages(
   const messages: Message[] = [];
   const projection = projectCompaction(events);
   const emittedCheckpoints = new Set<string>();
-  const cronTurns = cronTurnSet(events);
-  let currentTurn = 0;
   const system = instructions?.trim();
   if (system) {
     messages.push({ role: "system", content: system });
   }
 
   for (const event of events) {
-    if (event.type === "turn/start" || event.type === "step/start") {
-      currentTurn = event.data.turn;
-    }
-
     const checkpoint = projection.checkpointAtStart.get(event.seq);
     if (checkpoint?.messageContent !== undefined) {
       if (checkpoint.messageContent.length > 0) {
@@ -56,15 +50,6 @@ export function toChatMessages(
       emittedCheckpoints.add(checkpoint.compactionId);
     }
     if (projection.shadowedSeqs.has(event.seq)) continue;
-
-    // Cron turns are automation noise for the model: their tool traffic is
-    // the bulk of a long session. Checkpoint summaries still replay.
-    const isCheckpointMessage =
-      event.type === "user/message" &&
-      event.data.source?.kind === "compact-checkpoint";
-    const explicitTurn = (event.data as { turn?: unknown }).turn;
-    const turn = typeof explicitTurn === "number" ? explicitTurn : currentTurn;
-    if (!isCheckpointMessage && cronTurns.has(turn)) continue;
 
     switch (event.type) {
       case "user/message": {

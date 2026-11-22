@@ -1,11 +1,10 @@
 ---
 name: daily-report
-description: "Daily strategist report that reads the latest campaigns, research, briefs, ideas, creatives, alerts, and suggestions, then saves one compact UI-block report per day covering what changed and everything created yesterday."
+description: "Daily report that reads the latest campaigns, research, briefs, ideas, creatives, alerts, and suggestions, then saves one compact UI-block report per day covering what changed and everything created yesterday."
 ---
 
 ## Rules
 
-- **One report per day:** the stored id is today's date, so re-running the same day updates that report.
 - **Lead with the biggest change:** a `critical` alert takes the headline. Otherwise rank by money impact, then by size of the period-over-period change.
 - **Compare equal periods:** the day against the previous day, and against the account's 28-day average for the same objective. Never compare a partial period with a full one.
 - **Today's moves:** up to 3 informational moves. No buttons or per-item actions; the reader applies them manually.
@@ -29,11 +28,11 @@ description: "Daily strategist report that reads the latest campaigns, research,
 
 ### Step 1: Read the latest inputs
 
-Use `fetchDetailBar` with small limits. Skip a list that is empty.
+Use `fetchDetailBar` for both current context and the report day. It accepts optional `startDate`/`endDate`; when present, the response includes `count` and the rows created inside that inclusive range. Skip a list that is empty.
 
 1. `campaigns`: yesterday vs the day before and the 28-day average (spend, purchases, CPA, revenue, ROAS, AOV, conversion rate), plus which ads won or stopped.
-2. `competitorResearches`: newest findings only (limit 1-2).
-3. `alerts` and `suggestions`: critical alerts first.
+2. For `ideas`, `creatives`, `competitorResearches`, `campaignBriefs`, `alerts`, and `suggestions`, call `fetchDetailBar` once per field with `startDate` and `endDate` both set to the report day (`YYYY-MM-DD`). Use each response's `count` as the work-generated number and its `items` for titles/details. If the report covers a different day, use that day instead.
+3. `competitorResearches`, `alerts`, and `suggestions`: newest rows only for the latest context (limit 4-6).
 4. `campaignBriefs`, `ideas`, `creatives`: only what shipped, was queued or was changed since the last report.
 
 ### Step 2: Choose the headline
@@ -53,11 +52,10 @@ The reference example is the required output bar, not inspiration. Match its sec
 2. **Section header.** Accent Eyebrow number + `h1` Heading on the left, uppercase `xs` meta Text on the right, then a Separator.
 3. **Color roles.** `dark` for the short version and proof, `accent` for the single biggest move, `light` as default, `muted` for quiet caveats.
 4. **Type hierarchy.** `h1` for titles; `h2` for campaigns, ads and moves; `h6` for idea and alert names; Eyebrow `xl` for big numbers and `sm` for labels; Text `lg` for findings, `sm` for body, `xs` for meta and evidence.
-5. **Label-then-value pairs.** Evidence goes last and small.
-6. **Layout grids.** 3 columns for findings, 4 for stats, 2 for paired panels; use `spans` for asymmetric rows.
-7. **Data components.** ProgressBar for weekly pace, Table for campaigns, market and work, Badge for winner / waste.
-8. **No actionables.** Never include buttons, per-item actions or a task list. Today's moves are informational rows the reader applies manually.
-9. **No fallback.** If validation fails, correct the block and render again. Never switch to Markdown.
+5. **Layout grids.** 3 columns for findings, 4 for stats, 2 for paired panels; use `spans` for asymmetric rows.
+6. **Data components.** ProgressBar for weekly pace, Table for campaigns, market and work, Badge for winner / waste.
+7. **No actionables.** Never include buttons, per-item actions or a task list. Today's moves are informational rows the reader applies manually.
+8. **No fallback.** If validation fails, correct the block and render again. Never switch to Markdown.
 
 **Sections, in this order (omit any the data can't support):**
 
@@ -72,13 +70,6 @@ The reference example is the required output bar, not inspiration. Match its sec
 - **08 Today's moves:** up to 3 informational rows, `Grid columns: 6` with spans `[1,2,3]`: number, name + line, Format / Why. No buttons.
 
 **Never include:** buttons, per-item actions, a task list, links to ads, accordions, or a Markdown fallback.
-
-### Step 4: Save with `updateDailyReport`
-
-- If validation fails, fix the spec and retry.
-- Quote the exact report URL the tool returns. Never build one yourself.
-- After saving, if the block does not already end in an interactive question, render a small single-select Chips + SubmitBar: "What's next?" with up to 4 relevant options (create ads from today's move, adjust the budget, open the campaign, review this report). If it already asks, keep it and make its options relevant.
-- Keep this as a short follow-up block; never force a question into the report's reference layout.
 
 ## Reference example
 
@@ -282,10 +273,8 @@ Below is the required daily report output standard, not inspiration. Your report
 }
 </ui-block>
 
-## Before saving
+### Step 4: Save with `updateDailyReport`
 
-- Every number traces to a tool result; every estimate is labelled with its basis.
-- Headline is the biggest change (or the critical alert), 8 words or fewer.
-- Up to 3 informational moves; no buttons, links, accordions or task list.
-- Quiet day: one line, no table.
-- JSON valid, element IDs unique, child references resolve.
+- Render the complete report with `renderUIBlock` first. Only after it passes, save the same `blocks`; on to the daily report, via `updateDailyReport`.
+- If validation fails, fix the spec and retry.
+- Quote the exact report URL the tool returns. Never build one yourself.

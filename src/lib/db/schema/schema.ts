@@ -23,6 +23,8 @@ export const users = sqliteTable(
     emailVerified: integer("email_verified", { mode: "boolean" }).default(
       false,
     ),
+    passwordHash: text("password_hash"),
+    onboardedAt: text("onboarded_at"),
     createdAt: text("created_at")
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -37,8 +39,8 @@ export const users = sqliteTable(
 );
 
 // 2. Sessions Table
-// `hidden` is the single visibility flag: the persistence repository, the
-// client-facing `SessionView`, and the session listing all read it.
+// `hidden` is the single visibility flag: the persistence repository and the
+// session listing both read it.
 export const sessions = sqliteTable(
   "sessions",
   {
@@ -244,8 +246,6 @@ export const cronJobs = sqliteTable(
     /** Connector slug gating the job; null means always eligible. */
     requires: text("requires"),
     lastRunAt: text("last_run_at"),
-    /** When the prompt actually entered the target session. */
-    lastDeliveryAt: text("last_delivery_at"),
     lastError: text("last_error"),
     nextRunAt: text("next_run_at"),
     /** Activity flag only; a run's outcome lives in lastRunAt/lastError. */
