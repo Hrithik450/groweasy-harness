@@ -69,7 +69,7 @@ const TOOL_LABELS: Record<string, ToolLabel> = {
 };
 
 /** One-line message shown for every tool/turn failure. */
-export const USER_ERROR_MESSAGE = "Got some error — fixing it soon.";
+export const USER_ERROR_MESSAGE = "That step hit a snag — I’m on it.";
 
 function humanizeToolName(name: string): string {
   const spaced = name

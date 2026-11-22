@@ -141,19 +141,21 @@ This is a one-shot example of a high-quality campaign brief built as a `<ui-bloc
 
     "msg_h": { "type": "Heading", "props": { "text": "Message", "level": "h2" } },
     "msg_card": { "type": "Card", "props": { "variant": "dark", "eyebrow": "Headline Idea", "title": "Fresh-Pressed, Gift-Boxed", "description": "Fresh-pressed oils, gift-boxed for Diwali." } },
-    "msg_cols": { "type": "Columns", "props": { "columns": [
-      { "title": "Press Date", "items": ["Printed on every bottle", "Gap: no competitor ad shows it"] },
-      { "title": "Wood-Pressed", "items": ["No heat in the process", "Wins in 2 of 7 competitor ads"] },
-      { "title": "Our Mill", "items": ["Made at our Mysuru mill", "Proven in our own ads"] }
-    ] } },
+    "msg_cols": { "type": "Grid", "props": { "columns": 3 }, "children": ["msg_c1", "msg_c2", "msg_c3"] },
+    "msg_c1": { "type": "Card", "props": {}, "children": ["msg_c1_t"] },
+    "msg_c1_t": { "type": "Text", "props": { "text": "Press Date · Printed on every bottle · Gap: no competitor ad shows it." } },
+    "msg_c2": { "type": "Card", "props": {}, "children": ["msg_c2_t"] },
+    "msg_c2_t": { "type": "Text", "props": { "text": "Wood-Pressed · No heat in the process · Wins in 2 of 7 competitor ads." } },
+    "msg_c3": { "type": "Card", "props": {}, "children": ["msg_c3_t"] },
+    "msg_c3_t": { "type": "Text", "props": { "text": "Our Mill · Made at our Mysuru mill · Proven in our own ads." } },
 
     "offer_h": { "type": "Heading", "props": { "text": "Offer", "level": "h2" } },
     "offer_card": { "type": "Card", "props": { "title": "₹999 For Three Oils", "badge": "Diwali", "description": "Framed as ₹333 a bottle; ships before Diwali." } },
 
     "proof_h": { "type": "Heading", "props": { "text": "Proof", "level": "h2" } },
-    "proof_cols": { "type": "Columns", "props": { "columns": [
-      { "title": "Verified", "items": ["Press date on every bottle", "Mill footage in our unboxing video"] }
-    ] } },
+    "proof_cols": { "type": "Grid", "props": { "columns": 1 }, "children": ["proof_c1"] },
+    "proof_c1": { "type": "Card", "props": {}, "children": ["proof_c1_t"] },
+    "proof_c1_t": { "type": "Text", "props": { "text": "Verified · Press date on every bottle · Mill footage in our unboxing video." } },
     "proof_alert": { "type": "Alert", "props": { "title": "Proof Gap", "message": "No customer reviews yet; add real ones before scaling spend.", "type": "warning" } },
 
     "plan_h": { "type": "Heading", "props": { "text": "Creative Plan", "level": "h2" } },
@@ -199,15 +201,19 @@ This is a one-shot example of a high-quality campaign brief built as a `<ui-bloc
 
     "judge_h": { "type": "Heading", "props": { "text": "How We Judge It", "level": "h2" } },
     "judge_grid": { "type": "Grid", "props": { "columns": 2, "stretchLast": true }, "children": ["j_cpa", "j_roas", "j_day"] },
-    "j_cpa": { "type": "Metric", "props": { "label": "CPA Baseline", "value": "₹610", "variant": "dark" } },
-    "j_roas": { "type": "Metric", "props": { "label": "ROAS Floor", "value": "2.4" } },
-    "j_day": { "type": "Metric", "props": { "label": "Check-In", "value": "Day 7 · 28 Nov" } },
+    "j_cpa": { "type": "Card", "props": { "variant": "dark" }, "children": ["j_cpa_h"] },
+    "j_cpa_h": { "type": "Heading", "props": { "text": "CPA Baseline · ₹610", "level": "h2" } },
+    "j_roas": { "type": "Card", "props": {}, "children": ["j_roas_h"] },
+    "j_roas_h": { "type": "Heading", "props": { "text": "ROAS Floor · 2.4", "level": "h2" } },
+    "j_day": { "type": "Card", "props": {}, "children": ["j_day_h"] },
+    "j_day_h": { "type": "Heading", "props": { "text": "Check-In · Day 7 · 28 Nov", "level": "h2" } },
 
     "avoid_h": { "type": "Heading", "props": { "text": "Avoid", "level": "h2" } },
-    "avoid_cols": { "type": "Columns", "props": { "columns": [
-      { "title": "Words", "items": ["Chemical-free", "Cures", "Best in India"] },
-      { "title": "Failed Angle", "items": ["Flat-discount statics, CPA ₹890 in September"] }
-    ] } },
+    "avoid_cols": { "type": "Grid", "props": { "columns": 2 }, "children": ["avoid_c1", "avoid_c2"] },
+    "avoid_c1": { "type": "Card", "props": {}, "children": ["avoid_c1_t"] },
+    "avoid_c1_t": { "type": "Text", "props": { "text": "Words · Chemical-free · Cures · Best in India." } },
+    "avoid_c2": { "type": "Card", "props": {}, "children": ["avoid_c2_t"] },
+    "avoid_c2_t": { "type": "Text", "props": { "text": "Failed Angle · Flat-discount statics, CPA ₹890 in September." } },
 
     "comp_h": { "type": "Heading", "props": { "text": "Competitors", "level": "h2" } },
     "comp_grid": { "type": "Grid", "props": { "columns": 2 }, "children": ["comp_1", "comp_2"] },

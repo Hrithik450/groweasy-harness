@@ -404,6 +404,7 @@ export function TurnView({
 
           {uiBlocks.map((node) => (
             <div
+              id={`ui-block-${node.seq}`}
               key={`ui-block-${node.seq}`}
               className="w-full max-w-full min-w-0"
             >

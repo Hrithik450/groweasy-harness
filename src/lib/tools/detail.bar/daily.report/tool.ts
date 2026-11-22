@@ -32,7 +32,7 @@ export const updateDailyReportToolDefinition = {
       blocks: {
         type: "object",
         description:
-          "Flat UI-block spec { root, elements } for the report page: Stack root with Heading, Text, Metric, Table, and chart elements.",
+          "Flat UI-block spec { root, elements } for the report page: Stack root with Heading, Text, Table, cards, and chart elements.",
         additionalProperties: true,
       },
     },

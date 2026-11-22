@@ -72,6 +72,7 @@ export async function executeListVoiceCatalogTool(
         `- **Gender**: ${v.gender}`,
         `- **Accent**: ${v.accent}`,
         `- **Description**: ${v.description}`,
+        `- **previewUrl**: /api/attachments/audios/${v.id}.mp3`,
       ].join("\n");
     });
 

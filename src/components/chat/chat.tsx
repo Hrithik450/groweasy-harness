@@ -88,6 +88,13 @@ export function Chat({
     (state) => state.pending[sessionId] ?? NO_PENDING,
   );
   const turnGroups = useMemo(() => groupByTurn(chatNodes), [chatNodes]);
+  const latestUiBlockSeq = useMemo(() => {
+    for (let index = chatNodes.length - 1; index >= 0; index -= 1) {
+      const node = chatNodes[index];
+      if (node.kind === "ui-block") return node.seq;
+    }
+    return null;
+  }, [chatNodes]);
 
   const session = useSessionStore((state) =>
     state.sessions.find((s) => s.id === sessionId),
@@ -103,6 +110,8 @@ export function Chat({
 
   const [inputValue, setInputValue] = useState("");
   const [isInitialScrolled, setIsInitialScrolled] = useState(false);
+  const lastUiBlockSeqRef = useRef<number | null>(null);
+  const uiBlockTrackingReadyRef = useRef(false);
 
   const scrollToBottom = useCallback((smooth = false) => {
     if (userScrolledUpRef.current || isFetchingOlderRef.current) return;
@@ -144,6 +153,37 @@ export function Chat({
       scrollToBottom(false);
     }
   }, [turnGroups, isStreaming, isInitialScrolled, scrollToBottom]);
+
+  // A newly rendered UI block keeps its top in view instead of letting the
+  // bottom-follow effect push its beginning off-screen.
+  useEffect(() => {
+    if (!isInitialScrolled) return;
+
+    if (!uiBlockTrackingReadyRef.current) {
+      uiBlockTrackingReadyRef.current = true;
+      lastUiBlockSeqRef.current = latestUiBlockSeq;
+      return;
+    }
+
+    if (latestUiBlockSeq === null || latestUiBlockSeq === lastUiBlockSeqRef.current) {
+      return;
+    }
+
+    lastUiBlockSeqRef.current = latestUiBlockSeq;
+    userScrolledUpRef.current = true;
+
+    requestAnimationFrame(() => {
+      const container = scrollRef.current;
+      const block = document.getElementById(`ui-block-${latestUiBlockSeq}`);
+      if (!container || !block) return;
+      const top =
+        container.scrollTop +
+        block.getBoundingClientRect().top -
+        container.getBoundingClientRect().top -
+        8;
+      container.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    });
+  }, [latestUiBlockSeq, isInitialScrolled]);
 
   // Hidden-only pages add no height, so a single fetch is not enough: keep
   // going until a page renders visible content (or history ends). Used both to

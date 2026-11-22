@@ -87,8 +87,7 @@ export function renderSkillCatalog(skills: readonly SkillSummary[]): string {
   return [
     "Available skills:",
     ...skills.map(
-      (skill) =>
-        `- \`${skill.name}\`: ${escapeText(skill.description)}`,
+      (skill) => `- \`${skill.name}\`: ${escapeText(skill.description)}`,
     ),
   ].join("\n");
 }

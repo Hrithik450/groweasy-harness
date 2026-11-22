@@ -1,5 +1,6 @@
 /** Ordering slots for the composed system prompt. Lower runs earlier. */
 export const SECTION_ORDERS = {
+  SKILL_UPDATES: 0,
   HARNESS_IDENTITY: 10,
   GOLDEN_RULES: 20,
   RULES: 30,

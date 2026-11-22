@@ -166,6 +166,32 @@ function validateSpec(spec: CanonicalUIMesssage): void {
 
     // Replace with validated props from Zod.
     element.props = parseResult.data as Record<string, unknown>;
+
+    // A span can only cover columns that exist, and only real children.
+    if (element.type === "Grid") {
+      const gridProps = element.props as {
+        columns?: number;
+        spans?: Array<{ colSpan?: number; rowSpan?: number }>;
+      };
+      if (Array.isArray(gridProps.spans) && gridProps.spans.length > 0) {
+        const childCount = Array.isArray(element.children)
+          ? element.children.length
+          : 0;
+        const cols = Number(gridProps.columns) || 2;
+        if (gridProps.spans.length > childCount) {
+          throw new Error(
+            `Invalid Grid ("${elId}"): spans has ${gridProps.spans.length} entries but the grid has ${childCount} children.`,
+          );
+        }
+        gridProps.spans.forEach((span, index) => {
+          if (span?.colSpan !== undefined && span.colSpan > cols) {
+            throw new Error(
+              `Invalid Grid ("${elId}") at "spans.${index}.colSpan": ${span.colSpan} exceeds the grid's ${cols} column(s).`,
+            );
+          }
+        });
+      }
+    }
   }
 }
 

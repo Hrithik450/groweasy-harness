@@ -46,18 +46,18 @@ export function LandingButton({
 
 export function Eyebrow({
   children,
-  tone = "muted",
+  variant = "muted",
   className,
 }: {
   children: ReactNode;
-  tone?: "muted" | "accent";
+  variant?: "muted" | "accent";
   className?: string;
 }) {
   return (
     <span
       className={cn(
         "[font-family:var(--font-jetbrains-mono)] text-[13px] leading-[1.6] max-[600px]:text-[12px]",
-        tone === "accent" ? "text-accent" : "text-muted-foreground",
+        variant === "accent" ? "text-accent" : "text-muted-foreground",
         className,
       )}
     >

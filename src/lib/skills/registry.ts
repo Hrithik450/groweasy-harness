@@ -84,8 +84,8 @@ function resolveSkillPath(entry: SkillEntry): string {
 }
 
 interface CachedSkill {
-  mtimeMs: number;
   size: number;
+  mtimeMs: number;
   skill: SkillDefinition;
 }
 
@@ -143,7 +143,11 @@ class BundledSkillRegistry {
     return Object.values(SKILL_REGISTRY)
       .map((entry) => loadSkill(entry))
       .filter((skill): skill is SkillDefinition => skill !== null)
-      .map(({ name, description, version }) => ({ name, description, version }));
+      .map(({ name, description, version }) => ({
+        name,
+        description,
+        version,
+      }));
   }
 
   /** Loads one skill's frontmatter and instruction body, or `undefined`. */

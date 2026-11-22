@@ -62,6 +62,8 @@ export const GenerativeUIContainerContext = React.createContext<{
   isInCard?: boolean;
   isInCarousel?: boolean;
   isVertical?: boolean;
+  isDark?: boolean;
+  isAccent?: boolean;
   aspectRatio?: StandardAspectRatio;
 }>({});
 
@@ -110,6 +112,12 @@ export const { registry } = defineRegistry(catalog, {
       const containerContext = useContext(GenerativeUIContainerContext);
 
       const isSelectable = Boolean(props.selectable);
+      const cardVariant =
+        props.variant === "light" ||
+        props.variant === "muted" ||
+        props.variant === "dark"
+          ? props.variant
+          : "accent";
       const cardValue = props.value || props.title || "card";
       const group = toCamelCase(props.name) || "cardSelection";
       const cardDomId = useNormalizedFieldId(
@@ -144,84 +152,88 @@ export const { registry } = defineRegistry(catalog, {
           : children !== null && children !== undefined),
       );
 
-      // Caller-supplied class names, not rendered colours: a dark surface needs
-      // light text, so detect the utilities that paint one.
-      const hasDarkBgOrWhiteText =
-        /\btext-background\b/i.test(props.className || "") ||
-        /\bbg-foreground\b/i.test(props.className || "") ||
-        /\bbg-brand-(dark|surface|primary)\b/i.test(props.className || "") ||
-        /\bbg-brand(?![a-zA-Z0-9_\-\/])/i.test(props.className || "");
+      const hasDarkBgOrWhiteText = cardVariant === "dark";
 
-      const isCustomBg =
-        /(bg-(brand|white|black|transparent|gray|zinc|slate|emerald|amber|red|blue|purple|rose|neutral))/i.test(
-          props.className || "",
-        );
-      const isCustomBorder =
-        /(border-(brand|white|black|transparent|none|gray|zinc|slate|emerald|amber|red|blue|purple|rose|neutral))/i.test(
-          props.className || "",
-        );
-      const isCustomShadow = /(shadow-(none|2xs|xs|sm|md|lg|xl|2xl))/i.test(
-        props.className || "",
-      );
-
-      // Background never changes when selected - only highlight the border!
-      const baseBg = isCustomBg ? "" : "bg-card";
+      // Background never changes when selected - only highlight the border.
+      // Background never changes when selected - only highlight the border.
+      const baseBg =
+        cardVariant === "accent"
+          ? "bg-accent"
+          : cardVariant === "muted"
+            ? "bg-muted"
+            : cardVariant === "dark"
+              ? "bg-foreground"
+              : "bg-card";
 
       const baseBorder =
         isSelectable && isSelected
           ? hasDarkBgOrWhiteText
             ? "border-2 border-primary-foreground ring-2 ring-primary-foreground/30"
-            : "border-2 border-brand ring-2 ring-brand/20"
-          : isCustomBorder
-            ? ""
-            : "border border-border";
+            : "border-2 border-accent ring-2 ring-accent/20"
+          : cardVariant === "accent"
+              ? "border border-accent/30"
+              : cardVariant === "dark"
+                ? "border border-primary-foreground/20"
+                : "border border-border";
 
-      const baseShadow = isCustomShadow ? "" : "shadow-xs";
+      const baseShadow = "shadow-xs";
 
       const baseCardStyle = `${baseBg} ${baseBorder} ${baseShadow}`.trim();
 
-      const titleColor = hasDarkBgOrWhiteText ? "text-primary-foreground" : "text-foreground";
+      const titleColor = hasDarkBgOrWhiteText
+        ? "text-primary-foreground"
+        : "text-foreground";
+      const titleLevel =
+        props.titleLevel === "h1" ||
+        props.titleLevel === "h2" ||
+        props.titleLevel === "h3" ||
+        props.titleLevel === "h4"
+          ? props.titleLevel
+          : "h4";
+      const TitleTag = titleLevel as "h1" | "h2" | "h3" | "h4";
+      const titleSizeClass =
+        titleLevel === "h1"
+          ? "text-[27px] sm:text-[30px] font-bold leading-[1.1]"
+          : titleLevel === "h2"
+            ? "text-[24px] sm:text-[27px] font-bold leading-[1.15]"
+            : titleLevel === "h3"
+              ? "text-[21px] sm:text-[24px] font-bold leading-[1.2]"
+              : "text-[18px] sm:text-[21px] font-bold leading-[1.25]";
       const eyebrowColor = hasDarkBgOrWhiteText
-        ? "text-primary-foreground/70"
-        : "text-muted-foreground";
+        ? "text-accent"
+        : cardVariant === "accent"
+          ? "text-accent"
+          : "text-muted-foreground";
       const descColor = hasDarkBgOrWhiteText
         ? "text-primary-foreground/80"
         : "text-muted-foreground";
       const dividerColor = hasDarkBgOrWhiteText
         ? "border-primary-foreground/15"
-        : "border-border-subtle";
+        : cardVariant === "accent"
+          ? "border-accent/20"
+          : "border-border-subtle";
 
-      const effectiveBadge =
-        props.badge || (isSelectable && isSelected ? "SELECTED" : undefined);
+      const effectiveBadge = props.badge;
 
       const badgeClass =
         isSelectable && isSelected
           ? hasDarkBgOrWhiteText
             ? "bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30"
-            : "bg-brand/10 text-brand border-brand/20"
+            : "bg-accent/15 text-accent-strong border-accent/30"
           : hasDarkBgOrWhiteText
             ? "bg-primary-foreground/15 text-primary-foreground border-primary-foreground/20"
-            : "bg-muted text-foreground/80 border-border";
+            : cardVariant === "accent"
+              ? "bg-accent/15 text-accent-strong border-accent/30"
+              : cardVariant === "muted"
+                ? "bg-card text-muted-foreground border-border"
+                : "bg-muted text-foreground/80 border-border";
 
       const cursorClass =
         isSelectable && !isSubmitted
-          ? "cursor-pointer hover:border-brand/40 select-none"
+          ? "cursor-pointer hover:border-accent/40 select-none"
           : isSelectable && isSubmitted
             ? "cursor-default select-none"
             : "";
-
-      let cleanClassName = (props.className || "")
-        .replace(
-          /\b([pP][xytblr]?-\d+(\.\d+)?|sm:[pP][xytblr]?-\d+(\.\d+)?|[mM][xytblr]?-\d+(\.\d+)?|space-[xy]?-\d+(\.\d+)?|gap-\d+(\.\d+)?)\b/g,
-          "",
-        )
-        .trim();
-
-      if (isSelectable && isSelected) {
-        cleanClassName = cleanClassName
-          .replace(/\b(border(-\w+)*|ring(-\w+)*)\b/g, "")
-          .trim();
-      }
 
       const aspect = normalizeAspectRatio(
         props.aspectRatio || containerContext?.aspectRatio,
@@ -250,10 +262,32 @@ export const { registry } = defineRegistry(catalog, {
           onClick={handleCardClick}
           data-name={group}
           data-value={cardValue}
-          className={`${maxWidthClass} ${cursorClass} h-full flex flex-col justify-between rounded-2xl ${baseCardStyle} p-3 sm:p-3.5 ${
+          className={`relative ${maxWidthClass} ${cursorClass} h-full flex flex-col justify-between rounded-2xl ${baseCardStyle} p-3 sm:p-3.5 font-sans ${
             hasDarkBgOrWhiteText ? "text-primary-foreground" : "text-foreground"
-          } transition-all ${cleanClassName}`}
+          } transition-all`}
         >
+          {isSelectable && (
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none absolute right-2.5 top-2.5 z-10 flex h-4 w-4 items-center justify-center rounded-full border-2 ${
+                isSelected
+                  ? hasDarkBgOrWhiteText
+                    ? "border-primary-foreground"
+                    : "border-accent"
+                  : hasDarkBgOrWhiteText
+                    ? "border-primary-foreground/50"
+                    : "border-border-strong"
+              }`}
+            >
+              {isSelected && (
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    hasDarkBgOrWhiteText ? "bg-primary-foreground" : "bg-accent"
+                  }`}
+                />
+              )}
+            </span>
+          )}
           <div className="flex flex-col flex-1">
             {(props.eyebrow ||
               props.title ||
@@ -267,17 +301,17 @@ export const { registry } = defineRegistry(catalog, {
                 <div className="flex flex-col gap-1.5 min-w-0">
                   {props.eyebrow && (
                     <span
-                      className={`text-[10px] font-bold uppercase tracking-wider ${eyebrowColor}`}
+                      className={`font-sans text-[10px] font-bold uppercase tracking-wider ${eyebrowColor}`}
                     >
                       {props.eyebrow}
                     </span>
                   )}
                   {props.title && (
-                    <h3
-                      className={`font-semibold ${titleColor} text-sm sm:text-[15px] tracking-tight leading-snug line-clamp-1`}
+                    <TitleTag
+                      className={`font-sans ${titleSizeClass} ${titleColor} tracking-tight leading-snug line-clamp-2`}
                     >
                       {props.title}
-                    </h3>
+                    </TitleTag>
                   )}
                   {props.description && (
                     <p
@@ -301,6 +335,8 @@ export const { registry } = defineRegistry(catalog, {
                 value={{
                   isInCard: true,
                   isVertical,
+                  isDark: hasDarkBgOrWhiteText,
+                  isAccent: cardVariant === "accent" && !hasDarkBgOrWhiteText,
                   aspectRatio: aspect || containerContext?.aspectRatio,
                   isInCarousel: containerContext?.isInCarousel,
                 }}
@@ -324,19 +360,32 @@ export const { registry } = defineRegistry(catalog, {
       const isRow =
         props.direction === "row" || props.direction === "horizontal";
       const gapClass = isRow ? "gap-2.5" : "gap-3";
-
-      const normClassName = (props.className || "")
-        .replace(
-          /\b([pP][xytblr]?-\d+(\.\d+)?|sm:[pP][xytblr]?-\d+(\.\d+)?|[mM][xytblr]?-\d+(\.\d+)?|space-[xy]-\d+(\.\d+)?|gap-\d+(\.\d+)?)\b/g,
-          "",
-        )
-        .trim();
+      const alignClass =
+        (
+          {
+            start: "items-start",
+            center: "items-center",
+            end: "items-end",
+            stretch: "items-stretch",
+            baseline: "items-baseline",
+          } as Record<string, string>
+        )[props.align ?? ""] ?? (isRow ? "items-baseline" : "items-stretch");
+      const justifyClass =
+        (
+          {
+            start: "justify-start",
+            center: "justify-center",
+            end: "justify-end",
+            between: "justify-between",
+            around: "justify-around",
+          } as Record<string, string>
+        )[props.justify ?? ""] ?? "";
 
       return (
         <div
           className={`flex ${
-            isRow ? "flex-row flex-wrap items-center" : "flex-col"
-          } ${gapClass} w-full ${normClassName}`}
+            isRow ? "flex-row flex-wrap" : "flex-col"
+          } ${alignClass} ${justifyClass} ${gapClass} w-full`}
         >
           {children}
         </div>
@@ -344,68 +393,100 @@ export const { registry } = defineRegistry(catalog, {
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Grid: ({ props, children }: { props: any; children?: React.ReactNode }) => {
-      if (props.layout === "flex") {
-        return (
-          <GenerativeUIContainerContext.Provider value={{ isInGrid: true }}>
-            <div
-              className={`flex flex-wrap gap-3 w-full my-1 items-stretch [&>*]:flex-1 [&>*]:min-w-[160px] ${
-                props.className || ""
-              }`}
-            >
-              {children}
-            </div>
-          </GenerativeUIContainerContext.Provider>
-        );
-      }
-
-      const hasCards = React.Children.toArray(children).some((child: any) => {
-        if (!child) return false;
-        const el = child?.props?.element;
-        if (el?.type === "Card") return true;
-        const p = child?.props?.props || child?.props || {};
-        return Boolean(p.title || p.description || p.badge);
-      });
-
+      const items = React.Children.toArray(children);
       const rawCols = Number(props.columns) || 2;
-      // Cards in 768px chat container must be capped at 2 columns max to prevent crushing copy
-      const cols = hasCards
-        ? Math.max(1, Math.min(2, rawCols))
-        : Math.max(1, Math.min(4, rawCols));
-
+      const cols = Math.max(1, Math.min(12, rawCols));
       const colsMap: Record<number, string> = {
         1: "grid-cols-1",
         2: "grid-cols-1 sm:grid-cols-2",
-        3: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3",
-        4: "grid-cols-2 sm:grid-cols-4",
+        3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+        4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+        5: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5",
+        6: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6",
+        7: "grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7",
+        8: "grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8",
+        9: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-9",
+        10: "grid-cols-1 sm:grid-cols-2 md:grid-cols-5 xl:grid-cols-10",
+        11: "grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-11",
+        12: "grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-12",
       };
-      const gridClass = colsMap[cols] || "grid-cols-1 sm:grid-cols-2";
+      const colSpanMap: Record<number, string> = {
+        1: "md:col-span-1",
+        2: "md:col-span-2",
+        3: "md:col-span-3",
+        4: "md:col-span-4",
+        5: "md:col-span-5",
+        6: "md:col-span-6",
+        7: "md:col-span-7",
+        8: "md:col-span-8",
+        9: "md:col-span-9",
+        10: "md:col-span-10",
+        11: "md:col-span-11",
+        12: "md:col-span-12",
+      };
+      const rowSpanMap: Record<number, string> = {
+        2: "md:row-span-2",
+        3: "md:row-span-3",
+        4: "md:row-span-4",
+        5: "md:row-span-5",
+        6: "md:row-span-6",
+      };
+      const spans = Array.isArray(props.spans) ? props.spans : [];
       const stretchClass =
         (props.stretchLast ?? cols === 2)
           ? "[&>*:last-child:nth-child(odd)]:col-span-full"
           : "";
+      const gapClass = props.gap === "sm" ? "gap-2" : "gap-3";
 
       return (
         <GenerativeUIContainerContext.Provider value={{ isInGrid: true }}>
           <div
-            className={`grid ${gridClass} ${stretchClass} gap-3 [&>*]:min-w-0 [&:has([data-system-image])]:w-fit w-full max-w-full my-1 items-stretch ${
-              props.className || ""
-            }`}
+            className={`grid ${colsMap[cols] || colsMap[2]} ${stretchClass} ${gapClass} [&>*]:min-w-0 [&:has([data-system-image])]:w-fit w-full max-w-full my-1 items-stretch auto-rows-min`}
           >
-            {children}
+            {items.map((child, index) => {
+              const span = spans[index] as
+                | { colSpan?: number; rowSpan?: number }
+                | undefined;
+              const colSpan = Math.max(
+                1,
+                Math.min(cols, Number(span?.colSpan) || 1),
+              );
+              const rowSpan = Math.max(
+                1,
+                Math.min(6, Number(span?.rowSpan) || 1),
+              );
+              return (
+                <div
+                  key={index}
+                  className={`min-w-0 h-full ${colSpanMap[colSpan]} ${
+                    rowSpan > 1 ? rowSpanMap[rowSpan] : ""
+                  }`.trim()}
+                >
+                  {child}
+                </div>
+              );
+            })}
           </div>
         </GenerativeUIContainerContext.Provider>
       );
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Separator: ({ props }: { props: any }) => {
+      const containerContext = useContext(GenerativeUIContainerContext);
       const isVertical = props.orientation === "vertical";
+      const variantClass =
+        props.variant === "light"
+          ? "bg-primary-foreground/25"
+          : props.variant === "dark"
+            ? "bg-foreground/25"
+            : props.variant === "strong"
+              ? "bg-border-strong"
+              : containerContext?.isDark
+                ? "bg-primary-foreground/20"
+                : "bg-border";
       return (
         <div
-          className={
-            isVertical
-              ? "h-full w-px bg-muted mx-2 self-stretch"
-              : "w-full h-px bg-muted my-2"
-          }
+          className={`${isVertical ? "h-full w-px mx-2 self-stretch" : "w-full h-px my-2"} ${variantClass}`.trim()}
         />
       );
     },
@@ -775,37 +856,98 @@ export const { registry } = defineRegistry(catalog, {
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Table: ({ props }: { props: any }) => {
+      type TableCell = {
+        text?: string;
+        mark?: boolean;
+        badge?: "accent" | "dark" | "muted";
+      };
+      const normalizeCell = (cell: unknown): TableCell => {
+        if (typeof cell === "object" && cell !== null && !Array.isArray(cell)) {
+          const value = cell as Record<string, unknown>;
+          const badge =
+            value.badge === "accent" ||
+            value.badge === "dark" ||
+            value.badge === "muted"
+              ? value.badge
+              : undefined;
+          return {
+            text: value.text === undefined ? undefined : String(value.text),
+            mark: typeof value.mark === "boolean" ? value.mark : undefined,
+            badge,
+          };
+        }
+        return { text: String(cell ?? "") };
+      };
+
       const rawCols = Array.isArray(props.columns) ? props.columns : [];
       const columns = rawCols.map(String);
       const rawRows = Array.isArray(props.rows) ? props.rows : [];
-      const rows = rawRows.map((row: unknown) => {
-        if (Array.isArray(row)) {
-          return row.map((cell) => String(cell ?? ""));
-        }
+      const rows: TableCell[][] = rawRows.map((row: unknown) => {
+        if (Array.isArray(row)) return row.map(normalizeCell);
         if (typeof row === "object" && row !== null) {
           const r = row as Record<string, unknown>;
           return columns.length > 0
             ? columns.map((col: string) =>
-                String(r[col] ?? r[col.toLowerCase()] ?? ""),
+                normalizeCell(r[col] ?? r[col.toLowerCase()]),
               )
-            : Object.values(r).map((cell) => String(cell ?? ""));
+            : Object.values(r).map(normalizeCell);
         }
-        return [String(row ?? "")];
+        return [normalizeCell(row)];
       });
 
-      const cleanClassName = (props.className || "")
-        .replace(
-          /\b([pP][xytblr]?-\d+(\.\d+)?|sm:[pP][xytblr]?-\d+(\.\d+)?|[mM][xytblr]?-\d+(\.\d+)?|space-[xy]-\d+(\.\d+)?|gap-\d+(\.\d+)?)\b/g,
-          "",
-        )
-        .trim();
+      const tableVariant =
+        props.variant === "light" || props.variant === "dark"
+          ? props.variant
+          : "accent";
+
+      const shellClass =
+        tableVariant === "dark"
+          ? "border-foreground bg-foreground text-background shadow-sm"
+          : tableVariant === "light"
+            ? "border-border bg-card shadow-2xs"
+            : "border-accent/30 bg-card shadow-xs";
+      const headerVariant =
+        props.headerVariant === "light" || props.headerVariant === "dark"
+          ? props.headerVariant
+          : tableVariant;
+      const headClass =
+        headerVariant === "dark"
+          ? props.headerVariant
+            ? "bg-foreground text-background border-b border-foreground"
+            : "bg-background/10 text-background border-b border-background/25"
+          : headerVariant === "light"
+            ? "bg-muted/60 text-foreground/75 border-b border-border"
+            : "bg-accent text-accent-foreground border-b-2 border-accent-strong";
+      const bodyClass =
+        tableVariant === "dark"
+          ? "divide-y divide-background/15 text-background/85"
+          : "divide-y divide-border-subtle text-foreground/80";
+      const rowClass =
+        tableVariant === "dark"
+          ? "odd:bg-foreground even:bg-foreground/95 hover:bg-foreground/90 transition-colors"
+          : tableVariant === "light"
+            ? "odd:bg-card even:bg-muted/25 hover:bg-muted/50 transition-colors"
+            : "odd:bg-card even:bg-accent-tint/35 hover:bg-accent-tint/60 transition-colors";
+      const highlightedClass =
+        tableVariant === "dark"
+          ? "bg-background/15 ring-1 ring-inset ring-background/25"
+          : "bg-accent-tint/70 ring-1 ring-inset ring-accent/40";
+      const firstCellClass =
+        tableVariant === "dark"
+          ? "text-background font-semibold"
+          : "text-foreground font-semibold";
+      const highlightedRows = new Set(
+        Array.isArray(props.highlightRows)
+          ? props.highlightRows.map((index: unknown) => Number(index))
+          : [],
+      );
 
       return (
         <div
-          className={`w-full overflow-x-auto rounded-xl border border-border bg-card shadow-2xs ${cleanClassName}`.trim()}
+          className={`w-full overflow-x-auto rounded-xl border ${shellClass}`.trim()}
         >
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-brand/5 border-b border-brand/15 text-brand font-semibold text-[11px] uppercase tracking-wider">
+            <thead className={`${headClass} text-[11px] uppercase tracking-wider`}>
               <tr>
                 {columns.map((col: string, i: number) => (
                   <th key={`col-${i}-${col}`} className="px-2.5 py-2 font-bold">
@@ -814,25 +956,60 @@ export const { registry } = defineRegistry(catalog, {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-border-subtle text-foreground/80">
-              {rows.map((row: string[], rowIdx: number) => (
+            <tbody className={bodyClass}>
+              {rows.map((row, rowIdx) => (
                 <tr
                   key={`tr-${rowIdx}`}
-                  className="hover:bg-brand/2 transition-colors"
+                  className={`${rowClass} ${
+                    highlightedRows.has(rowIdx) ? highlightedClass : ""
+                  }`}
                 >
-                  {row.map((cell: string, cellIdx: number) => (
+                  {row.map((cell, cellIdx) => (
                     <td
                       key={`td-${rowIdx}-${cellIdx}`}
-                      className="px-2.5 py-2 align-top leading-relaxed break-words whitespace-normal max-w-[280px]"
+                      className={`px-2.5 py-2 align-top leading-relaxed break-words whitespace-normal max-w-[280px] ${
+                        cellIdx === 0 ? firstCellClass : ""
+                      }`}
                     >
-                      {cell}
+                      {cell.badge !== undefined ? (
+                        <span
+                          className={`inline-flex items-center border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide leading-tight ${
+                            cell.badge === "accent"
+                              ? "border-accent bg-accent text-accent-foreground"
+                              : cell.badge === "dark"
+                                ? "border-foreground bg-transparent text-foreground"
+                                : "border-border-strong bg-transparent text-muted-foreground"
+                          }`}
+                        >
+                          {cell.text}
+                        </span>
+                      ) : cell.mark !== undefined ? (
+                        <span
+                          aria-label={cell.mark ? "Yes" : "No"}
+                          className={`inline-block h-3.5 w-3.5 rounded-[3px] border ${
+                            cell.mark
+                              ? tableVariant === "dark"
+                                ? "bg-background border-background"
+                                : "bg-foreground border-foreground"
+                              : tableVariant === "dark"
+                                ? "border-background/40 bg-transparent"
+                                : "border-border-strong bg-transparent"
+                          }`}
+                        />
+                      ) : (
+                        cell.text
+                      )}
                     </td>
                   ))}
                 </tr>
               ))}
             </tbody>
             {props.caption && (
-              <caption className="p-2 text-[11px] text-muted-2 text-left">
+              <caption
+                className={`p-2 text-[11px] text-left ${
+                  tableVariant === "dark" ? "text-background/60" : "text-muted-2"
+                }`}
+              >
                 {props.caption}
               </caption>
             )}
@@ -842,15 +1019,27 @@ export const { registry } = defineRegistry(catalog, {
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Heading: ({ props }: { props: any }) => {
-      const level = props.level ?? 2;
+      const containerContext = useContext(GenerativeUIContainerContext);
+      const rawLevel = props.level ?? 2;
+      const level =
+        typeof rawLevel === "string"
+          ? Number(rawLevel.replace(/^h/i, "")) || 2
+          : Number(rawLevel) || 2;
+      const titleColor = containerContext?.isDark
+        ? "text-primary-foreground"
+        : containerContext?.isAccent
+          ? "text-accent-foreground"
+          : "text-foreground";
       const headingClasses: Record<number, string> = {
-        1: "font-display text-[27px] sm:text-[30px] font-bold leading-[1.1] tracking-tight text-foreground",
-        2: "font-display text-[24px] sm:text-[27px] font-semibold leading-[1.15] tracking-tight text-foreground",
-        3: "font-display text-[21px] sm:text-[24px] font-semibold leading-[1.2] text-foreground",
-        4: "font-display text-[18px] sm:text-[21px] font-medium leading-[1.25] text-foreground/80",
+        1: `font-display text-[27px] sm:text-[30px] font-bold leading-[1.1] tracking-tight ${titleColor}`,
+        2: `font-display text-[24px] sm:text-[27px] font-bold leading-[1.15] tracking-tight ${titleColor}`,
+        3: `font-display text-[21px] sm:text-[24px] font-bold leading-[1.2] ${titleColor}`,
+        4: `font-display text-[18px] sm:text-[21px] font-bold leading-[1.25] ${titleColor}`,
+        5: `font-display text-[15px] sm:text-[16px] font-bold leading-[1.3] tracking-tight ${titleColor}`,
+        6: `font-display text-[13px] sm:text-[14px] font-bold leading-[1.35] tracking-tight ${titleColor}`,
       };
       const baseClass = `${headingClasses[level] || headingClasses[2]} m-0`;
-      const mergedClass = `${baseClass} ${props.className || ""}`.trim();
+      const mergedClass = baseClass;
 
       switch (level) {
         case 1:
@@ -861,6 +1050,10 @@ export const { registry } = defineRegistry(catalog, {
           return <h3 className={mergedClass}>{props.text}</h3>;
         case 4:
           return <h4 className={mergedClass}>{props.text}</h4>;
+        case 5:
+          return <h5 className={mergedClass}>{props.text}</h5>;
+        case 6:
+          return <h6 className={mergedClass}>{props.text}</h6>;
         default:
           return <h2 className={mergedClass}>{props.text}</h2>;
       }
@@ -873,9 +1066,36 @@ export const { registry } = defineRegistry(catalog, {
         : containerContext?.isInCarousel
           ? "line-clamp-2"
           : "";
+      const dark = Boolean(containerContext?.isDark);
+      const textVariant =
+        props.variant === "accent" ||
+        props.variant === "light" ||
+        props.variant === "dark"
+          ? props.variant
+          : dark
+            ? "light"
+            : "dark";
+      const textSize =
+        props.size === "xs" || props.size === "sm" || props.size === "lg"
+          ? props.size
+          : "md";
 
-      const mergedClass =
-        `text-sm text-foreground font-medium leading-relaxed m-0 ${clampClass} ${props.className || ""}`.trim();
+      const sizeClass =
+        textSize === "xs"
+          ? "text-[10px] leading-normal tracking-wide"
+          : textSize === "sm"
+            ? "text-[11px] leading-normal tracking-wide"
+            : textSize === "lg"
+              ? "text-base sm:text-[17px] leading-relaxed"
+              : "text-sm leading-relaxed";
+      const colorClass =
+        textVariant === "accent"
+          ? "text-accent font-semibold"
+          : textVariant === "light"
+            ? "text-primary-foreground/85 font-normal"
+            : "text-foreground/85 font-normal";
+
+      const mergedClass = `${sizeClass} ${colorClass} m-0 ${clampClass}`.trim();
 
       return <p className={mergedClass}>{props.text}</p>;
     },
@@ -888,7 +1108,7 @@ export const { registry } = defineRegistry(catalog, {
           alt={props.alt || "Image"}
           aspectRatio={props.aspectRatio}
           fit={props.fit}
-          className={`${containerContext?.isInCard ? "w-full max-w-full" : ""} ${props.className || ""}`.trim()}
+          className={containerContext?.isInCard ? "w-full max-w-full" : ""}
         />
       );
     },
@@ -899,7 +1119,6 @@ export const { registry } = defineRegistry(catalog, {
           <VideoPlayer
             src={props.src || ""}
             title={props.title || "Video"}
-            className={props.className}
           />
         </div>
       );
@@ -911,7 +1130,6 @@ export const { registry } = defineRegistry(catalog, {
           <AudioPlayer
             src={props.src || ""}
             title={props.title || "Audio"}
-            className={props.className}
           />
         </div>
       );
@@ -949,34 +1167,98 @@ export const { registry } = defineRegistry(catalog, {
       );
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Badge: ({ props }: { props: any }) => {
-      const hasCustomBg =
-        /(bg-(brand|white|black|transparent|gray|zinc|slate|emerald|amber|red|blue|purple|rose|neutral))/i.test(
-          props.className || "",
-        );
-      const hasCustomText =
-        /(text-(brand|white|black|transparent|gray|zinc|slate|emerald|amber|red|blue|purple|rose|neutral))/i.test(
-          props.className || "",
-        );
-      const hasCustomBorder =
-        /(border-(brand|white|black|transparent|none|gray|zinc|slate|emerald|amber|red|blue|purple|rose|neutral))/i.test(
-          props.className || "",
-        );
-
-      const baseClasses = `${hasCustomBorder ? "" : "border border-border"} ${
-        hasCustomBg ? "" : "bg-muted"
-      } ${hasCustomText ? "" : "text-foreground/80"}`.trim();
-
-      const cleanClassName = (props.className || "")
-        .replace(
-          /\b([pP][xytblr]?-\d+(\.\d+)?|sm:[pP][xytblr]?-\d+(\.\d+)?|[mM][xytblr]?-\d+(\.\d+)?)\b/g,
-          "",
-        )
-        .trim();
+    Eyebrow: ({ props }: { props: any }) => {
+      const containerContext = useContext(GenerativeUIContainerContext);
+      const dark = Boolean(containerContext?.isDark);
+      const sizeClass =
+        props.size === "xl"
+          ? "font-display text-[44px] font-bold leading-none tracking-tight"
+          : props.size === "lg"
+            ? "font-display text-[24px] font-bold leading-none tracking-tight"
+            : props.size === "md"
+              ? "font-sans text-[12px] font-bold uppercase tracking-[0.16em]"
+              : "font-sans text-[10px] font-bold uppercase tracking-[0.18em]";
+      const variantClass =
+        props.variant === "muted"
+          ? dark
+            ? "text-primary-foreground/60"
+            : "text-muted-foreground"
+          : props.variant === "foreground"
+            ? dark
+              ? "text-primary-foreground"
+              : "text-foreground"
+            : dark
+              ? "text-accent"
+              : containerContext?.isAccent
+                ? "text-accent-foreground"
+                : "text-accent";
 
       return (
         <span
-          className={`inline-flex items-center px-1.5 py-0.5 rounded-none text-[10.5px] font-medium leading-tight ${baseClasses} ${cleanClassName}`.trim()}
+          className={`block ${sizeClass} ${variantClass}`.trim()}
+        >
+          {props.text}
+        </span>
+      );
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Badge: ({ props }: { props: any }) => {
+      const badgeVariant =
+        props.variant === "light" ||
+        props.variant === "muted" ||
+        props.variant === "dark" ||
+        props.variant === "outline" ||
+        props.variant === "success" ||
+        props.variant === "destructive"
+          ? props.variant
+          : "accent";
+
+      const variantBg =
+        badgeVariant === "outline"
+          ? "bg-transparent"
+          : badgeVariant === "accent"
+            ? "bg-accent/15"
+          : badgeVariant === "dark"
+            ? "bg-foreground"
+            : badgeVariant === "success"
+              ? "bg-brand-tint-hover"
+              : badgeVariant === "destructive"
+                ? "bg-destructive-tint"
+                : badgeVariant === "muted"
+                  ? "bg-muted/70"
+                  : "bg-muted";
+      const variantText =
+        badgeVariant === "outline"
+          ? "text-muted-foreground"
+          : badgeVariant === "accent"
+            ? "text-accent-strong"
+          : badgeVariant === "dark"
+            ? "text-background"
+            : badgeVariant === "success"
+              ? "text-brand-dark"
+              : badgeVariant === "destructive"
+                ? "text-destructive"
+                : badgeVariant === "muted"
+                  ? "text-muted-foreground"
+                  : "text-foreground/80";
+      const variantBorder =
+        badgeVariant === "outline"
+          ? "border-border-strong"
+          : badgeVariant === "accent"
+            ? "border-accent/30"
+          : badgeVariant === "dark"
+            ? "border-foreground"
+            : badgeVariant === "success"
+              ? "border-brand/20"
+              : badgeVariant === "destructive"
+                ? "border-destructive-border"
+                : "border-border";
+
+      const baseClasses = `${variantBorder} ${variantBg} ${variantText}`.trim();
+
+      return (
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded-none text-[10.5px] font-medium leading-tight ${baseClasses}`.trim()}
         >
           {props.text}
         </span>
@@ -1005,16 +1287,9 @@ export const { registry } = defineRegistry(catalog, {
             ? CheckCircle2
             : Info;
 
-      const cleanClassName = (props.className || "")
-        .replace(
-          /\b([pP][xytblr]?-\d+(\.\d+)?|sm:[pP][xytblr]?-\d+(\.\d+)?|[mM][xytblr]?-\d+(\.\d+)?|space-[xy]-\d+(\.\d+)?|gap-\d+(\.\d+)?)\b/g,
-          "",
-        )
-        .trim();
-
       return (
         <div
-          className={`w-full rounded-xl border p-2 sm:p-2.5 flex items-start gap-2.5 text-xs my-0.5 ${style} ${cleanClassName}`.trim()}
+          className={`w-full rounded-xl border p-2 sm:p-2.5 flex items-start gap-2.5 text-xs my-0.5 ${style}`.trim()}
         >
           <Icon className="w-4 h-4 shrink-0 mt-0.5" />
           <div className="flex flex-col gap-0.5 min-w-0">
@@ -1840,7 +2115,7 @@ export const { registry } = defineRegistry(catalog, {
           onClick={() => {
             emit("press");
           }}
-          className={`inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none ${btnStyle} ${props.className || ""}`.trim()}
+          className={`inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none ${btnStyle}`.trim()}
         >
           {props.label}
         </button>
@@ -1899,7 +2174,12 @@ export const { registry } = defineRegistry(catalog, {
         });
       }, [rawItems]);
 
-      const isAmber = props.variant === "amber";
+      const chipVariant =
+        props.variant === "muted" ||
+        props.variant === "light" ||
+        props.variant === "dark"
+          ? props.variant
+          : "accent";
       // The catalogue names this `selectable`; older specs used `interactive`.
       const isInteractive =
         Boolean(props.selectable || props.interactive) && !isSubmitted;
@@ -1949,9 +2229,21 @@ export const { registry } = defineRegistry(catalog, {
           );
       };
 
-      const tagClass = isAmber
-        ? "bg-brand-accent/15 text-brand-accent-dark border-brand-accent/30"
-        : "bg-brand/8 text-brand border-brand/15";
+      const tagClass =
+        chipVariant === "accent"
+          ? "bg-accent/15 text-accent-strong border-accent/30"
+          : chipVariant === "dark"
+            ? "bg-foreground text-background border-foreground"
+            : chipVariant === "light"
+              ? "bg-card text-foreground border-border"
+              : "bg-muted/70 text-muted-foreground border-border";
+
+      const selectedClass =
+        chipVariant === "accent"
+          ? "bg-accent text-accent-foreground border-accent shadow-xs font-semibold ring-1 ring-accent/30"
+          : chipVariant === "dark"
+            ? "bg-foreground text-background border-foreground shadow-xs font-semibold ring-1 ring-foreground/30"
+            : "bg-foreground/90 text-background border-foreground shadow-xs font-semibold ring-1 ring-foreground/20";
 
       return (
         <div
@@ -1966,9 +2258,7 @@ export const { registry } = defineRegistry(catalog, {
           )}
           {normalizedItems.map((item) => {
             const isSelected = currentSelected.includes(item.value);
-            const activeClass = isSelected
-              ? "bg-brand text-primary-foreground border-brand shadow-xs font-semibold ring-1 ring-brand/30"
-              : tagClass;
+            const activeClass = isSelected ? selectedClass : tagClass;
             const cursorClass = isInteractive
               ? "cursor-pointer hover:opacity-80 transition-all select-none"
               : isSubmitted
@@ -1989,80 +2279,58 @@ export const { registry } = defineRegistry(catalog, {
       );
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Columns: ({ props }: { props: any }) => {
-      const rawCols = Array.isArray(props.columns) ? props.columns : [];
-      const count = rawCols.length;
-      if (count === 0) return null;
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows: any[][] = [];
-      for (let i = 0; i < count; i += 3) {
-        rows.push(rawCols.slice(i, i + 3));
-      }
+    ProgressBar: ({ props }: { props: any }) => {
+      const containerContext = useContext(GenerativeUIContainerContext);
+      const dark = Boolean(containerContext?.isDark);
+      const value = Math.max(0, Math.min(100, Number(props.value) || 0));
+      const fill =
+        props.color === "accent"
+          ? "bg-accent"
+          : props.color === "grey"
+            ? "bg-foreground/45"
+            : props.color === "muted"
+              ? "bg-muted-foreground"
+              : "bg-foreground";
 
       return (
-        <div className="flex flex-col my-1">
-          {rows.map((row, rowIdx) => {
-            const gridClass =
-              count === 1
-                ? "grid-cols-1"
-                : count === 2
-                  ? "grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x"
-                  : "grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x";
-
-            const rowBorderClass =
-              rowIdx > 0 ? "border-t border-border-subtle pt-3.5 md:pt-4" : "";
-            const rowPaddingBottom =
-              rowIdx < rows.length - 1 ? "pb-3.5 md:pb-4" : "";
-
-            return (
+        <div className="grid grid-cols-[minmax(110px,1fr)_2fr] items-center gap-3 w-full my-0.5">
+          <span
+            className={`text-xs leading-snug ${
+              dark ? "text-primary-foreground/85" : "text-foreground/85"
+            }`}
+          >
+            {props.label}
+          </span>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative flex-1 group" title={props.label}>
               <div
-                key={`col-row-${rowIdx}`}
-                className={`grid ${gridClass} divide-border-subtle gap-3 md:gap-0 ${rowBorderClass} ${rowPaddingBottom}`}
+                className={`h-3.5 w-full ${
+                  dark ? "bg-primary-foreground/15" : "bg-muted/70"
+                }`}
               >
-                {row.map((col: any, colIdx: number) => {
-                  const title =
-                    typeof col === "string"
-                      ? col
-                      : String(
-                          col?.title || `Column ${rowIdx * 3 + colIdx + 1}`,
-                        );
-                  const items = Array.isArray(col?.items)
-                    ? col.items.map((it: unknown) => String(it ?? ""))
-                    : [];
-                  const text = col?.text ? String(col.text) : "";
-
-                  return (
-                    <div
-                      key={`col-${rowIdx}-${colIdx}-${title}`}
-                      className="min-w-0 flex flex-col gap-2 px-0 md:px-3 first:pl-0 last:pr-0 py-2.5 md:py-0"
-                    >
-                      <h4 className="text-[11px] font-bold text-foreground/80 uppercase tracking-wider">
-                        {title}
-                      </h4>
-                      {items.length > 0 && (
-                        <ul className="space-y-1.5 text-xs text-foreground/80 leading-relaxed">
-                          {items.map((item: string, j: number) => (
-                            <li
-                              key={`col-item-${rowIdx}-${colIdx}-${j}-${item}`}
-                              className="leading-snug"
-                            >
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {text && (
-                        <p className="text-xs text-foreground/80 leading-relaxed">
-                          {text}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
+                <div
+                  className={`h-full ${fill}`}
+                  style={{ width: `${value}%` }}
+                />
               </div>
-            );
-          })}
+              <span
+                className={`pointer-events-none absolute bottom-full left-0 mb-1.5 z-10 hidden whitespace-nowrap px-1.5 py-0.5 text-[10px] font-medium group-hover:block ${
+                  dark
+                    ? "bg-primary-foreground text-foreground"
+                    : "bg-foreground text-background"
+                }`}
+              >
+                {props.label}
+              </span>
+            </div>
+            <span
+              className={`w-9 shrink-0 text-right text-xs font-semibold tabular-nums ${
+                dark ? "text-primary-foreground" : "text-foreground"
+              }`}
+            >
+              {value}%
+            </span>
+          </div>
         </div>
       );
     },
@@ -2080,13 +2348,26 @@ export const { registry } = defineRegistry(catalog, {
         : [props.yKey || "value"];
       const height = props.height || 220;
       const isHorizontal = props.layout === "horizontal";
+      const stacked = Boolean(props.stacked);
 
       const colors =
         props.color === "amber"
           ? ["var(--chart-4)", "var(--chart-5)", "var(--chart-1)"]
           : props.color === "multi"
-            ? ["var(--chart-2)", "var(--chart-4)", "var(--chart-3)", "var(--chart-1)", "var(--chart-5)"]
-            : ["var(--chart-2)", "var(--chart-4)", "var(--chart-3)"];
+            ? [
+                "var(--foreground)",
+                "var(--accent)",
+                "#E9E4D6",
+                "var(--muted-foreground)",
+                "var(--muted-2)",
+              ]
+            : [
+                "var(--accent)",
+                "var(--accent-strong)",
+                "var(--accent-hover)",
+                "var(--muted-foreground)",
+                "var(--muted-2)",
+              ];
 
       const yAxisWidth = useMemo(() => {
         let maxChars = 1;
@@ -2114,7 +2395,7 @@ export const { registry } = defineRegistry(catalog, {
 
       return (
         <div
-          className={`w-full flex flex-col items-center justify-center gap-1.5 outline-none focus:outline-none focus-visible:outline-none [&_*]:outline-none ${props.className !== undefined ? props.className : "my-2"}`}
+          className={`w-full flex flex-col items-center justify-center gap-1.5 outline-none focus:outline-none focus-visible:outline-none [&_*]:outline-none my-2`}
         >
           {props.title && (
             <h4 className="text-[12.5px] font-semibold text-foreground tracking-tight text-center w-full">
@@ -2167,8 +2448,15 @@ export const { registry } = defineRegistry(catalog, {
                     <Bar
                       key={`bar-${idx}-${key}`}
                       dataKey={key}
+                      stackId={stacked ? "stack" : undefined}
                       fill={colors[idx % colors.length]}
-                      radius={[4, 4, 0, 0]}
+                      radius={
+                        stacked
+                          ? [0, 0, 0, 0]
+                          : isHorizontal
+                            ? [0, 4, 4, 0]
+                            : [4, 4, 0, 0]
+                      }
                       maxBarSize={40}
                     />
                   ))}
@@ -2222,7 +2510,7 @@ export const { registry } = defineRegistry(catalog, {
 
       return (
         <div
-          className={`w-full flex flex-col items-center justify-center gap-1.5 outline-none focus:outline-none focus-visible:outline-none [&_*]:outline-none ${props.className !== undefined ? props.className : "my-2"}`}
+          className={`w-full flex flex-col items-center justify-center gap-1.5 outline-none focus:outline-none focus-visible:outline-none [&_*]:outline-none my-2`}
         >
           {props.title && (
             <h4 className="text-[12.5px] font-semibold text-foreground tracking-tight text-center w-full">
@@ -2241,7 +2529,10 @@ export const { registry } = defineRegistry(catalog, {
                     stroke="var(--border-subtle)"
                     vertical={false}
                   />
-                  <XAxis dataKey={xKey} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+                  <XAxis
+                    dataKey={xKey}
+                    tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                  />
                   <YAxis
                     width={yAxisWidth}
                     tick={{ fontSize: 11, fill: "var(--muted-2)" }}
@@ -2257,7 +2548,10 @@ export const { registry } = defineRegistry(catalog, {
                         type={props.curve === "linear" ? "linear" : "monotone"}
                         dataKey={s.key}
                         name={s.label || s.key}
-                        stroke={s.color || (idx === 0 ? "var(--chart-2)" : "var(--chart-4)")}
+                        stroke={
+                          s.color ||
+                          (idx === 0 ? "var(--chart-2)" : "var(--chart-4)")
+                        }
                         strokeWidth={2.5}
                         dot={{ r: 3.5, fill: s.color || "var(--chart-2)" }}
                         activeDot={{ r: 5 }}
@@ -2283,7 +2577,11 @@ export const { registry } = defineRegistry(catalog, {
       const data = props.data || [];
       const xKey = props.xKey || "date";
       const series = props.series || [
-        { key: props.yKey || "value", label: "Volume", color: "var(--chart-2)" },
+        {
+          key: props.yKey || "value",
+          label: "Volume",
+          color: "var(--chart-2)",
+        },
       ];
       const height = props.height || 220;
 
@@ -2314,7 +2612,7 @@ export const { registry } = defineRegistry(catalog, {
 
       return (
         <div
-          className={`w-full flex flex-col items-center justify-center gap-1.5 outline-none focus:outline-none focus-visible:outline-none [&_*]:outline-none ${props.className !== undefined ? props.className : "my-2"}`}
+          className={`w-full flex flex-col items-center justify-center gap-1.5 outline-none focus:outline-none focus-visible:outline-none [&_*]:outline-none my-2`}
         >
           {props.title && (
             <h4 className="text-[12.5px] font-semibold text-foreground tracking-tight text-center w-full">
@@ -2332,7 +2630,8 @@ export const { registry } = defineRegistry(catalog, {
                     {series.map(
                       (s: { key: string; color?: string }, idx: number) => {
                         const color =
-                          s.color || (idx === 0 ? "var(--chart-2)" : "var(--chart-4)");
+                          s.color ||
+                          (idx === 0 ? "var(--chart-2)" : "var(--chart-4)");
                         const safeKey = s.key || `area-${idx}`;
                         return (
                           <linearGradient
@@ -2363,7 +2662,10 @@ export const { registry } = defineRegistry(catalog, {
                     stroke="var(--border-subtle)"
                     vertical={false}
                   />
-                  <XAxis dataKey={xKey} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+                  <XAxis
+                    dataKey={xKey}
+                    tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                  />
                   <YAxis
                     width={yAxisWidth}
                     tick={{ fontSize: 11, fill: "var(--muted-2)" }}
@@ -2375,7 +2677,8 @@ export const { registry } = defineRegistry(catalog, {
                       idx: number,
                     ) => {
                       const color =
-                        s.color || (idx === 0 ? "var(--chart-2)" : "var(--chart-4)");
+                        s.color ||
+                        (idx === 0 ? "var(--chart-2)" : "var(--chart-4)");
                       const safeKey = s.key || `area-${idx}`;
                       return (
                         <Area
@@ -2421,7 +2724,7 @@ export const { registry } = defineRegistry(catalog, {
 
       return (
         <div
-          className={`w-full flex flex-col items-center justify-center gap-1.5 outline-none focus:outline-none focus-visible:outline-none [&_*]:outline-none ${props.className !== undefined ? props.className : "my-2"}`}
+          className={`w-full flex flex-col items-center justify-center gap-1.5 outline-none focus:outline-none focus-visible:outline-none [&_*]:outline-none my-2`}
         >
           {props.title && (
             <h4 className="text-[12.5px] font-semibold text-foreground tracking-tight text-center w-full">
@@ -2495,7 +2798,7 @@ export const { registry } = defineRegistry(catalog, {
 
       return (
         <div
-          className={`w-full flex flex-col items-center justify-center gap-1.5 outline-none focus:outline-none focus-visible:outline-none [&_*]:outline-none ${props.className !== undefined ? props.className : "my-2"}`}
+          className={`w-full flex flex-col items-center justify-center gap-1.5 outline-none focus:outline-none focus-visible:outline-none [&_*]:outline-none my-2`}
         >
           {props.title && (
             <h4 className="text-[12.5px] font-semibold text-foreground tracking-tight text-center w-full">
@@ -2550,45 +2853,6 @@ export const { registry } = defineRegistry(catalog, {
       );
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Metric: ({ props }: { props: any }) => {
-      const isUp = props.trend === "up";
-      const isDown = props.trend === "down";
-
-      const cleanClassName = (props.className || "")
-        .replace(
-          /\b([pP][xytblr]?-\d+(\.\d+)?|sm:[pP][xytblr]?-\d+(\.\d+)?|[mM][xytblr]?-\d+(\.\d+)?|space-[xy]-\d+(\.\d+)?|gap-\d+(\.\d+)?)\b/g,
-          "",
-        )
-        .trim();
-
-      return (
-        <div
-          className={`rounded-2xl border border-border bg-card shadow-2xs p-3 sm:p-3.5 flex flex-col justify-between gap-1.5 transition-all ${cleanClassName}`}
-        >
-          <span className="text-[11px] font-medium text-muted-foreground tracking-wide uppercase">
-            {props.label}
-          </span>
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="min-w-0 truncate text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-              {props.value}
-            </span>
-            {props.change && (
-              <span
-                className={`shrink-0 inline-flex items-center text-[10.5px] font-semibold px-1.5 py-0.5 rounded-none leading-tight ${
-                  isUp
-                    ? "bg-success-tint text-success"
-                    : isDown
-                      ? "bg-warning-tint text-warning"
-                      : "bg-muted text-foreground/80"
-                }`}
-              >
-                {props.change}
-              </span>
-            )}
-          </div>
-        </div>
-      );
-    },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     SubmitBar: ({ props }: { props: any }) => {
       const { isSubmitted = false } = useContext(GenerativeUIContext);
@@ -2621,7 +2885,8 @@ export const { registry } = defineRegistry(catalog, {
         <div className="w-full flex flex-wrap items-center justify-between gap-3 -mt-0.5 pt-2.5 border-t border-border-subtle">
           {props.statusText ? (
             <span className="min-w-0 truncate inline-flex items-center gap-1.5 text-sm text-muted-foreground font-medium">
-              <Check className="w-4 h-4 text-brand shrink-0" /> {props.statusText}
+              <Check className="w-4 h-4 text-brand shrink-0" />{" "}
+              {props.statusText}
             </span>
           ) : (
             <div />

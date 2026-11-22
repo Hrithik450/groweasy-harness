@@ -84,7 +84,7 @@ export function TeamSection() {
       <Container className="flex flex-col gap-[clamp(28px,4vw,40px)]">
         <div className="flex flex-wrap items-end justify-between gap-6 max-[600px]:gap-3">
           <div className="flex max-w-[760px] min-w-0 flex-col gap-4">
-            <Eyebrow tone="accent">YOUR AI AD TEAM</Eyebrow>
+            <Eyebrow variant="accent">YOUR AI AD TEAM</Eyebrow>
             <h2 className="m-0 break-words [font-family:var(--font-syne)] text-[clamp(36px,5vw,72px)] font-extrabold leading-[0.95] tracking-[-0.045em] [text-wrap:balance]">
               Three agents. One screen. They talk to each other.
             </h2>
@@ -190,7 +190,7 @@ export function TeamSection() {
 
         <div className="grid grid-cols-2 gap-x-12 gap-y-8 border-t border-info pt-6 max-[820px]:grid-cols-1 max-[820px]:gap-y-6">
           <div className="flex min-w-0 flex-col gap-2">
-            <Eyebrow tone="accent">APP INSTALLS</Eyebrow>
+            <Eyebrow variant="accent">APP INSTALLS</Eyebrow>
             <b className="text-[clamp(19px,2.4vw,22px)] leading-[1.3] max-[400px]:text-[18px]">
               Cheaper installs, ad by ad.
             </b>
@@ -201,7 +201,7 @@ export function TeamSection() {
             </span>
           </div>
           <div className="flex min-w-0 flex-col gap-2">
-            <Eyebrow tone="accent">D2C · WEBSITE SALES</Eyebrow>
+            <Eyebrow variant="accent">D2C · WEBSITE SALES</Eyebrow>
             <b className="text-[clamp(19px,2.4vw,22px)] leading-[1.3] max-[400px]:text-[18px]">
               More revenue per rupee.
             </b>

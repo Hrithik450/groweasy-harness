@@ -13,7 +13,7 @@ import {
   compileSystemPrompt,
 } from "@/lib/prompts";
 import { getConnectorByUserIdAndSlug } from "@/lib/repositories/connectors.repo";
-import { getSkillUpdates, SkillUpdatesPrompt } from "@/lib/skills/updates";
+import { getSkillUpdates } from "@/lib/skills/updates";
 
 /** Tabs a surface owns, and the tool plus skill that fills each one. */
 const SURFACE_TABS: Record<string, ReadonlyArray<string>> = {
@@ -41,17 +41,15 @@ function surfaceSection(slug: string | null | undefined): string {
   return [
     "",
     "## Your workspace",
-    "This chat owns the detail bar on the right. It is filled only by the tools below — the reader looks at the tab, not at the chat, so never describe saved state you did not write.",
+    "This session owns the detail bar on the right. It is filled only by the tools below — the reader looks at the tab, not at the chat, so never describe saved state you did not write.",
     lines,
-    "Read older rows with `fetchDetailBar` (field + limit + cursor) before writing, so you do not repeat what is already there. Writes always land in this surface's own session, whichever chat the request came from.",
+    "Read older rows with `fetchDetailBar` (field + limit + cursor) before writing, so you do not repeat what is already there. Writes always land in this surface's own session, whichever session the request came from.",
   ].join("\n");
 }
 
 /** System instructions for one session, re-read on each model step. */
 export function composeInstructions(session: Session): string {
-  const skillUpdates = SkillUpdatesPrompt(getSkillUpdates(session.id));
-  const withSkillUpdates = (instructions: string): string =>
-    skillUpdates ? `${skillUpdates}\n\n${instructions}` : instructions;
+  const skillUpdates = getSkillUpdates(session.id);
 
   if (session.slug === "businessProfile") {
     const connector = getConnectorByUserIdAndSlug(
@@ -60,11 +58,12 @@ export function composeInstructions(session: Session): string {
     );
     const brandUrl = (connector?.metadata as { url?: unknown } | null)?.url;
     if (typeof brandUrl === "string" && brandUrl.trim().length > 0) {
-      return withSkillUpdates(compileBusinessProfilePrompt(brandUrl.trim()));
+      return compileBusinessProfilePrompt(brandUrl.trim(), skillUpdates);
     }
   }
 
-  return withSkillUpdates(
-    `${compileSystemPrompt(session.title)}${surfaceSection(session.slug)}`,
-  );
+  return `${compileSystemPrompt(
+    session.title,
+    skillUpdates,
+  )}${surfaceSection(session.slug)}`;
 }

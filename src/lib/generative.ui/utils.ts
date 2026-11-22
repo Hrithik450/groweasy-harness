@@ -149,29 +149,20 @@ export function generateLegoComponentsPrompt(): string {
 
 export const getUIBlockPrompt = () => `UI block syntax:
 
-- Output a nested tree only: { "type", "props", "children" }. Never use the flat root/elements format.
-- "type" is a component name from the catalog, "props" are its properties, and "children" is an optional array of child components.
-- Always start with a "Stack" as the root. Every Stack prop is required, so pass all of them: "direction": "vertical", "gap": "md", "align": "stretch", "justify": "start", "className": null.
-- Card, Metric, Table, Badge, Button, and SubmitBar take variant "light" (default) or "dark". Never use raw hex colors.
-- The example shows structure only. Choose components and layout to fit the content.
-- When the user answers a block, the next message carries that block with "submitted": true plus one JSON line { "blockId", "values" }. That JSON is the user's answer: act on those values at once, and never re-render that block or ask the same question again.
+Output a flat spec: { "root": "<elementId>", "elements": { "<elementId>": { "type", "props", "children"?: ["<childId>"] } } }.
+Every entry in "children" is an element id from the same "elements" map. Never inline a nested component object.
 
 Example:
 \`\`\`json
 {
-  "spec": {
-    "type": "Stack",
-    "props": { "direction": "vertical", "gap": "md" },
-    "children": [
-      {
-        "type": "Card",
-        "props": { "title": "Campaign Growth Brief", "variant": "dark" },
-        "children": [
-          { "type": "Metric", "props": { "label": "Avg CPA", "value": "₹340", "change": "-14%", "trend": "down", "variant": "dark" } }
-        ]
-      },
-      { "type": "SubmitBar", "props": { "label": "Apply Settings", "variant": "dark" } }
-    ]
+  "root": "root",
+  "elements": {
+    "root": { "type": "Stack", "props": { "direction": "vertical", "gap": "md", "align": "stretch", "justify": "start" }, "children": ["card", "submit"] },
+    "card": { "type": "Card", "props": { "variant": "dark" }, "children": ["eyebrow", "heading", "text"] },
+    "eyebrow": { "type": "Eyebrow", "props": { "text": "Avg CPA", "size": "sm" } },
+    "heading": { "type": "Heading", "props": { "text": "₹340", "level": "h1" } },
+    "text": { "type": "Text", "props": { "text": "Down 14% from the previous week.", "variant": "light", "size": "sm" } },
+    "submit": { "type": "SubmitBar", "props": { "label": "Apply Settings", "variant": "dark" } }
   }
 }
 \`\`\``;
