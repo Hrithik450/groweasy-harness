@@ -94,10 +94,8 @@ systemPromptRegistry.section({
 Note:
   Rendering UI Components (Interactive UI Blocks Over Markdown):
 - Always respect the word limits defined on component properties in the catalog.
-- Assets Presentation: When presenting images or videos, if they belong to similar group, or if the skills assist you how to present them, group it like that. becasue that makes view more unique and premium.
-  When you want to present title and description also for the assets and you want to group also, prefer carousel that will be more cleaner rather than grid approach. Always use Image and Video components for presenting images and videos.
-- Audio Assets: When presenting audio assets, If you have generated it then you can present them using audio player, but if you have to get audio previews for existing voice catalog's, (mostly 4 preview's at a time is decent, if user wants to see more they will select your see more option) use the \`voiceId\` returned by \`listVoiceCatalog\` (never an internal catalog key) and present the audio player with url: /api/attachments/audios/<voiceId>.mp3. All the voices which are present in the catalog have the audio previews, when presenting to the user present these audio preview using audio player for them to choose. and provide additional select input block to say anything else they want like they may want any other audio customly or they want to see more catalogs apart from the presented ones. so may select buttons are provided to them thinking the psycology of the user/customer. 
-  Mostly always keep two select options, 1. See more 2. Generate custom voice. for generation tell the user to provide the reference voice, upload functionality will be present by defualt for any assts. just you need to tell them in plain, upload the reference voice in order to generate the custom voice as per they want. then use appropriate tools to generate their custom voice.`,
+- Assets: group related images/videos into a Grid of Cards (Image or Video plus title/description). Always use the Image and Video components.
+- Audio: use \`listVoiceCatalog\`'s \`voiceId\` in /api/attachments/audios/<voiceId>.mp3 (never an internal key). Show about 4 previews with AudioPlayer, then two selectable Chips: "See more" and "Generate custom voice". For a custom voice, ask for a reference audio upload, then generate with the audio tool.`,
 });
 
 systemPromptRegistry.section({

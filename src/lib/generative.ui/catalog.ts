@@ -16,6 +16,7 @@ const {
   ToggleGroup: _tg,
   ButtonGroup: _bg,
   Pagination: _pag,
+  Carousel: _car,
   ...cleanShadcnDefinitions
 } = shadcnComponentDefinitions;
 
@@ -276,30 +277,6 @@ export const catalog = defineCatalog(schema, {
       }),
       description:
         "Responsive 1-12 column grid. Use spans to make any child wider or taller (e.g. media colSpan 1 + content colSpan 2). Rows wrap automatically; use colSpan totals that fill the columns.",
-    },
-    Carousel: {
-      props: z.object({
-        items: z
-          .array(
-            z.object({
-              title: z.string().optional().describe("max 3 to 7 words"),
-              description: z
-                .string()
-                .optional()
-                .describe("max 10 to 12 words."),
-              src: z.string().optional(),
-              sourceLink: z.string().optional(),
-              aspectRatio: z
-                .enum(["9/16", "4/5", "1/1", "16/9", "3/2"])
-                .optional()
-                .describe("'9/16', '1/1', '4/5', '16/9', '3/2'"),
-              fit: z.enum(["contain", "cover"]).optional(),
-            }),
-          )
-          .optional(),
-      }),
-      description:
-        "Horizontally scrollable carousel. Each item or child card includes title (max 3-4 words) and description assets. Supports nested child cards or items array.",
     },
     Chips: {
       props: z.object({

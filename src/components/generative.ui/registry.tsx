@@ -60,7 +60,6 @@ import {
 export const GenerativeUIContainerContext = React.createContext<{
   isInGrid?: boolean;
   isInCard?: boolean;
-  isInCarousel?: boolean;
   isVertical?: boolean;
   isDark?: boolean;
   isAccent?: boolean;
@@ -242,18 +241,16 @@ export const { registry } = defineRegistry(catalog, {
       const isVertical =
         aspect === "9/16" || Boolean(containerContext?.isVertical);
 
-      const isInsideCarousel = Boolean(containerContext?.isInCarousel);
-
       const isStandaloneMediaCard =
-        !containerContext?.isInGrid && !isInsideCarousel && Boolean(aspect);
+        !containerContext?.isInGrid && Boolean(aspect);
 
       const maxWidthClass =
         aspect && isStandaloneMediaCard
           ? `${ASPECT_CONFIG[aspect].cardWidthClass} self-start`
           : "w-full max-w-full";
 
-      // All asset cards and carousel slides strictly clamp to 1 line; only plain text cards get 2 lines
-      const hasAsset = Boolean(aspect) || hasChildren || isInsideCarousel;
+      // Asset cards clamp to 1 line; only plain text cards get 2 lines.
+      const hasAsset = Boolean(aspect) || hasChildren;
       const descClampClass = hasAsset ? "line-clamp-1" : "line-clamp-2";
 
       return (
@@ -338,7 +335,6 @@ export const { registry } = defineRegistry(catalog, {
                   isDark: hasDarkBgOrWhiteText,
                   isAccent: cardVariant === "accent" && !hasDarkBgOrWhiteText,
                   aspectRatio: aspect || containerContext?.aspectRatio,
-                  isInCarousel: containerContext?.isInCarousel,
                 }}
               >
                 <div className="flex flex-col gap-2.5 flex-1">{children}</div>
@@ -626,234 +622,6 @@ export const { registry } = defineRegistry(catalog, {
         </div>
       );
     },
-    Carousel: ({
-      props,
-      children,
-    }: {
-      props: {
-        items?: (string | Record<string, unknown>)[];
-        aspectRatio?: string;
-        fit?: "cover" | "contain" | "fill";
-      };
-      children?: React.ReactNode;
-    }) => {
-      const scrollRef = useRef<HTMLDivElement>(null);
-      const [canScrollLeft, setCanScrollLeft] = useState(false);
-      const [canScrollRight, setCanScrollRight] = useState(false);
-
-      const items = Array.isArray(props.items) ? props.items : [];
-      const hasChildren = Boolean(
-        children &&
-        (Array.isArray(children)
-          ? children.some(Boolean)
-          : children !== null && children !== undefined),
-      );
-
-      const checkScroll = () => {
-        const el = scrollRef.current;
-        if (!el) return;
-        setCanScrollLeft(el.scrollLeft > 10);
-        setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
-      };
-
-      useEffect(() => {
-        checkScroll();
-        const el = scrollRef.current;
-        if (!el) return;
-        el.addEventListener("scroll", checkScroll, { passive: true });
-        window.addEventListener("resize", checkScroll);
-        const t1 = setTimeout(checkScroll, 100);
-        const t2 = setTimeout(checkScroll, 500);
-        return () => {
-          el.removeEventListener("scroll", checkScroll);
-          window.removeEventListener("resize", checkScroll);
-          clearTimeout(t1);
-          clearTimeout(t2);
-        };
-      }, [items.length, hasChildren]);
-
-      const scroll = (direction: "left" | "right") => {
-        const el = scrollRef.current;
-        if (!el) return;
-        const scrollAmount = el.clientWidth * 0.75;
-        el.scrollBy({
-          left: direction === "left" ? -scrollAmount : scrollAmount,
-          behavior: "smooth",
-        });
-      };
-
-      return (
-        <div className={`relative w-full group/carousel my-0.5 `}>
-          {/* Left Arrow Button */}
-          {canScrollLeft && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                scroll("left");
-              }}
-              aria-label="Scroll carousel left"
-              className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-none bg-card hover:bg-card text-foreground shadow-sm hover:shadow border border-border transition-all opacity-95 hover:opacity-100 hover:scale-105 active:scale-95 cursor-pointer"
-            >
-              <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
-            </button>
-          )}
-
-          {/* Right Arrow Button */}
-          {canScrollRight && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                scroll("right");
-              }}
-              aria-label="Scroll carousel right"
-              className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-none bg-card hover:bg-card text-foreground shadow-sm hover:shadow border border-border transition-all opacity-95 hover:opacity-100 hover:scale-105 active:scale-95 cursor-pointer"
-            >
-              <ChevronRight className="w-6 h-6 stroke-[2.5]" />
-            </button>
-          )}
-
-          {/* Carousel Track */}
-          <div
-            ref={scrollRef}
-            className="w-full flex items-stretch gap-3 overflow-x-auto pt-0.5 pb-1.5 px-0.5 snap-x snap-mandatory no-scrollbar scroll-smooth"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-          >
-            {hasChildren ? (
-              <GenerativeUIContainerContext.Provider
-                value={{
-                  isInCarousel: true,
-                  aspectRatio: normalizeAspectRatio(props.aspectRatio),
-                }}
-              >
-                {React.Children.map(children, (child, idx) => {
-                  if (!child) return null;
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  const childProps = (child as any)?.props || {};
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  const childEl = (child as any)?.props?.element;
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  const childSpec = (child as any)?.props?.spec;
-                  const hasVideoChild = Boolean(
-                    childEl?.type === "Video" ||
-                    (childSpec?.elements &&
-                      Array.isArray(childEl?.children) &&
-                      childEl.children.some(
-                        (k: string) => childSpec.elements[k]?.type === "Video",
-                      )),
-                  );
-                  const childAspect =
-                    normalizeAspectRatio(
-                      childProps.aspectRatio ||
-                        childEl?.props?.aspectRatio ||
-                        childProps.props?.aspectRatio ||
-                        props.aspectRatio,
-                    ) || (hasVideoChild ? "9/16" : "1/1");
-                  const itemWidthClass =
-                    ASPECT_CONFIG[childAspect].carouselWidthClass;
-                  return (
-                    <div
-                      key={idx}
-                      className={`shrink-0 snap-start flex flex-col ${itemWidthClass}`}
-                    >
-                      {child}
-                    </div>
-                  );
-                })}
-              </GenerativeUIContainerContext.Provider>
-            ) : (
-              items.map((rawItem, i) => {
-                const item: Record<string, unknown> =
-                  typeof rawItem === "string"
-                    ? { src: rawItem, title: "" }
-                    : rawItem || {};
-                const mediaSrc =
-                  (item.src as string) ||
-                  (item.image as string) ||
-                  (item.video as string) ||
-                  "";
-                const isVideo = Boolean(
-                  mediaSrc &&
-                  /\.(mp4|webm|mov|m4v|avi|mkv)(\?|$)/i.test(mediaSrc),
-                );
-                const itemAspect = normalizeAspectRatio(
-                  (item.aspectRatio as string) || props.aspectRatio,
-                );
-                const effectiveAspect =
-                  itemAspect ||
-                  (isVideo ? "9/16" : mediaSrc ? "1/1" : undefined);
-                const cardWidthClass = effectiveAspect
-                  ? ASPECT_CONFIG[effectiveAspect].carouselWidthClass
-                  : "w-64";
-
-                const descClampClass = "line-clamp-1";
-
-                const itemTitle = (item.title as string) || "";
-                const itemDesc = (item.description as string) || "";
-                const itemHref =
-                  (item.sourceLink as string) || (item.href as string);
-                const itemClass = (item.className as string) || "";
-                const itemFit =
-                  (item.fit as "cover" | "contain" | "fill") ||
-                  props.fit ||
-                  "contain";
-                const itemAlt = (item.alt as string) || "Carousel image";
-
-                return (
-                  <div
-                    key={`carousel-item-${i}-${mediaSrc || itemTitle || i}`}
-                    className={`shrink-0 ${cardWidthClass} rounded-2xl border border-border bg-card p-3 shadow-2xs snap-start flex flex-col gap-2 transition-all hover:shadow-xs ${itemClass}`.trim()}
-                  >
-                    {/* Media: Video or Image detected on the fly from src */}
-                    {mediaSrc &&
-                      (isVideo ? (
-                        <div className="w-full rounded-xl overflow-hidden">
-                          <VideoPlayer
-                            src={mediaSrc}
-                            title={itemTitle || "Video"}
-                          />
-                        </div>
-                      ) : (
-                        <GenerativeUIImage
-                          src={mediaSrc}
-                          alt={itemTitle || itemAlt}
-                          aspectRatio={itemAspect}
-                          fit={itemFit}
-                          className="!my-0 w-full"
-                        />
-                      ))}
-
-                    {/* Content */}
-                    <div className="flex flex-col gap-1.5 flex-1 pt-1.5 sm:pt-2">
-                      {itemTitle &&
-                        (itemHref ? (
-                          // `itemHref` stays data, never a redirect: the reader
-                          // stays on our surface.
-                          <h4 className="font-semibold text-sm sm:text-[15px] text-foreground leading-snug line-clamp-1">
-                            {itemTitle}
-                          </h4>
-                        ) : (
-                          <h4 className="font-semibold text-sm sm:text-[15px] text-foreground leading-snug line-clamp-1">
-                            {itemTitle}
-                          </h4>
-                        ))}
-                      {itemDesc && (
-                        <p
-                          className={`text-xs sm:text-[13px] text-muted-foreground leading-relaxed ${descClampClass}`}
-                        >
-                          {itemDesc}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      );
-    },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Table: ({ props }: { props: any }) => {
       type TableCell = {
@@ -1061,11 +829,7 @@ export const { registry } = defineRegistry(catalog, {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Text: ({ props }: { props: any }) => {
       const containerContext = useContext(GenerativeUIContainerContext);
-      const clampClass = containerContext?.isVertical
-        ? "line-clamp-1"
-        : containerContext?.isInCarousel
-          ? "line-clamp-2"
-          : "";
+      const clampClass = containerContext?.isVertical ? "line-clamp-1" : "";
       const dark = Boolean(containerContext?.isDark);
       const textVariant =
         props.variant === "accent" ||

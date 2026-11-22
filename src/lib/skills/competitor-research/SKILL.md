@@ -75,13 +75,15 @@ description: "Senior competitive-intelligence strategist that researches tracked
 
 ### Step 4: Build the UI report
 
-Use only `<ui-block>` components, never a long text report. Root must be an Stack. Respect component word limits. Style only through variants, sizes and levels.
+Use only `<ui-block>` components, never a long text report. Root must be a Stack. Respect component word limits. Style only through variants, sizes and levels.
+
+The reference example is the required output bar, not inspiration. Match its section order, component mapping, variants and density exactly. You may only omit a section the data cannot support, or add a section built from the same patterns. Never replace it with a simpler, shorter or more compact report.
 
 ---
 
 #### 4a. Study the reference before you build
 
-The reference example at the end of this step is the quality bar. Before mapping any data, study how it is built and copy its design language, not its content. Absorb these rules:
+The reference example at the end of this step is the required bar. Before mapping any data, study how it is built and match its section order, component mapping, variants, spacing and density exactly. Do not substitute a simpler or more compact layout. Absorb these rules:
 
 1. **Page rhythm.** An `h1` verdict and a one-row scope Table come first. After that, every section is its own Card stacked vertically. Sections never sit side by side.
 2. **One section header pattern, always.** Each section Card starts with a horizontal Stack: on the left, an accent Eyebrow number (`01`, `02`… size `sm`) next to an `h1` Heading; on the right, an `xs` uppercase meta Text (sort order, scope or legend). Then a horizontal Separator. Never skip the Separator.
@@ -115,7 +117,7 @@ The reference example at the end of this step is the quality bar. Before mapping
 
 #### 4b. Recommended sections (a menu, not a script)
 
-These are the sections that make a strong competitor report. They are **recommendations**:
+These are the sections that make a strong competitor report. The reference order is the default and must be followed unless the user's question clearly requires a reorder. You may omit a section the data cannot support, rename it, or add a same-pattern section; you may not downgrade the structure, components or density:
 
 - **Skip** any section the data can't support. An empty or padded section is worse than no section.
 - **Reorder** sections to fit the question. For example, put Offers & pricing second if the user asked about pricing.
@@ -156,7 +158,7 @@ These are the sections that make a strong competitor report. They are **recommen
 
 ### Reference example
 
-Below is one high-quality competitor report built from a phrase search. Treat it as the **visual and structural standard**: copy its header pattern, color roles, type hierarchy, layouts and density. Do **not** copy its sections one-for-one or its content. Choose and order sections from 4b to fit the user's question and the evidence you have. All names, numbers and URLs are illustrative. **The example shows two competitor cards only to keep the file readable: real output must include one card for every curated ad (8–10), never just the top few.**
+Below is one high-quality competitor report built from a phrase search. It is the **required output standard**, not inspiration. Your report must match its section order, component mapping, variants, spacing and density exactly. Only omit a section the data cannot support, or add a section built from the same patterns. Never produce a simpler, shorter or more compact version. Do **not** copy its content. All names, numbers and URLs are illustrative. **The example shows two competitor cards only to keep the file readable: real output must include one card for every curated ad (8–10), never just the top few.**
 
 <ui-block>
 {
