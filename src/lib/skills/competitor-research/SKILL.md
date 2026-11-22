@@ -431,6 +431,8 @@ Below is one high-quality competitor report built from a phrase search. It is th
 - Turn the report's verified winners and open gaps into idea cards. Before writing them, compare against the `ideas` backlog loaded in Step 1: skip any title, hook, or core angle that already exists, including near-duplicates.
 - Save only genuinely new ideas with `updateIdeas` (omit `id`; at most 10 per call). Use `COMPETITOR WINNER` for a pattern remade from a verified ad, `VARIANT` for a change to one of our existing creatives, and `FROM INSIGHTS` for an open gap.
 - Never write idea JSON in the chat reply. If `updateIdeas` fails, say so; never present an idea as saved when it was not.
+- After saving, if the report does not already end in an interactive question, render a small single-select Chips + SubmitBar: "What's next?" with up to 4 relevant options (create a campaign brief, research more competitors, explore new keywords, refresh this report). If it already asks, keep it and make its options equally relevant.
+- Keep this as a short follow-up block; never force a question into the report's reference layout.
 
 ---
 

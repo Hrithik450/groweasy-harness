@@ -4,6 +4,7 @@ import { getSessionFromRequest } from "@/lib/auth/session";
 import {
   getMimeTypeFromExt,
   type ImageMediaType,
+  type VideoMediaType,
 } from "@/lib/attachments/core";
 import {
   getAttachmentStore,
@@ -18,6 +19,12 @@ const IMAGE_MEDIA_TYPES = new Set<string>([
   "image/jpeg",
   "image/webp",
   "image/gif",
+]);
+
+const VIDEO_MEDIA_TYPES = new Set<string>([
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
 ]);
 
 export async function POST(req: NextRequest) {
@@ -77,11 +84,17 @@ export async function POST(req: NextRequest) {
             mediaType: mediaType as ImageMediaType,
             name: file.name,
           })
-        : await store.saveFile({
-            data: buffer,
-            mediaType,
-            name: file.name,
-          });
+        : VIDEO_MEDIA_TYPES.has(mediaType)
+          ? await store.saveVideo({
+              data: buffer,
+              mediaType: mediaType as VideoMediaType,
+              name: file.name,
+            })
+          : await store.saveFile({
+              data: buffer,
+              mediaType,
+              name: file.name,
+            });
 
       attachments.push(
         toAttachmentReceipt(ref, mediaType, {

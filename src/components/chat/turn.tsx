@@ -60,6 +60,13 @@ export function UserMarkdown({ text }: { text: string }) {
   );
 }
 
+const VIDEO_FILE_EXT = /\.(mp4|webm|mov|m4v)$/i;
+
+/** Older receipts stored videos as files; render them as video, not a link. */
+function isVideoFile(block: FileBlock): boolean {
+  return VIDEO_FILE_EXT.test(block.filename ?? block.ref.name ?? "");
+}
+
 function FileLink({ block }: { block: FileBlock }) {
   const name = block.filename ?? block.ref.name ?? "Attachment";
   return (
@@ -90,6 +97,8 @@ function UserContent({
   const files = node.content.filter(
     (block): block is FileBlock => block.type === "file",
   );
+  const videoFiles = files.filter(isVideoFile);
+  const otherFiles = files.filter((block) => !isVideoFile(block));
   const texts = node.content.filter(
     (block): block is TextBlock =>
       block.type === "text" && block.text.length > 0,
@@ -113,6 +122,18 @@ function UserContent({
           </div>
         )}
 
+        {videoFiles.length > 0 && (
+          <div className="flex flex-col items-end gap-2 w-full">
+            {videoFiles.map((video, index) => (
+              <UserVideoViewer
+                key={`user-video-file-${index}`}
+                src={attachmentSrc(video.ref)}
+                title={video.filename ?? video.ref.name ?? "Uploaded video"}
+              />
+            ))}
+          </div>
+        )}
+
         {images.length > 0 && (
           <div className="flex justify-end w-full">
             <UserImageGallery
@@ -124,9 +145,9 @@ function UserContent({
           </div>
         )}
 
-        {files.length > 0 && (
+        {otherFiles.length > 0 && (
           <div className="flex flex-col items-end gap-1.5 w-full">
-            {files.map((block, index) => (
+            {otherFiles.map((block, index) => (
               <FileLink key={`user-file-${index}`} block={block} />
             ))}
           </div>
