@@ -37,6 +37,33 @@ const STEP_ICON: Record<Step, string> = {
   sync: "/bot/face-amber.svg",
 };
 
+/** Accept "brand.com" or a full URL; return the normalized absolute URL. */
+function normalizeSiteUrl(value: string): string | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const url = new URL(candidate);
+    if (!url.hostname.includes(".") || url.hostname.startsWith(".")) {
+      return null;
+    }
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
+/** Read a JSON body without ever throwing on an HTML error page. */
+async function readJson<T>(res: Response): Promise<T | null> {
+  const text = await res.text().catch(() => "");
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
+
 export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
   const router = useRouter();
   const { status, loading, refresh } = useOnboardingStatus();
@@ -47,6 +74,7 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
 
   const [busy, setBusy] = useState(false);
   const [brandUrl, setBrandUrl] = useState("");
+  const [urlError, setUrlError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -108,13 +136,21 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
     syncFired.current = false;
     setError(null);
     try {
-      await fetch("/api/onboarding/sync", {
+      const res = await fetch("/api/onboarding/sync", {
         method: "POST",
         credentials: "include",
       });
+      if (!res.ok) {
+        const json = await readJson<{ error?: string }>(res);
+        throw new Error(
+          json?.error ?? "Could not restart the sync. Try again.",
+        );
+      }
       await refreshStatus();
-    } catch {
-      setError("Could not restart the sync. Try again.");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not restart the sync. Try again.",
+      );
     }
   };
 
@@ -129,8 +165,8 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
         credentials: "include",
         body: JSON.stringify({ email, password }),
       });
-      const json = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(json.error ?? "Could not sign in.");
+      const json = await readJson<{ error?: string }>(res);
+      if (!res.ok) throw new Error(json?.error ?? "Could not sign in.");
       await refreshStatus();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not sign in.");
@@ -141,6 +177,12 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
 
   const connectBusiness = async (event: React.FormEvent) => {
     event.preventDefault();
+    const siteUrl = normalizeSiteUrl(brandUrl);
+    if (!siteUrl) {
+      setUrlError("Please enter a valid URL (e.g. https://example.com)");
+      return;
+    }
+    setUrlError(null);
     setBusy(true);
     setError(null);
     try {
@@ -148,10 +190,17 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ url: brandUrl.trim() }),
+        body: JSON.stringify({ url: siteUrl }),
       });
-      const json = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(json.error ?? "Could not start the import.");
+      const json = await readJson<{ error?: string }>(res);
+      if (!res.ok) {
+        throw new Error(
+          json?.error ??
+            (res.status === 504 || res.status === 524
+              ? "The import is still running. Keep this page open; it updates when the profile is ready."
+              : "Could not start the import. Try again."),
+        );
+      }
       await refreshStatus();
     } catch (err) {
       setError(
@@ -176,12 +225,12 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
         method: "POST",
         credentials: "include",
       });
-      const json = (await res.json()) as {
+      const json = await readJson<{
         data?: { sessionId?: string };
         error?: string;
-      };
-      if (!res.ok || !json.data?.sessionId) {
-        throw new Error(json.error ?? "Could not finish setup.");
+      }>(res);
+      if (!res.ok || !json?.data?.sessionId) {
+        throw new Error(json?.error ?? "Could not finish setup.");
       }
       setDone(true);
       router.push(`/c/${json.data.sessionId}`);
@@ -351,14 +400,25 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
                     Website address
                   </span>
                   <input
-                    type="url"
+                    type="text"
+                    inputMode="url"
                     value={brandUrl}
-                    onChange={(e) => setBrandUrl(e.target.value)}
+                    onChange={(e) => {
+                      setBrandUrl(e.target.value);
+                      if (urlError) setUrlError(null);
+                    }}
                     placeholder="https://example.com"
-                    className="w-full border border-border bg-card px-3 py-2 text-[13px] outline-none focus:border-foreground/40"
-                    required
+                    aria-invalid={urlError !== null}
+                    className={`w-full border bg-card px-3 py-2 text-[13px] outline-none focus:border-foreground/40 ${
+                      urlError ? "border-destructive" : "border-border"
+                    }`}
                     disabled={status.business.status === "running"}
                   />
+                  {urlError ? (
+                    <span className="block text-[12px] text-destructive">
+                      {urlError}
+                    </span>
+                  ) : null}
                 </label>
                 {status.business.status === "running" ? (
                   <div className="flex items-start gap-2 text-[12px] text-muted-foreground">

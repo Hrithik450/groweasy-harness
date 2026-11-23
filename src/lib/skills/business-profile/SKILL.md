@@ -63,6 +63,6 @@ Scrape the primary website for:
 
 ### Step 5: Persist
 
-1. Render the completed profile as a UI block with `renderUIBlock` first. Do not save until it passes.
-2. Save the complete structured payload with `updateBusinessProfile`.
+1. Save the complete business profile structured payload with `updateBusinessProfile`.
+2. Render the completed competitor research as a UI block with `renderUIBlock` first. Do not save competitor research until it passes.
 3. Save the new competitors and their ads with `saveCompetitorResearch`. Include only findings not already in `competitorResearches`, and pass the competitor report `blocks` spec you rendered so the finding opens on its own page.

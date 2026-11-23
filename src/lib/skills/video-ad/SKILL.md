@@ -85,11 +85,12 @@ If a source is missing, say so in one line and work from the sources that exist.
 - Submit one job with `action: "submit"`: `shots: [{ index, image_id?, prompt, narration, duration }]`, plus `seed`, `quality`, `aspect_ratio`. `prompt` is visual direction only; `narration` is the exact spoken line.
 - Poll with `action: "job"` (or `action: "wait"`), retry only failed shots with `action: "retry"`, then download the clips.
 
-### Stage 4 — Audio, subtitles, assembly (`generateAudio`, `renderElement`, `ffmpeg`)
+### Stage 4 — Audio, subtitles, assembly (`generateAudio`, `renderElement`, `ffmpeg`, `render_captions`)
 
-- Generate timed lowercase `.ass` subtitles from the audio track.
+- Assemble the final video first, then burn captions with `render_captions` (`videoPath` = the assembled video's attachment URL, `position: "chest"`). It transcribes the dialogue and burns word-timed captions in one call; it replaces the manual `.ass` + ffmpeg burn.
 - Render Preset 1 and Preset 2 overlays with `renderElement`.
-- Concatenate or crossfade clips, normalize audio, and burn subtitles and overlays. Keep the URL returned by the local tool or the video service.
+- Concatenate or crossfade clips and normalize audio. When overlays and captions both land in one encode, burn the overlays with `ffmpeg` first, then run `render_captions` on that output.
+- Keep the URL returned by the local tool or the video service.
 - Inspect once before delivery: audio sync, subtitle readability, safe zones, and seamless transitions.
 
 ### Stage 5 — Save to Creatives
@@ -203,8 +204,10 @@ LIGHT: {soft_golden_hour_or_diffused_morning_light}, natural shadows.
 
 ### Subtitles
 
-- Generate timed `.ass` cues from the narration audio with `createSubtitles`. Lowercase every cue.
+- Burn captions with `render_captions`: pass the assembled video's attachment URL and `position: "chest"`. It transcribes the final audio and burns the cues itself, so never hand-write an ffmpeg `subtitles=` filter.
+- Lowercase every cue; the burned captions must stay lowercase.
 - Styling: solid white fill `#FFFFFF` with dark navy outline `#0a1f48`.
+- Only when the user asks for a separate subtitle file, generate timed `.ass` cues with `createSubtitles` and deliver that file alongside the video.
 
 ### Overlays (`renderElement`)
 
@@ -215,5 +218,5 @@ LIGHT: {soft_golden_hour_or_diffused_morning_light}, natural shadows.
 
 - Concatenate clips, or join sequence shots with 0.3s crossfades (`xfade`).
 - Normalize dialogue to `-14 LUFS` (`loudnorm`); duck background music to `-17 dB`.
-- Burn the lowercase `.ass` subtitles and composited overlays.
-- Inspect once, then use the `generateVideo` `download` URL as the `<ui-block>` `Video` source.
+- Burn the composited overlays with `ffmpeg`, then burn captions with `render_captions` on the result.
+- Inspect once, then use the `render_captions` (or final `ffmpeg`) output URL as the `<ui-block>` `Video` source.

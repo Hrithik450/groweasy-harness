@@ -46,6 +46,9 @@ import {
   renderElementToolDefinition,
   RenderElementArgs,
   executeRenderElementTool,
+  renderCaptionsToolDefinition,
+  RenderCaptionsArgs,
+  executeRenderCaptionsTool,
   fetchOverlayTypesToolDefinition,
   FetchOverlayTypesArgs,
   executeFetchOverlayTypesTool,
@@ -283,6 +286,11 @@ export const TOOL_REGISTRY: Record<
   fetchOverlayTypes: {
     definition: fetchOverlayTypesToolDefinition,
     execute: () => executeFetchOverlayTypesTool(),
+  },
+  renderCaptions: {
+    definition: renderCaptionsToolDefinition,
+    execute: (input) =>
+      executeRenderCaptionsTool(input as ToolInput<RenderCaptionsArgs>),
   },
   ffmpeg: {
     definition: ffmpegToolDefinition,

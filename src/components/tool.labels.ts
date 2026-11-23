@@ -13,6 +13,23 @@ type ToolLabelVariants = readonly string[];
 type ToolLabelFactory = (args: ToolArgs) => ToolLabelVariants;
 type ToolLabelSpec = ToolLabelVariants | ToolLabelFactory;
 
+/** Host of a URL argument, for a concrete "reading <site>" label. */
+function siteHost(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) return "";
+  try {
+    const host = new URL(value).hostname.replace(/^www\./, "");
+    return host.includes(".") ? host : "";
+  } catch {
+    return "";
+  }
+}
+
+/** Keep an argument from turning a label into a paragraph. */
+function shortArg(value: string, max = 40): string {
+  const clean = value.trim().replace(/\s+/g, " ");
+  return clean.length > max ? `${clean.slice(0, max).trim()}…` : clean;
+}
+
 const TOOL_LABELS: Record<string, ToolLabelSpec> = {
   generateImages: [
     "Generating ad images",
@@ -111,6 +128,13 @@ const TOOL_LABELS: Record<string, ToolLabelSpec> = {
     "Adding captions",
     "Building the subtitle file",
     "Timing the captions",
+  ],
+  render_captions: [
+    "Burning captions into the video",
+    "Adding word-timed captions",
+    "Rendering the caption track",
+    "Laying captions onto the video",
+    "Finishing the captioned cut",
   ],
   fetchBusinessProfile: [
     "Reading brand profile",
@@ -232,7 +256,8 @@ const TOOL_LABELS: Record<string, ToolLabelSpec> = {
     "Updating the ad classifications",
   ],
   searchAdLibrary: (args) => {
-    const query = typeof args.query === "string" ? args.query.trim() : "";
+    const raw = typeof args.query === "string" ? args.query.trim() : "";
+    const query = raw ? shortArg(raw) : "";
     if (!query) {
       return [
         "Searching Meta Ad Library",
@@ -251,13 +276,14 @@ const TOOL_LABELS: Record<string, ToolLabelSpec> = {
     ];
   },
   webSearch: (args) => {
-    if (typeof args.url === "string" && args.url.trim()) {
+    const host = siteHost(args.url);
+    if (host) {
       return [
-        "Reading page content",
-        "Opening the page",
-        "Scanning the web page",
-        "Checking the page content",
-        "Pulling page details",
+        `Reading ${host}`,
+        `Opening ${host}`,
+        `Scanning ${host}`,
+        `Checking ${host}`,
+        `Pulling details from ${host}`,
       ];
     }
     return [
@@ -268,13 +294,25 @@ const TOOL_LABELS: Record<string, ToolLabelSpec> = {
       "Gathering web results",
     ];
   },
-  scrapeWebPage: [
-    "Reading page content",
-    "Opening the page",
-    "Checking the site content",
-    "Scanning the web page",
-    "Pulling page details",
-  ],
+  scrapeWebPage: (args) => {
+    const host = siteHost(args.url);
+    if (!host) {
+      return [
+        "Reading page content",
+        "Opening the page",
+        "Checking the site content",
+        "Scanning the web page",
+        "Pulling page details",
+      ];
+    }
+    return [
+      `Reading ${host}`,
+      `Opening ${host}`,
+      `Scanning ${host}`,
+      `Checking ${host}`,
+      `Pulling details from ${host}`,
+    ];
+  },
   fetchDetailBar: [
     "Reading saved workspace data",
     "Loading workspace details",
