@@ -371,7 +371,7 @@ export function buildImageInputBlocks(
 }
 
 /**
- * Build a complete multimodal message payload for gpt-6.1-sol.
+ * Build a complete multimodal message payload for gpt-5.6-luna.
  * Combines the summaryText with ordered keyframe image blocks.
  * Uses detail: "low" by default across all frames.
  */

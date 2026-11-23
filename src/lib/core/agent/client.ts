@@ -34,7 +34,7 @@ export function getOpenAIModel(): string {
   return (
     process.env.OPENAI_MODEL?.trim() ||
     process.env.OPENAI_AGENT_MODEL?.trim() ||
-    "gpt-6.1-sol"
+    "gpt-5.6-luna"
   );
 }
 
@@ -47,7 +47,7 @@ export function getOpenAIJudgeModel(): string {
     process.env.OPENAI_JUDGE_MODEL?.trim() ||
     process.env.OPENAI_MODEL?.trim() ||
     process.env.OPENAI_AGENT_MODEL?.trim() ||
-    "gpt-6.1-sol"
+    "gpt-5.6-luna"
   );
 }
 
