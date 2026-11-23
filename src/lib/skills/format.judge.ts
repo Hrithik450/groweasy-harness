@@ -281,6 +281,7 @@ export async function judgeUIBlockFormat(
   spec: UIBlockSpec,
   skills: readonly SkillDefinition[],
   userRequests: readonly string[] = [],
+  meta?: { sessionId?: string; turn?: number },
 ): Promise<FormatVerdict | null> {
   if (skills.length === 0) return null;
 
@@ -293,6 +294,9 @@ export async function judgeUIBlockFormat(
     "[FormatJudge] Input:",
     JSON.stringify({
       model,
+      // Sessions run concurrently; the id/turn ties interleaved lines together.
+      ...(meta?.sessionId ? { session: meta.sessionId.slice(-8) } : {}),
+      ...(meta?.turn !== undefined ? { turn: meta.turn } : {}),
       userRequests,
       skills: skills.map((skill) => skill.name),
       specChars: JSON.stringify(spec).length,
@@ -356,7 +360,10 @@ export async function validateUIBlockFormat(
   const events = await readSessionEvents(context.sessionId);
   const skills = skillsFromEvents(events, context.turn);
   if (skills.length === 0) return null;
-  return judgeUIBlockFormat(spec, skills, lastUserTexts(events));
+  return judgeUIBlockFormat(spec, skills, lastUserTexts(events), {
+    sessionId: context.sessionId,
+    turn: context.turn,
+  });
 }
 
 /** Build the model-facing rejection text for one failed verdict. */

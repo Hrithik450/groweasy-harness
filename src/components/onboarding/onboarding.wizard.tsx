@@ -130,6 +130,29 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
     }).catch(() => undefined);
   }, [status?.authenticated, status?.meta.connected, status?.sync.ready]);
 
+  // A job turning "running" publishes no event, so keep the sync step fresh
+  // until every job has finished or failed.
+  useEffect(() => {
+    if (
+      loading ||
+      !status ||
+      status.onboardedAt ||
+      status.step !== "sync" ||
+      status.sync.ready
+    ) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      void refresh().catch(() => undefined);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [loading, status?.onboardedAt, status?.step, status?.sync.ready, refresh]);
+
+  // Errors raised on an earlier step must not follow the user into sync.
+  useEffect(() => {
+    if (status?.step === "sync") setError(null);
+  }, [status?.step]);
+
   if (loading || !status || status.onboardedAt || done) return null;
 
   const retrySync = async () => {
