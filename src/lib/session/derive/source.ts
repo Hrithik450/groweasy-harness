@@ -8,6 +8,7 @@
  */
 
 import {
+  isPromptDisplay,
   isUIAnswerSource,
   type ContentBlock,
 } from "@/lib/llm/llm/message";
@@ -28,12 +29,17 @@ export type SourceKind = "message" | "context" | "trigger";
  * source kind is model context and never renders as a bubble.
  */
 export function classifyUserSource(
-  source: { kind?: string } | undefined,
+  source: { kind?: string; display?: unknown } | undefined,
 ): SourceKind {
   const kind = source?.kind;
   if (kind === undefined || kind === "user" || isUIAnswerSource(kind)) {
     return "message";
   }
+  // A detail-bar action shows its compact display; without one it stays hidden.
+  if (kind === "detail-bar") {
+    return isPromptDisplay(source?.display) ? "message" : "context";
+  }
+
   if (kind === "cron" || kind === "agent") return "trigger";
   return "context";
 }

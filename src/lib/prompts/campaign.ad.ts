@@ -12,13 +12,14 @@ import type {
   CampaignAd,
   CampaignAdAction,
 } from "@/lib/detail.bar/types";
+import type { PromptDraft } from "@/lib/session/prompt";
 
 /** Prompt instructing the agent to apply one ad's recommended move. */
 export function buildCampaignAdPrompt(
   campaign: Campaign,
   ad: CampaignAd,
   action: CampaignAdAction,
-): string {
+): PromptDraft {
   const lines = [
     `Apply the recommended move for ad "${ad.name}" in campaign "${campaign.name}".`,
     `Verdict: ${ad.category}.`,
@@ -32,5 +33,11 @@ export function buildCampaignAdPrompt(
   lines.push(
     "Verify the current state before changing anything, then apply the change with the matching Meta tool.",
   );
-  return lines.join("\n");
+  return {
+    content: lines.join("\n"),
+    display: {
+      title: `Apply the move for “${ad.name}”`,
+      detail: ad.category,
+    },
+  };
 }

@@ -1,60 +1,42 @@
-import type {
-  TokenUsage,
-  ContentBlock,
-  MessageSource,
-} from "@/lib/llm/llm/message";
+import type { TokenUsage, ContentBlock } from "@/lib/llm/llm/message";
 import type { UIBlockSpec } from "@/lib/generative.ui";
 import type { ToolStatus, TurnStatus } from "./types";
 
-export type { ToolStatus, TurnStatus } from "./types";
-
-export type ChatNodeKind =
-  | "user"
-  | "assistant-step"
-  | "tool-call"
-  | "ui-block"
-  | "turn-end";
-
 interface ChatNodeBase {
-  readonly kind: ChatNodeKind;
+  readonly kind:
+    | "user"
+    | "assistant-step"
+    | "tool-call"
+    | "ui-block"
+    | "turn-end";
   /** Durable seq this row is anchored to. */
   readonly seq: number;
   readonly turn: number;
-  /** ISO time of the anchoring event. */
-  readonly time: string;
 }
 
 export interface UserChatNode extends ChatNodeBase {
   kind: "user";
   content: ContentBlock[];
-  source?: MessageSource;
 }
 
 export interface AssistantStepChatNode extends ChatNodeBase {
   kind: "assistant-step";
+  /** Matches the live stream frame to its step. */
   step: number;
-  status: TurnStatus;
   /** Message content minus reasoning; same type and name as `user`. */
   content: ContentBlock[];
   reasoning?: string;
-  usage?: TokenUsage;
-  /** True only for the live-preview node layered from stream frames. */
-  streaming?: boolean;
 }
 
 export interface ToolCallChatNode extends ChatNodeBase {
   kind: "tool-call";
-  step: number;
   callId: string;
   name: string;
-  argumentsRaw: string;
   args: Record<string, unknown>;
+  /** Server-provided label; the client never derives it from internals. */
+  label?: string;
   status: ToolStatus;
-  data?: unknown;
   error?: string;
-  meta?: unknown;
-  startedAt?: string;
-  completedAt?: string;
   durationMs?: number;
 }
 

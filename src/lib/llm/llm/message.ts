@@ -80,6 +80,30 @@ export interface ModelMessageSource {
   model?: string;
 }
 
+/** Compact, user-facing summary of the action that built a prompt. */
+export interface PromptDisplay {
+  /** One line the transcript shows instead of the built prompt. */
+  title: string;
+  /** Optional second line: format, scope, or outcome. */
+  detail?: string;
+}
+
+/** Whether a value is a {@link PromptDisplay}. */
+export function isPromptDisplay(value: unknown): value is PromptDisplay {
+  if (typeof value !== "object" || value === null) return false;
+  const display = value as { title?: unknown; detail?: unknown };
+  return (
+    typeof display.title === "string" &&
+    (display.detail === undefined || typeof display.detail === "string")
+  );
+}
+
+/** The text a transcript renders for one prompt display. */
+export function promptDisplayText(display: PromptDisplay): string {
+  const detail = display.detail?.trim();
+  return detail ? `${display.title}\n${detail}` : display.title;
+}
+
 /**
  * Merge-extensible map from a user-message source kind to its payload.
  *
@@ -102,8 +126,11 @@ export interface MessageSourceMap {
   agent: { kind: "agent"; agentId?: string };
   /** Host-authored context. */
   system: { kind: "system" };
-  /** Hidden prompt sent by a detail-bar action; never a chat bubble. */
-  "detail-bar": { kind: "detail-bar" };
+  /**
+   * Prompt sent by a detail-bar action. With a `display`, the transcript shows
+   * that compact summary; without one, the turn stays hidden.
+   */
+  "detail-bar": { kind: "detail-bar"; display?: PromptDisplay };
   /** Durable tool-result context. */
   "tool-result": {
     kind: "tool-result";

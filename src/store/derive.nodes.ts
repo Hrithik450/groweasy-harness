@@ -72,8 +72,6 @@ export function overlayLiveNodes(
     const next = [...nodes];
     next[target] = {
       ...node,
-      status: "running",
-      streaming: true,
       content: appendLiveText(node.content, live.text),
     };
     return next;
@@ -84,11 +82,8 @@ export function overlayLiveNodes(
     kind: "assistant-step",
     seq: lastSeq + 1,
     turn: live.turn,
-    time: new Date().toISOString(),
     step: live.step,
-    status: "running",
     content: [{ type: "text", text: live.text }],
-    streaming: true,
   };
   return [...nodes, synthetic];
 }

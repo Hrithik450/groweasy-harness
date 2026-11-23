@@ -15,7 +15,10 @@ export interface DetailBarComponentProps<TData = unknown> {
   isStreaming?: boolean;
   handleSubmit?: (
     content: string,
-    options?: { source?: import("@/lib/session/prompt").PromptSource },
+    options?: {
+      source?: import("@/lib/session/prompt").PromptSource;
+      display?: import("@/lib/llm/llm/message").PromptDisplay;
+    },
   ) => Promise<void> | void;
   handleUpdateData?: (item: {
     kind: DetailBarField;

@@ -36,7 +36,10 @@ export interface CampaignsAdsTabProps {
   isStreaming?: boolean;
   handleSubmit?: (
     content: string,
-    options?: { source?: import("@/lib/session/prompt").PromptSource },
+    options?: {
+      source?: import("@/lib/session/prompt").PromptSource;
+      display?: import("@/lib/llm/llm/message").PromptDisplay;
+    },
   ) => Promise<void> | void;
   handleUpdateData?: (item: {
     kind: import("@/lib/detail.bar/fields").DetailBarField;
@@ -138,8 +141,10 @@ export function CampaignsAdsTab({
     if (isStreaming || pendingAdId) return;
     setPendingAdId(ad.id);
     try {
-      await handleSubmit?.(buildCampaignAdPrompt(campaign, ad, action), {
+      const draft = buildCampaignAdPrompt(campaign, ad, action);
+      await handleSubmit?.(draft.content, {
         source: "detail-bar",
+        display: draft.display,
       });
       toast.success("Sent to the assistant");
     } catch (err) {

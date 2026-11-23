@@ -252,7 +252,7 @@ function ToolCallRow({ node }: { node: ToolCallChatNode }) {
       <div className="flex items-center gap-2 min-w-0">
         <Wrench className="w-3 h-3 shrink-0" />
         <span className="break-words min-w-0">
-          {toolLabel(node.name, node.args, node.callId)}
+          {node.label ?? toolLabel(node.name, node.args, node.callId)}
         </span>
         <span className={`shrink-0 ${statusClass}`}>{node.status}</span>
         {node.durationMs !== undefined && node.durationMs > 0 && (

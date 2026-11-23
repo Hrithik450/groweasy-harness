@@ -2,7 +2,13 @@ import type { SessionEvent } from "@/lib/core/session/events";
 import { MessageId, SessionId } from "@/lib/core/session/brand";
 import { assistantTurnSource } from "@/lib/core/agent/assistant.source";
 import { classifyUserSource, isUserBubble } from "./source";
-import { type ContentBlock, type Message } from "@/lib/llm/llm/message";
+import {
+  isPromptDisplay,
+  promptDisplayText,
+  type ContentBlock,
+  type Message,
+  type UserMessage,
+} from "@/lib/llm/llm/message";
 import {
   isFileAttachmentRef,
   isImageAttachmentRef,
@@ -24,6 +30,19 @@ export interface SessionMessage {
   time: string;
 }
 
+/** Replace a detail-bar prompt with the compact line the transcript shows. */
+function displayUserMessage(message: UserMessage): UserMessage {
+  const source = message.source;
+  if (source?.kind !== "detail-bar" || !isPromptDisplay(source.display)) {
+    return message;
+  }
+
+  return {
+    ...message,
+    content: [{ type: "text", text: promptDisplayText(source.display) }],
+  };
+}
+
 export function deriveMessages(
   events: readonly SessionEvent[],
   options?: { sessionId?: SessionId | string },
@@ -36,13 +55,19 @@ export function deriveMessages(
     if (event.type === "user/message") {
       const message = event.data;
       if (!isUserBubble(message.source, message.content)) continue;
-      messages.push({ message, seq: event.seq, time: createdAt });
+      messages.push({
+        message: displayUserMessage(message),
+        seq: event.seq,
+        time: createdAt,
+      });
     } else if (event.type === "assistant/message") {
       const message = event.data.message;
       const replyOrigin = assistantTurnSource(message.source);
-      // Cron/agent/system turns are automation, not transcript.
+      // Cron/agent/system turns are automation, not transcript. A detail-bar
+      // reply stays visible: its action shows a compact bubble.
       if (
         replyOrigin !== undefined &&
+        replyOrigin !== "detail-bar" &&
         classifyUserSource({ kind: replyOrigin }) !== "message"
       ) {
         continue;

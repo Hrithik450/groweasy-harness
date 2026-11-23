@@ -3,6 +3,7 @@ import { useParams } from "next/navigation";
 import { useChatStore } from "@/store/chat.store";
 import { useIsStreaming } from "@/store/selectors";
 import type { SessionPromptRequest } from "@/lib/session/prompt";
+import { promptDisplayText } from "@/lib/llm/llm/message";
 import {
   SESSION_JOURNAL_EVENT,
   SESSION_TRANSPORT_ERROR_EVENT,
@@ -114,9 +115,12 @@ export function useChatStream() {
     }
     const sessionId = request.sessionId;
 
-    const text = request.content
-      .flatMap((part) => (part.type === "text" ? [part.text] : []))
-      .join("\n\n");
+    const text = request.display
+      ? promptDisplayText(request.display)
+      : request.content
+          .flatMap((part) => (part.type === "text" ? [part.text] : []))
+          .join("\n\n");
+
     useChatStore.getState().addPending(sessionId, {
       text: text,
       requestId: request.requestId,

@@ -6,6 +6,5 @@ export * from "@/lib/core/session/events";
 export * from "./derive/chat";
 export * from "./derive/messages";
 export * from "./derive/source";
-export * from "./derive/tools";
 export * from "./derive/nodes";
 export * from "./persistence/events.repo";

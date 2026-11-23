@@ -20,6 +20,7 @@ import {
   SESSION_JOURNAL_PAGE_TURNS,
   type SessionJournalChange,
 } from "@/lib/session/journal";
+import { projectEventForClient } from "@/lib/session/wire";
 import type { Response } from "./types";
 
 export interface GetSessionMessagesOptions {
@@ -63,7 +64,12 @@ export async function getSessionJournal(
       maxTurns: SESSION_JOURNAL_PAGE_TURNS,
       maxBytes: SESSION_JOURNAL_PAGE_BYTES,
     });
-    const page = { entries: window.entries, cursor: window.cursor };
+    // The wire carries the display projection, never the durable payload.
+    const entries = window.entries.flatMap((entry) => {
+      const projected = projectEventForClient(entry);
+      return projected ? [projected] : [];
+    });
+    const page = { entries, cursor: window.cursor };
     const data: SessionJournalChange =
       cursor === undefined || cursor === ""
         ? { type: "replace", page, hasMore: window.hasMore }

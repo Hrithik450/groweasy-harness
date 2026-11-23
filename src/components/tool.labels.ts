@@ -1,8 +1,9 @@
 /**
- * Client-only, user-facing tool labels.
+ * User-facing tool labels, shared by the server projection and the client.
  *
  * The model and tool results keep their real names and errors; this file only
- * changes what the "Show process" panel renders.
+ * decides what the "Show process" panel reads. The server computes the label
+ * when it projects a tool call, so raw arguments never reach the browser.
  */
 
 type ToolArgs = Record<string, unknown>;

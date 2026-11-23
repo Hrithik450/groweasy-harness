@@ -26,10 +26,7 @@ import type { SessionJournalChange } from "@/lib/session/journal";
 import type { DetailBarState } from "@/lib/detail.bar/state";
 import { ChatHeader } from "./header";
 import { ChatEmptyState } from "./empty";
-import {
-  chipsFor,
-  placeholderFor,
-} from "@/lib/constants/session.suggestions";
+import { chipsFor, placeholderFor } from "@/lib/constants/session.suggestions";
 import { DetailBar } from "./detail.bar";
 import { TurnView, UserMarkdown } from "./turn";
 import { ChatInputForm } from "./input.form";
@@ -168,7 +165,10 @@ export function Chat({
       return;
     }
 
-    if (latestUiBlockSeq === null || latestUiBlockSeq === lastUiBlockSeqRef.current) {
+    if (
+      latestUiBlockSeq === null ||
+      latestUiBlockSeq === lastUiBlockSeqRef.current
+    ) {
       return;
     }
 
@@ -265,6 +265,7 @@ export function Chat({
     content: string,
     options?: {
       source?: import("@/lib/session/prompt").PromptSource;
+      display?: import("@/lib/llm/llm/message").PromptDisplay;
       receiptIds?: readonly string[];
     },
   ) => {
@@ -276,6 +277,7 @@ export function Chat({
     setInputValue("");
     await submitText(content, {
       ...(options?.source !== undefined ? { source: options.source } : {}),
+      ...(options?.display !== undefined ? { display: options.display } : {}),
       receiptIds,
     });
   };
@@ -297,41 +299,9 @@ export function Chat({
     void e;
   };
 
-  const resolveLegacyTurn = (
-    targetId: string,
-    createdAt?: string,
-  ): string | null => {
-    const legacy = /^(.+):(\d+)$/.exec(targetId);
-    if (!legacy) return null;
-
-    const step = Number(legacy[2]);
-    const createdMs = createdAt ? Date.parse(createdAt) : Number.NaN;
-    const events = useChatStore.getState().events[sessionId] ?? [];
-    let bestTurn: number | undefined;
-    let bestDistance = Number.POSITIVE_INFINITY;
-
-    for (const event of events) {
-      if (event.type !== "tool/result") continue;
-      const data = event.data as { step?: unknown; turn?: unknown };
-      if (data.step !== step || typeof data.turn !== "number") continue;
-
-      // The legacy id only names the step. Item creation time picks the turn
-      // when several turns used the same step; without it, newest wins.
-      const distance = Number.isFinite(createdMs)
-        ? Math.abs(event.time - createdMs)
-        : -event.seq;
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestTurn = data.turn;
-      }
-    }
-
-    return bestTurn === undefined ? null : `turn-${bestTurn}`;
-  };
-
   const handleNavigation = async (
     targetId: string,
-    options?: { createdAt?: string; sourceSessionId?: string },
+    options?: { sourceSessionId?: string },
   ) => {
     if (options?.sourceSessionId && options.sourceSessionId !== sessionId) {
       const query = new URLSearchParams({ turn: targetId });
@@ -339,12 +309,8 @@ export function Chat({
       return;
     }
 
-    const findTarget = (): HTMLElement | null => {
-      const direct = document.getElementById(targetId);
-      if (direct) return direct;
-      const resolved = resolveLegacyTurn(targetId, options?.createdAt);
-      return resolved ? document.getElementById(resolved) : null;
-    };
+    const findTarget = (): HTMLElement | null =>
+      document.getElementById(targetId);
 
     let target = findTarget();
     for (let attempt = 0; !target && attempt < 50; attempt += 1) {

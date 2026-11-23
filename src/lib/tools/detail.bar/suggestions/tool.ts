@@ -1,6 +1,10 @@
 import { uuidv7 } from "@/lib/utils/uuid";
 import { ToolInput, ToolOutput } from "@/lib/tools/types";
-import { readBarItemFor, resolveDetailBarSession, upsertDetailBarItems } from "@/lib/detail.bar/service";
+import {
+  readBarItemFor,
+  resolveDetailBarSession,
+  upsertDetailBarItems,
+} from "@/lib/detail.bar/service";
 import { toolFailure as failure } from "@/lib/tools/utils";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
 import { validateAndNormalizeUI } from "@/lib/generative.ui";
@@ -87,7 +91,7 @@ export const updateSuggestionsToolDefinition = {
 
 /** One suggestion as the tool accepts it; the store records the time. */
 export type SuggestionItemInput = Partial<
-  Omit<Suggestion, "createdAt" | "meta" | "action">
+  Omit<Suggestion, "createdAt" | "meta" | "action" | "note">
 > & {
   status?: AlertStatus;
   meta?: Partial<AlertMeta>;
@@ -96,6 +100,75 @@ export type SuggestionItemInput = Partial<
 
 export interface UpdateSuggestionsArgs {
   suggestions?: SuggestionItemInput[];
+}
+
+function mergeSuggestion(
+  item: SuggestionItemInput,
+  existing: BarCard<Suggestion> | undefined,
+): { status: AlertStatus; data: Suggestion } {
+  const rawMeta = item.meta ?? {};
+  const adAccountId =
+    rawMeta.adAccountId?.trim() || existing?.meta.adAccountId || "";
+  const campaignId =
+    rawMeta.campaignId?.trim() || existing?.meta.campaignId || "";
+  const adSetId = rawMeta.adSetId?.trim() || existing?.meta.adSetId;
+  const adId = rawMeta.adId?.trim() || existing?.meta.adId;
+
+  const rawAction =
+    typeof item.action === "object" && item.action !== null ? item.action : {};
+  // Older rows stored the fix as a bare string.
+  const stringFix =
+    typeof (item.action as unknown) === "string"
+      ? String(item.action).trim()
+      : "";
+  const fix = rawAction.fix?.trim() || stringFix || existing?.action.fix || "";
+  const before =
+    rawAction.before !== undefined
+      ? rawAction.before?.trim()
+      : existing?.action.before;
+  const after =
+    rawAction.after !== undefined
+      ? rawAction.after?.trim()
+      : existing?.action.after;
+
+  const chart = item.chart ?? existing?.chart;
+  // The note belongs to the user; a re-emitted suggestion keeps it as-is.
+  const note = existing?.note;
+
+  const status = item.status || existing?.status || "pending";
+  const data = {
+    id: item.id?.trim() || existing?.id || uuidv7(),
+    title: item.title?.trim() || existing?.title || "Account Diagnostic Item",
+    description: item.description?.trim() || existing?.description || "",
+    meta: {
+      adAccountId,
+      campaignId,
+      ...(adSetId ? { adSetId } : {}),
+      ...(adId ? { adId } : {}),
+    },
+    action: {
+      fix,
+      ...(before ? { before } : {}),
+      ...(after ? { after } : {}),
+    },
+    ...(chart ? { chart } : {}),
+    ...(note ? { note } : {}),
+  };
+
+  return { status, data };
+}
+
+/** Normalise one submitted chart; returns an error string when invalid. */
+function normaliseChart(chart: Record<string, unknown> | undefined): {
+  chart?: Record<string, unknown>;
+  error?: string;
+} {
+  if (chart === undefined) return {};
+  try {
+    return { chart: validateAndNormalizeUI(chart) };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 export async function executeUpdateSuggestionsTool(
@@ -115,7 +188,6 @@ export async function executeUpdateSuggestionsTool(
   }
 
   const items: BarItemInput[] = [];
-  // A dismissal is the user's; a fresh run never reopens it.
   const owner = resolveDetailBarSession(userId, "suggestions");
   if (!owner) {
     return failure(
@@ -123,60 +195,29 @@ export async function executeUpdateSuggestionsTool(
     );
   }
 
-  for (const a of rawItems.slice(0, MAX_SUGGESTIONS_PER_CALL)) {
-    let normalizedChart: Record<string, unknown> | undefined = undefined;
-    if (a.chart !== undefined) {
-      try {
-        normalizedChart = validateAndNormalizeUI(a.chart);
-      } catch (err) {
-        return failure(err instanceof Error ? err.message : String(err));
-      }
+  for (const item of rawItems.slice(0, MAX_SUGGESTIONS_PER_CALL)) {
+    const normalized = normaliseChart(item.chart);
+    if (normalized.error !== undefined) {
+      return failure(normalized.error);
     }
 
-    const rawMeta: Partial<AlertMeta> = a.meta ?? {};
-    const meta: AlertMeta = {
-      adAccountId: rawMeta.adAccountId || "",
-      campaignId: rawMeta.campaignId || "",
-      adSetId: rawMeta.adSetId,
-      adId: rawMeta.adId,
-    };
+    const existing =
+      typeof item.id === "string" && item.id.trim()
+        ? (readBarItemFor(
+            userId,
+            "suggestions",
+            item.id.trim(),
+          ) as BarCard<Suggestion> | null)
+        : null;
 
-    const rawAction: Partial<AlertAction> =
-      typeof a.action === "object" && a.action !== null ? a.action : {};
-    const actionFix =
-      rawAction.fix || (typeof a.action === "string" ? a.action : "");
-
-    const title = a.title || "Account Diagnostic Item";
-    const actionObj: AlertAction = {
-      fix: actionFix,
-      before:
-        rawAction.before ||
-        (actionFix ? `Current performance baseline for "${title}"` : undefined),
-      after:
-        rawAction.after ||
-        (actionFix ? `Execute remediation plan for "${title}"` : undefined),
-    };
-
-    const id = a.id || uuidv7();
-    const stored = owner
-      ? (readBarItemFor(userId, "suggestions", id) as BarCard<Suggestion> | null)
-      : null;
-    const status: AlertStatus =
-      stored?.status === "completed"
-        ? "completed"
-        : (a.status as AlertStatus) || "pending";
-
+    const suggestion = mergeSuggestion(
+      normalized.chart ? { ...item, chart: normalized.chart } : item,
+      existing ?? undefined,
+    );
     items.push({
-      id,
-      status,
-      data: {
-        id,
-        title,
-        description: a.description || "",
-        meta,
-        action: actionObj,
-        chart: normalizedChart,
-      },
+      id: suggestion.data.id,
+      status: suggestion.status,
+      data: suggestion.data,
     });
   }
 
@@ -184,7 +225,10 @@ export async function executeUpdateSuggestionsTool(
     const written = upsertDetailBarItems(owner, "suggestions", items);
 
     const itemSummaries = written
-       .map((a: Record<string, unknown>) => `- ID: ${String(a.id)} ("${String(a.title ?? "")}")`)
+      .map(
+        (a: Record<string, unknown>) =>
+          `- ID: ${String(a.id)} ("${String(a.title ?? "")}")`,
+      )
       .join("\n");
 
     return {

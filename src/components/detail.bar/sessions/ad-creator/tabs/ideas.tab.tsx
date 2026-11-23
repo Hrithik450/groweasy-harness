@@ -175,11 +175,13 @@ export function IdeasTab({
 
                     <button
                       type="button"
-                      onClick={() =>
-                        handleSubmit?.(buildIdeaPrompt(idea), {
-                          source: "user",
-                        })
-                      }
+                      onClick={() => {
+                        const draft = buildIdeaPrompt(idea);
+                        handleSubmit?.(draft.content, {
+                          source: "detail-bar",
+                          display: draft.display,
+                        });
+                      }}
                       disabled={isStreaming}
                       className="mt-auto w-full min-h-8 px-2 py-1.5 bg-foreground hover:bg-brand text-background text-[11.5px] font-bold rounded-xl transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                     >

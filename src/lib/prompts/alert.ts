@@ -8,6 +8,7 @@
  */
 
 import type { Alert } from "@/lib/detail.bar/types";
+import type { PromptDraft } from "@/lib/session/prompt";
 
 /** One-line scope description for the alert's target entity. */
 function describeTarget(alert: Alert): string {
@@ -19,7 +20,7 @@ function describeTarget(alert: Alert): string {
 }
 
 /** Prompt instructing the agent to apply the alert's recommended fix. */
-export function buildAlertPrompt(alert: Alert): string {
+export function buildAlertPrompt(alert: Alert): PromptDraft {
   const lines = [
     `Apply the recommended fix for alert "${alert.title}" (${alert.severity}).`,
     `Scope: ${describeTarget(alert)}.`,
@@ -35,5 +36,11 @@ export function buildAlertPrompt(alert: Alert): string {
   lines.push(
     "Verify the current state before changing anything, apply the change with the matching Meta tool, then mark the alert resolved with updateAlert.",
   );
-  return lines.join("\n");
+  return {
+    content: lines.join("\n"),
+    display: {
+      title: `Apply the fix for “${alert.title}”`,
+      detail: alert.severity,
+    },
+  };
 }

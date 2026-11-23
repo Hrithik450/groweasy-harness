@@ -7,6 +7,7 @@
  */
 
 import type { Suggestion } from "@/lib/detail.bar/types";
+import type { PromptDraft } from "@/lib/session/prompt";
 
 /** A suggestion row; older rows may carry a ready-made prompt. */
 export type SuggestionPromptTarget = Suggestion & {
@@ -15,8 +16,16 @@ export type SuggestionPromptTarget = Suggestion & {
 };
 
 /** Prompt instructing the agent to apply one suggestion. */
-export function buildSuggestionPrompt(suggestion: SuggestionPromptTarget): string {
-  if (suggestion.prompt) return suggestion.prompt;
+export function buildSuggestionPrompt(
+  suggestion: SuggestionPromptTarget,
+): PromptDraft {
+  const display = {
+    title: `Apply “${suggestion.title}”`,
+    ...(suggestion.value ? { detail: suggestion.value } : {}),
+  };
+  if (suggestion.prompt) {
+    return { content: suggestion.prompt, display };
+  }
 
   const lines = [
     `Apply the recommended action for suggestion "${suggestion.title}".`,
@@ -33,5 +42,5 @@ export function buildSuggestionPrompt(suggestion: SuggestionPromptTarget): strin
   lines.push(
     "Verify the current state before changing anything, apply the change with the matching Meta tool, then mark the suggestion completed with updateSuggestions.",
   );
-  return lines.join("\n");
+  return { content: lines.join("\n"), display };
 }

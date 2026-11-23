@@ -2,7 +2,11 @@ import { uuidv7 } from "@/lib/utils/uuid";
 import { ToolInput, ToolOutput } from "@/lib/tools/types";
 import { toolFailure as failure } from "@/lib/tools/utils";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
-import { readBarItemFor, resolveDetailBarSession, upsertDetailBarItems } from "@/lib/detail.bar/service";
+import {
+  readBarItemFor,
+  resolveDetailBarSession,
+  upsertDetailBarItems,
+} from "@/lib/detail.bar/service";
 import { type BarItemInput } from "@/lib/detail.bar/service";
 import { validateAndNormalizeUI } from "@/lib/generative.ui";
 import type {
@@ -44,9 +48,9 @@ export const updateAlertToolDefinition = {
             },
             severity: {
               type: "string",
-              enum: ["critical", "warning"],
+              enum: ["critical", "warning", "info"],
               description:
-                "'critical' for delivery blockers, 'warning' for degrading performance.",
+                "'critical' for delivery blockers, 'warning' for degrading performance, 'info' for a neutral note.",
             },
             status: {
               type: "string",
@@ -101,10 +105,6 @@ export const updateAlertToolDefinition = {
               type: "object",
               description: "Optional line, bar, or area chart ui block.",
             },
-            note: {
-              type: "string",
-              description: "Optional summary or outcome note.",
-            },
           },
           required: ["title", "severity", "description"],
         },
@@ -119,7 +119,7 @@ export const updateAlertToolDefinition = {
  * timestamps the store records.
  */
 export type AlertItemInput = Partial<
-  Omit<Alert, "createdAt" | "meta" | "action">
+  Omit<Alert, "createdAt" | "meta" | "action" | "note">
 > & {
   status?: AlertStatus;
   meta?: Partial<AlertMeta>;
@@ -129,10 +129,6 @@ export type AlertItemInput = Partial<
 export interface UpdateAlertArgs {
   alerts?: AlertItemInput[];
 }
-
-type UpdateAlertOutput = {
-  contentParts: Array<InputContentParam>;
-};
 
 function mergeAlert(
   item: AlertItemInput,
@@ -159,8 +155,8 @@ function mergeAlert(
       : existing?.action.after;
 
   const chart = item.chart ?? existing?.chart;
-  const note =
-    item.note !== undefined ? item.note.trim() || undefined : existing?.note;
+  // The note belongs to the user; a re-emitted alert keeps it as-is.
+  const note = existing?.note;
 
   const status = item.status || existing?.status || "pending";
   const data = {
@@ -186,7 +182,6 @@ function mergeAlert(
   return { status, data };
 }
 
-
 /** Normalise one submitted chart; returns an error string when invalid. */
 function normaliseChart(chart: Record<string, unknown> | undefined): {
   chart?: Record<string, unknown>;
@@ -202,7 +197,7 @@ function normaliseChart(chart: Record<string, unknown> | undefined): {
 
 export async function executeUpdateAlertTool(
   input: ToolInput<UpdateAlertArgs>,
-): Promise<ToolOutput<UpdateAlertOutput>> {
+): Promise<ToolOutput<{ contentParts: Array<InputContentParam> }>> {
   const userId = input.context?.userId;
 
   if (!userId) {
@@ -214,7 +209,7 @@ export async function executeUpdateAlertTool(
   // Case 1: create or update alerts from the submitted array.
   if (Array.isArray(rawAlerts) && rawAlerts.length > 0) {
     const items: BarItemInput[] = [];
-    // `status` and `note` are the user's; a re-emitted alert keeps them.
+    // A re-emitted alert keeps the user's note as-is.
     const owner = resolveDetailBarSession(userId, "alerts");
     if (!owner) {
       return failure(
@@ -230,7 +225,11 @@ export async function executeUpdateAlertTool(
 
       const existing =
         owner && typeof item.id === "string" && item.id.trim()
-          ? (readBarItemFor(userId, "alerts", item.id.trim()) as BarCard<Alert> | null)
+          ? (readBarItemFor(
+              userId,
+              "alerts",
+              item.id.trim(),
+            ) as BarCard<Alert> | null)
           : null;
 
       const alert = mergeAlert(

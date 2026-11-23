@@ -78,12 +78,16 @@ export function AlertsTab({
   const currentFilterLabel =
     FILTER_OPTIONS.find((f) => f.id === filter)?.label || "ALL";
 
-  /** Hand the alert to the agent as a hidden prompt. */
+  /** Hand the alert to the agent; the transcript shows the compact display. */
   const handleFixWithAi = async (alert: Alert) => {
     if (isStreaming || resolvingAiId) return;
     setResolvingAiId(alert.id);
     try {
-      await handleSubmit?.(buildAlertPrompt(alert), { source: "detail-bar" });
+      const draft = buildAlertPrompt(alert);
+      await handleSubmit?.(draft.content, {
+        source: "detail-bar",
+        display: draft.display,
+      });
       toast.success(`Dispatched AI fix for "${alert.title}"`);
     } catch (err) {
       console.error("Failed to trigger alert remediation:", err);

@@ -7,7 +7,11 @@
  * @module @/lib/session/derive/nodes
  */
 
-import { isUIAnswerSource, type ContentBlock } from "@/lib/llm/llm/message";
+import {
+  isUIAnswerSource,
+  type ContentBlock,
+  type TokenUsage,
+} from "@/lib/llm/llm/message";
 import type { SessionEvent, TurnEndReason } from "@/lib/core/session/events";
 import { deriveMessages, type SessionMessage } from "./messages";
 import { assistantTurnSource } from "@/lib/core/agent/assistant.source";
@@ -131,8 +135,9 @@ export function deriveChatNodes(
   // Turns whose content belongs to a block answer, not the transcript.
   const hiddenTurns = new Set<number>();
   const toolsByCallId = new Map<string, ToolCallChatNode>();
+  const toolStartedAt = new Map<string, string>();
   const turnStarts = new Map<number, string>();
-  const usageByTurn = new Map<number, AssistantStepChatNode["usage"]>();
+  const usageByTurn = new Map<number, TokenUsage>();
   const lastStepByTurn = new Map<number, number>();
   let activeTurn: number | undefined;
   let lastTurn = 0;
@@ -173,11 +178,7 @@ export function deriveChatNodes(
           kind: "user",
           seq: event.seq,
           turn: turnFor(),
-          time,
           content: visibleUserContent(message.message.content),
-          ...(message.message.source !== undefined
-            ? { source: message.message.source }
-            : {}),
         };
         nodes.push(node);
         break;
@@ -209,14 +210,11 @@ export function deriveChatNodes(
           kind: "assistant-step",
           seq: event.seq,
           turn,
-          time,
           step: event.data.step,
-          status: "settled",
           content: event.data.message.content.filter(
             (block) => block.type !== "reasoning",
           ),
           ...(reasoning ? { reasoning } : {}),
-          ...(usage !== undefined ? { usage } : {}),
         };
         nodes.push(node);
         break;
@@ -234,31 +232,28 @@ export function deriveChatNodes(
           kind: "assistant-step",
           seq: event.seq,
           turn,
-          time,
           step: lastStepByTurn.get(turn) ?? 1,
-          status: "settled",
           content,
         });
         break;
       }
 
       case "tool/call": {
+        const callId = String(event.data.callId);
         const node: ToolCallChatNode = {
           kind: "tool-call",
           seq: event.seq,
           turn: event.data.turn,
-          time,
-          step: event.data.step,
-          callId: String(event.data.callId),
+          callId,
           name: event.data.name,
-          argumentsRaw: event.data.arguments,
           args: parseArguments(event.data.arguments),
+          ...(event.data.label !== undefined ? { label: event.data.label } : {}),
           status: "running",
-          startedAt: time,
         };
         openTurn(event.data.turn);
         lastStepByTurn.set(event.data.turn, event.data.step);
-        toolsByCallId.set(node.callId, node);
+        toolStartedAt.set(callId, time);
+        toolsByCallId.set(callId, node);
         nodes.push(node);
         break;
       }
@@ -270,26 +265,19 @@ export function deriveChatNodes(
           event.data.error?.reason ??
           event.data.error?.name ??
           (isError ? "Tool execution failed" : undefined);
-        const completedAt = time;
         const existing = toolsByCallId.get(callId);
+        const startedAt = toolStartedAt.get(callId);
 
         if (!existing) {
           const node: ToolCallChatNode = {
             kind: "tool-call",
             seq: event.seq,
             turn: event.data.turn,
-            time,
-            step: event.data.step,
             callId,
             name: event.data.error?.name ?? "unknown_tool",
-            argumentsRaw: "{}",
             args: {},
             status: isError ? "error" : "completed",
-            data: event.data.message.content,
             ...(error !== undefined ? { error } : {}),
-            meta: event.data.meta,
-            startedAt: completedAt,
-            completedAt,
             durationMs: 0,
           };
           toolsByCallId.set(callId, node);
@@ -298,12 +286,9 @@ export function deriveChatNodes(
         }
 
         existing.status = isError ? "error" : "completed";
-        existing.data = event.data.message.content;
         if (error !== undefined) existing.error = error;
-        existing.meta = event.data.meta;
-        existing.completedAt = completedAt;
-        existing.durationMs = existing.startedAt
-          ? Math.max(0, Date.parse(completedAt) - Date.parse(existing.startedAt))
+        existing.durationMs = startedAt
+          ? Math.max(0, Date.parse(time) - Date.parse(startedAt))
           : undefined;
         break;
       }
@@ -323,7 +308,6 @@ export function deriveChatNodes(
           kind: "ui-block",
           seq: event.seq,
           turn,
-          time,
           messageId: event.data.id,
           spec: submitted ? { ...submitted, id: specId } : event.data.spec,
         });
@@ -346,7 +330,6 @@ export function deriveChatNodes(
           kind: "turn-end",
           seq: event.seq,
           turn,
-          time,
           status: statusFromReason(event.data.reason),
           ...(error !== undefined ? { error } : {}),
           ...(startedAt !== undefined
@@ -366,17 +349,6 @@ export function deriveChatNodes(
 
       default:
         break;
-    }
-  }
-
-  // An interrupted turn marks its committed assistant steps too.
-  const endStatus = new Map<number, TurnStatus>();
-  for (const node of nodes) {
-    if (node.kind === "turn-end") endStatus.set(node.turn, node.status);
-  }
-  for (const node of nodes) {
-    if (node.kind === "assistant-step" && endStatus.get(node.turn) === "interrupted") {
-      node.status = "interrupted";
     }
   }
 

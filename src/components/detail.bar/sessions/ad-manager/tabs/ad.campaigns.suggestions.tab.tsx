@@ -117,8 +117,10 @@ export function SuggestionsTab({
     if (busy || isStreaming) return;
     setBusy({ id: suggestion.id, mode: "primary" });
     try {
-      await handleSubmit?.(buildSuggestionPrompt(suggestion), {
+      const draft = buildSuggestionPrompt(suggestion);
+      await handleSubmit?.(draft.content, {
         source: "detail-bar",
+        display: draft.display,
       });
       toast.success("Sent to the assistant");
     } catch (err) {

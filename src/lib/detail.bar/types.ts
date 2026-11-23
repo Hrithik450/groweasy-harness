@@ -13,7 +13,10 @@ export interface DetailBarTabProps<TData = unknown> {
   isStreaming?: boolean;
   handleSubmit?: (
     content: string,
-    options?: { source?: import("@/lib/session/prompt").PromptSource },
+    options?: {
+      source?: import("@/lib/session/prompt").PromptSource;
+      display?: import("@/lib/llm/llm/message").PromptDisplay;
+    },
   ) => Promise<void> | void;
   /**
    * Update the bar: always applies `newData` locally; when `item` is given the
@@ -173,7 +176,7 @@ export type Campaign = Omit<MetaCampaign, "status"> &
     ads?: CampaignAd[];
   };
 
-export type AlertSeverity = "critical" | "warning";
+export type AlertSeverity = "critical" | "warning" | "info";
 export type AlertStatus = BarStatus;
 
 export interface AlertMeta {

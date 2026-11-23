@@ -21,7 +21,12 @@ import type {
 import { SessionId } from "@/lib/core/session/types";
 import type { UIBlockSpec } from "@/lib/generative.ui";
 import { MessageId, SessionRequestId } from "@/lib/llm/llm/brand";
-import type { ContentBlock, UserMessage } from "@/lib/llm/llm/message";
+import { isPromptDisplay } from "@/lib/llm/llm/message";
+import type {
+  ContentBlock,
+  PromptDisplay,
+  UserMessage,
+} from "@/lib/llm/llm/message";
 
 /** One browser-submitted piece of prompt content, before attachment admission. */
 export type PromptContentPart =
@@ -50,11 +55,21 @@ export interface SessionPromptRequest {
   /** At least one non-whitespace text part, or any non-text part. */
   content: readonly PromptContentPart[];
   /**
-   * Who started the turn. `user` is a human bubble; `cron`, `system` and
-   * `detail-bar` are model-visible context that must never render as one.
-   * Absent means `user`.
+   * Who started the turn. `user` is a human bubble; `cron` and `system` are
+   * model-visible context that never renders as one. Absent means `user`.
    */
   source?: PromptSource;
+  /**
+   * Compact substitute for the transcript, shown instead of `content`. The
+   * model still reads the full content. Only honoured with `source: "detail-bar"`.
+   */
+  display?: PromptDisplay;
+}
+
+/** One built prompt plus the compact line the transcript shows for it. */
+export interface PromptDraft {
+  content: string;
+  display: PromptDisplay;
 }
 
 /**
@@ -141,6 +156,8 @@ export function isSessionPromptRequest(
       value.source === "system" ||
       value.source === "detail-bar") &&
     (value.mode === "queue" || value.mode === "steer") &&
+    (value.display === undefined ||
+      (value.source === "detail-bar" && isPromptDisplay(value.display))) &&
     Array.isArray(value.content) &&
     value.content.every(isPromptContentPart) &&
     // A block answer is the entire submission: at most one block, and nothing
@@ -216,13 +233,17 @@ export function contentToUserMessage(
     throw new Error("admitted content does not match the prompt parts");
   }
 
+  const kind = request.source ?? "user";
   return {
     id: MessageId(`request:${request.requestId}`),
     role: "user",
     content,
     source: {
-      kind: request.source ?? "user",
+      kind,
       rpcId: request.requestId,
+      ...(kind === "detail-bar" && request.display !== undefined
+        ? { display: request.display }
+        : {}),
       ...(answeredBlockId === undefined ? {} : { blockId: answeredBlockId }),
     },
   };
@@ -260,6 +281,8 @@ export interface PromptRequestOptions {
   mode?: "queue" | "steer";
   /** Who started the turn; non-`user` turns never render as a bubble. */
   source?: PromptSource;
+  /** Compact transcript line for a detail-bar action. */
+  display?: PromptDisplay;
 }
 
 /** Build one strict prompt request from already-shaped content parts. */
@@ -274,6 +297,7 @@ export function createSessionPromptRequest(
     mode: options.mode ?? "queue",
     content,
     ...(options.source !== undefined ? { source: options.source } : {}),
+    ...(options.display !== undefined ? { display: options.display } : {}),
   };
 }
 

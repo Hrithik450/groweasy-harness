@@ -9,6 +9,7 @@ import { readSessionLog } from "@/lib/session/log.cache";
 import { SESSION_JOURNAL_EVENT } from "@/lib/session/journal";
 import { publish, subscribe } from "@/lib/session/bus";
 import { sessionKey } from "@/lib/session/keys";
+import { projectEventForClient } from "@/lib/session/wire";
 import type { ModelToolSchema } from "@/lib/llm/llm/driver";
 import type { SessionHeader } from "@/lib/core/session/types";
 import type { SessionEvent } from "@/lib/core/session/events";
@@ -102,11 +103,12 @@ export async function ensureAgent(
   );
 
   session.onEvent((event) => {
+    const projected = projectEventForClient(event);
+    if (!projected) return;
     publish(sessionKey(sessionId), {
       event: SESSION_JOURNAL_EVENT,
-      data: { type: "append", entry: event },
+      data: { type: "append", entry: projected },
     });
-
   });
 
   entries.set(sessionId, { agent });

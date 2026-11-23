@@ -6,11 +6,14 @@ import {
   type PromptContentPart,
   type PromptSource,
 } from "@/lib/session/prompt";
+import type { PromptDisplay } from "@/lib/llm/llm/message";
 import { useChatStream } from "./use.chat.stream";
 
 export interface SubmitTextOptions {
   /** Who started the turn; absent means the human. */
   source?: PromptSource;
+  /** Compact transcript line for a detail-bar action. */
+  display?: PromptDisplay;
   receiptIds?: readonly string[];
 }
 
@@ -44,6 +47,9 @@ export function usePromptSubmit(sessionId: string): PromptSubmit {
           createSessionPromptRequest(sessionId, parts, {
             mode: "queue",
             ...(options.source !== undefined ? { source: options.source } : {}),
+            ...(options.display !== undefined
+              ? { display: options.display }
+              : {}),
           }),
         );
         return true;

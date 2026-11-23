@@ -117,6 +117,8 @@ export interface SessionEventMap {
     callId: ToolCallId | string;
     name: string;
     arguments: string;
+    /** Server-computed transcript label, set on the client projection only. */
+    label?: string;
   };
 
   /** Completed tool execution output. */

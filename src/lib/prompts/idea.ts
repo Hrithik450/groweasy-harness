@@ -8,9 +8,10 @@
  */
 
 import type { Idea } from "@/lib/detail.bar/types";
+import type { PromptDraft } from "@/lib/session/prompt";
 
 /** Prompt carrying the idea card's full context into the ad build turn. */
-export function buildIdeaPrompt(idea: Idea): string {
+export function buildIdeaPrompt(idea: Idea): PromptDraft {
   const lines = [
     `Create the ad for the saved idea "${idea.title}".`,
     `Source: ${idea.source}`,
@@ -45,5 +46,15 @@ export function buildIdeaPrompt(idea: Idea): string {
     "Produce one finished ad, save it with updateCreatives, then show it in a <ui-block> with one short line on the concept and the design choices.",
   );
 
-  return lines.join("\n");
+  const detail = [idea.format, idea.aspectRatio, idea.source]
+    .filter(Boolean)
+    .join(" · ");
+
+  return {
+    content: lines.join("\n"),
+    display: {
+      title: `Make an ad for “${idea.title}”`,
+      ...(detail ? { detail } : {}),
+    },
+  };
 }
