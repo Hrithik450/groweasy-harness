@@ -1,15 +1,13 @@
-import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { ClientRedirect } from "@/components/client.redirect";
 import { getSessionByUserIdAndSessionId } from "@/lib/services";
 import { getSessionFromCookies } from "@/lib/auth";
 import { readBarItemForSessionField } from "@/lib/detail.bar/service";
 import { GenerativeUIRenderer } from "@/components/generative.ui/renderer";
 import type { CampaignBrief } from "@/lib/detail.bar/types";
 import { reportDateLabels } from "@/lib/utils/report.date";
-
-export const instant = false;
 
 interface PageProps {
   params: Promise<{ sessionId: string; briefId: string }>;
@@ -31,21 +29,23 @@ export default async function BriefPage({ params }: PageProps) {
   const { sessionId, briefId } = await params;
 
   const user = await getSessionFromCookies();
-  if (!user) redirect("/");
+  if (!user) return <ClientRedirect href="/" />;
 
   const sessionRes = await getSessionByUserIdAndSessionId(
     user.id,
     sessionId,
   );
   const session = sessionRes?.data;
-  if (!session || session.id !== sessionId) redirect("/c");
+  if (!session || session.id !== sessionId) {
+    return <ClientRedirect href="/c" />;
+  }
 
   const item = readBarItemForSessionField(
     session.id,
     "campaignBriefs",
     briefId,
   );
-  if (!item) redirect(`/c/${session.id}`);
+  if (!item) return <ClientRedirect href={`/c/${session.id}`} />;
 
   const brief = item as unknown as CampaignBrief;
   const spec = brief.blocks as

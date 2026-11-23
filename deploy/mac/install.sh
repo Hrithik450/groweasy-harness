@@ -211,7 +211,9 @@ fi
 ln -sfn "$REPO_ROOT/node_modules" "$RELEASE/node_modules"
 ln -sfn "$HARNESS_ROOT/data" "$RELEASE/data"
 
-if [ "${RUN_MIGRATIONS:-0}" = 1 ]; then
+# Migrations are part of a deploy: skipping them leaves the new build reading
+# a schema it doesn't match. Set RUN_MIGRATIONS=0 only for a deliberate skip.
+if [ "${RUN_MIGRATIONS:-1}" = 1 ]; then
 	echo "==> migrating databases"
 	DATABASE_PATH="${DATABASE_PATH:-$HARNESS_ROOT/data/groweasy.db}" \
 	SCRAPER_DATABASE_PATH="${SCRAPER_DATABASE_PATH:-$HARNESS_ROOT/data/groweasy-scraper.db}" \

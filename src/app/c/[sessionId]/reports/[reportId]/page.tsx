@@ -1,15 +1,13 @@
-import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { ClientRedirect } from "@/components/client.redirect";
 import { getSessionByUserIdAndSessionId } from "@/lib/services";
 import { getSessionFromCookies } from "@/lib/auth";
 import { readBarItemForSession } from "@/lib/detail.bar/service";
 import { GenerativeUIRenderer } from "@/components/generative.ui/renderer";
 import type { DailyReport } from "@/lib/detail.bar/types";
 import { reportDateLabels } from "@/lib/utils/report.date";
-
-export const instant = false;
 
 interface PageProps {
   params: Promise<{ sessionId: string; reportId: string }>;
@@ -26,17 +24,19 @@ export default async function ReportPage({ params }: PageProps) {
   const { sessionId, reportId } = await params;
 
   const user = await getSessionFromCookies();
-  if (!user) redirect("/");
+  if (!user) return <ClientRedirect href="/" />;
 
   const sessionRes = await getSessionByUserIdAndSessionId(
     user.id,
     sessionId,
   );
   const session = sessionRes?.data;
-  if (!session || session.id !== sessionId) redirect("/c");
+  if (!session || session.id !== sessionId) {
+    return <ClientRedirect href="/c" />;
+  }
 
   const item = readBarItemForSession(session.id, reportId);
-  if (!item) redirect(`/c/${session.id}`);
+  if (!item) return <ClientRedirect href={`/c/${session.id}`} />;
 
   const report = item as unknown as DailyReport;
   const spec = report.blocks as

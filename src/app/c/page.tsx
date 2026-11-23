@@ -1,20 +1,20 @@
 import { connection } from "next/server";
-import { redirect } from "next/navigation";
 import { getDefaultSession } from "@/lib/services";
 import { getSessionFromCookies } from "@/lib/auth";
-
-export const instant = false;
+import { ClientRedirect } from "@/components/client.redirect";
 
 interface PageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
+/**
+ * Proxy sends `/c` straight to the default session; this is the fallback for
+ * a request that skips it.
+ */
 export default async function Page({ searchParams }: PageProps) {
   await connection();
   const user = await getSessionFromCookies();
-  if (!user) {
-    redirect("/");
-  }
+  if (!user) return <ClientRedirect href="/" />;
 
   const sp = searchParams ? await searchParams : {};
   const query = new URLSearchParams();
@@ -28,9 +28,7 @@ export default async function Page({ searchParams }: PageProps) {
   const sessionRes = await getDefaultSession(user.id);
   const firstSession = sessionRes?.data;
 
-  if (firstSession) {
-    redirect(`/c/${firstSession.id}${qs}`);
-  }
+  if (!firstSession) return null;
 
-  return null;
+  return <ClientRedirect href={`/c/${firstSession.id}${qs}`} />;
 }

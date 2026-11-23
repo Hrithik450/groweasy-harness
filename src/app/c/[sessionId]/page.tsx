@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { ClientRedirect } from "@/components/client.redirect";
 import {
   getSessionJournal,
   getSessionByUserIdAndSessionId,
@@ -14,8 +14,6 @@ import { getDetailBarState } from "@/lib/detail.bar/snapshot";
 import { repairSessionTail } from "@/lib/session/agent.host";
 import { ChatSkeleton } from "./page.skeleton";
 
-export const instant = false;
-
 interface PageProps {
   params: Promise<{ sessionId: string }>;
 }
@@ -24,9 +22,7 @@ export default async function Page({ params }: PageProps) {
   await connection();
   const { sessionId } = await params;
   const user = await getSessionFromCookies();
-  if (!user) {
-    redirect("/");
-  }
+  if (!user) return <ClientRedirect href="/" />;
 
   const sessionRes = await getSessionByUserIdAndSessionId(
     user.id,
@@ -34,12 +30,9 @@ export default async function Page({ params }: PageProps) {
   );
   const session = sessionRes?.data;
 
-  if (!session) {
-    redirect("/c");
-  }
-
+  if (!session) return <ClientRedirect href="/c" />;
   if (session.id !== sessionId) {
-    redirect(`/c/${session.id}`);
+    return <ClientRedirect href={`/c/${session.id}`} />;
   }
 
   // Opening a session resumes it: close any interrupted tail before the

@@ -9,32 +9,48 @@ import {
   createAnonymousUser,
   getUserByUserId,
 } from "@/lib/services/users.service";
+import { getDefaultSession } from "@/lib/services/sessions.service";
 
 export async function proxy(request: NextRequest) {
   const token = request.cookies.get(AUTH_SESSION_COOKIE_NAME)?.value;
-  let userValid = false;
+  const verified = token ? await verifyAuthSession(token) : null;
+  const existingRes = verified?.id
+    ? await getUserByUserId(verified.id)
+    : null;
+  let user = existingRes?.success ? existingRes.data : null;
 
-  if (token) {
-    const verified = await verifyAuthSession(token);
-    if (verified?.id) {
-      const userRes = await getUserByUserId(verified.id);
-      if (userRes.success && userRes.data) {
-        userValid = true;
+  let newToken: string | null = null;
+  if (!user) {
+    const anonRes = await createAnonymousUser();
+    if (!anonRes.success || !anonRes.data) return NextResponse.next();
+    user = anonRes.data;
+    newToken = await createAuthSession(user);
+  }
+
+  // `/c` lands on the user's default session. Done here rather than in the
+  // page: with cache components the shell streams first, so a page redirect
+  // can no longer send a real 3xx.
+  if (request.nextUrl.pathname === "/c") {
+    const sessionRes = await getDefaultSession(user.id);
+    if (sessionRes.success && sessionRes.data) {
+      const response = NextResponse.redirect(
+        new URL(
+          `/c/${sessionRes.data.id}${request.nextUrl.search}`,
+          request.url,
+        ),
+      );
+      if (newToken) {
+        response.cookies.set(
+          AUTH_SESSION_COOKIE_NAME,
+          newToken,
+          authSessionCookieOptions(),
+        );
       }
+      return response;
     }
   }
 
-  if (userValid) {
-    return NextResponse.next();
-  }
-
-  const anonRes = await createAnonymousUser();
-  if (!anonRes.success || !anonRes.data) {
-    return NextResponse.next();
-  }
-
-  const user = anonRes.data;
-  const newToken = await createAuthSession(user);
+  if (!newToken) return NextResponse.next();
 
   const requestHeaders = new Headers(request.headers);
   const existingCookie = request.headers.get("cookie");

@@ -1,15 +1,13 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { ArrowLeft } from "lucide-react";
-import { redirect } from "next/navigation";
+import { ClientRedirect } from "@/components/client.redirect";
 import { getSessionByUserIdAndSessionId } from "@/lib/services";
 import { getSessionFromCookies } from "@/lib/auth";
 import { readBarItemForSessionField } from "@/lib/detail.bar/service";
 import { GenerativeUIRenderer } from "@/components/generative.ui/renderer";
 import type { CompetitorResearchItem } from "@/lib/detail.bar/types";
 import { reportDateLabels } from "@/lib/utils/report.date";
-
-export const instant = false;
 
 interface PageProps {
   params: Promise<{ sessionId: string; researchId: string }>;
@@ -32,18 +30,20 @@ export default async function ResearchPage({ params }: PageProps) {
   const { sessionId, researchId } = await params;
 
   const user = await getSessionFromCookies();
-  if (!user) redirect("/");
+  if (!user) return <ClientRedirect href="/" />;
 
   const sessionRes = await getSessionByUserIdAndSessionId(user.id, sessionId);
   const session = sessionRes?.data;
-  if (!session || session.id !== sessionId) redirect("/c");
+  if (!session || session.id !== sessionId) {
+    return <ClientRedirect href="/c" />;
+  }
 
   const item = readBarItemForSessionField(
     session.id,
     "competitorResearches",
     researchId,
   );
-  if (!item) redirect(`/c/${session.id}`);
+  if (!item) return <ClientRedirect href={`/c/${session.id}`} />;
 
   const research = item as unknown as CompetitorResearchItem;
   const spec = research.blocks as
