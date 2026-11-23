@@ -27,11 +27,11 @@ description: "Daily report that reads the latest campaigns, research, briefs, id
 
 ### Step 1: Read the latest inputs
 
-Use `fetchDetailBar` for both current context and the window. Pass `hours: 24` to read the rows created in the last 24 hours; the response includes `count` and `items`. Skip a list only when it is empty.
+Use `fetchDetailBar` for both current context and the window. Pass `hours: 24` to read the pages created in the last 24 hours;
 
 1. `campaigns`: the last 24 hours vs the previous 24 hours and the 28-day average (spend, purchases, CPA, revenue, ROAS, AOV, conversion rate), plus which ads won or stopped. If there are no campaign rows, say so in one line and keep building from the lists below.
 2. For `ideas`, `creatives`, `competitorResearches`, `campaignBriefs`, `alerts`, and `suggestions`, call `fetchDetailBar` once per field with `hours: 24`. Use each response's `count` as the work-generated number and its `items` for titles/details. If the user named a day, pass `startDate`/`endDate` for that day instead.
-3. `competitorResearches`, `alerts`, and `suggestions`: newest rows only for the latest context (limit 4-6).
+3. `competitorResearches`, `alerts`, and `suggestions`: newest pages only for the latest context (limit 4-6).
 4. `campaignBriefs`, `ideas`, `creatives`: only what shipped, was queued or was changed since the last report.
 
 ### Step 2: Choose the headline
