@@ -8,7 +8,12 @@ import {
 import { MessageId } from "@/lib/llm/llm/brand";
 import { randomUUID } from "@/lib/utils/uuid";
 import { getAuthSessionFromRequest } from "@/lib/auth";
-import { activateCronJobsByRequires } from "@/lib/repositories";
+import {
+  IDEAS_JOB_NAME,
+  activateCronJobsByRequires,
+  getCronJobsByUserId,
+} from "@/lib/repositories";
+import { cronWorker } from "@/lib/cron/worker";
 import { ensureAgentForSession } from "@/lib/session/agent.host";
 import {
   resolveSession,
@@ -189,6 +194,17 @@ export async function POST(req: NextRequest) {
 
     await ensureDefaultCronJobs(user.id, DEFAULT_BUSINESS_PROFILE_CRON_JOBS);
     activateCronJobsByRequires(user.id, "businessProfile");
+
+    // Ideas read the competitor research this scan just saved; onboarding
+    // queues them here, after the profile is complete.
+    const ideas = getCronJobsByUserId(user.id).find(
+      (job) => job.name === IDEAS_JOB_NAME && job.status === "active",
+    );
+    if (ideas && (!ideas.lastRunAt || ideas.lastError)) {
+      void cronWorker.triggerNow(ideas.id).catch((error) => {
+        console.error("[Onboarding] Ideas job failed:", error);
+      });
+    }
 
     return NextResponse.json({
       success: true,

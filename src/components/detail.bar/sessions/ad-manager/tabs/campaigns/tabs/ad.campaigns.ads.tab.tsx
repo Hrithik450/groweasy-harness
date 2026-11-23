@@ -25,6 +25,7 @@ const FOCUS_RING =
 const GROUPS: { key: AdCategory; label: string }[] = [
   { key: "winner", label: "Winners" },
   { key: "scaler", label: "Scalers" },
+  { key: "fading", label: "Fading" },
   { key: "loser", label: "Losers" },
   { key: "potential", label: "Potential" },
   { key: "untested", label: "Untested" },

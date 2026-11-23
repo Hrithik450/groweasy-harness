@@ -385,13 +385,6 @@ const SKILL_LABELS: Record<string, ToolLabelVariants> = {
     "Checking the brief guidance",
     "Opening campaign planning guidance",
   ],
-  "campaign-health": [
-    "Reading the campaign health guide",
-    "Loading campaign health guidance",
-    "Reviewing campaign health checks",
-    "Checking the health playbook",
-    "Opening the campaign health guide",
-  ],
   "competitor-research": [
     "Reading relevant competitor research",
     "Loading competitor research guidance",

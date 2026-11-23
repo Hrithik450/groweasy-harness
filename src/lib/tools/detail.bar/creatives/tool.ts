@@ -1,17 +1,16 @@
 import type { ToolInput, ToolOutput } from "@/lib/tools/types";
 import { toolFailure as errorResult } from "@/lib/tools/utils";
-import type { InputContentParam } from "openai/resources/beta/agents/agents";
-import { upsertDetailBarItems, resolveDetailBarSession } from "@/lib/detail.bar/service";
+import {
+  upsertDetailBarItems,
+  resolveDetailBarSession,
+} from "@/lib/detail.bar/service";
 import { uuidv7 } from "@/lib/utils/uuid";
 import type { Creative } from "@/lib/detail.bar/types";
 import { isRenderableAssetUrl } from "@/lib/attachments/asset.url";
+import type { InputContentParam } from "openai/resources/beta/agents/agents";
 
 /** Finished assets accepted per call. */
 const MAX_CREATIVES_PER_CALL = 10;
-
-type SaveCreativesOutput = {
-  contentParts: Array<InputContentParam>;
-};
 
 export const updateCreativesToolDefinition = {
   type: "function" as const,
@@ -19,7 +18,7 @@ export const updateCreativesToolDefinition = {
   preSkills: "creatives",
   description:
     "Prerequisite: creatives skill is a prerequisite.\n\n" +
-    "Saves finished video or image creatives into the Ad Creator Creatives tab. Omit `id` to add a new entry; pass an existing `id` to update that entry in place.",
+    "Saves finished video or image creatives into the session. Omit `id` to add a new entry; pass an existing `id` to update that entry in place.",
   parameters: {
     type: "object",
     properties: {
@@ -73,14 +72,13 @@ export interface UpdateCreativesArgs {
   creatives?: CreativeItemInput[];
 }
 
-
 function trimmed(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
 export async function executeUpdateCreativesTool(
   input: ToolInput<UpdateCreativesArgs>,
-): Promise<ToolOutput<SaveCreativesOutput>> {
+): Promise<ToolOutput<{ contentParts: Array<InputContentParam> }>> {
   const userId = input.context?.userId;
   if (!userId) {
     return errorResult("User context is required to save creatives.");
@@ -150,7 +148,7 @@ export async function executeUpdateCreativesTool(
       contentParts: [
         {
           type: "input_text",
-          text: `Saved ${saved.length} creative(s) to the Creatives tab:\n${summaries}`,
+          text: `Saved ${saved.length} creative(s) to the session:\n${summaries}`,
         },
       ],
     },

@@ -48,6 +48,9 @@ export type DefaultCronJobConfig = {
 
 /** Name shared with the cron service, so it can pre-sync the campaign tab. */
 export const CAMPAIGN_HEALTH_JOB_NAME = "6-Hour Campaign Health";
+export const IDEAS_JOB_NAME = "Daily Creative Ideas";
+export const COMPETITOR_RESEARCH_JOB_NAME = "Daily Competitor Research";
+export const DAILY_REPORT_JOB_NAME = "Daily Report";
 
 /**
  * Default autonomous cron jobs: one per detail-bar tab. Seeding parks them
@@ -88,15 +91,15 @@ export const DEFAULT_CRON_JOBS: readonly DefaultCronJobConfig[] = [
   },
   {
     sessionSlug: "adCreator",
-    name: "Daily Creative Ideas",
+    name: IDEAS_JOB_NAME,
     prompt:
-      "Refresh our idea backlog using the `ideas` skill. Read the saved ideas first so you don't repeat any. Then read the latest competitor research, our creatives, campaigns, alerts and suggestions, and view the winning competitor ads before building ideas from them. Save up to 10 new, ranked ideas with `updateIdeas`, each with its reference ad. Save fewer if the evidence is thin.",
+      "Refresh our idea backlog using the `ideas` skill. Read the saved ideas first so you don't repeat any. Pull the full context: the Business Profile, competitor research with every saved ad, our classified campaign ads (winners first), creatives, alerts, suggestions and briefs. If the research has no usable ads, search Meta Ad Library yourself with `searchAdLibrary` (objective 3 of the `competitor-research` skill). Always save at least 3 new, ranked ideas with `updateIdeas` (up to 10), topping up with starting ideas from the Business Profile when the evidence is thin.",
     timing: { kind: "cron", expression: "0 7 * * *" },
     requires: "metaAds",
   },
   {
     sessionSlug: "adStrategist",
-    name: "Daily Competitor Research",
+    name: COMPETITOR_RESEARCH_JOB_NAME,
     prompt:
       "Scan our competitors in Meta Ad Library using the `competitor-research` skill. Cover the rivals we track and any newly found ones. Read what we have already saved and save only new findings with `saveCompetitorResearch`. If nothing new turned up, save nothing.",
     timing: { kind: "cron", expression: "0 6 * * *" },
@@ -104,7 +107,7 @@ export const DEFAULT_CRON_JOBS: readonly DefaultCronJobConfig[] = [
   },
   {
     sessionSlug: "adStrategist",
-    name: "Daily Report",
+    name: DAILY_REPORT_JOB_NAME,
     prompt:
       "Write the report for the last 24 hours using the `daily-report` skill. Read the latest campaigns, competitor research, alerts and suggestions, plus any briefs, ideas and creatives created in that window. Lead with the biggest change, end with one action for today, and save it with `updateDailyReport`. If campaigns have no data, still report the detail-bar progress and today's moves.",
     timing: { kind: "cron", expression: "0 9 * * *" },

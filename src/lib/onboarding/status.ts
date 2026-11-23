@@ -1,6 +1,7 @@
 import type { CronJob, PublicUser } from "@/lib/db";
 import { cronWorker } from "@/lib/cron/worker";
 import {
+  COMPETITOR_RESEARCH_JOB_NAME,
   getCronJobsByUserId,
   getConnectorByUserIdAndProviderSlug,
 } from "@/lib/repositories";
@@ -63,7 +64,8 @@ export function getOnboardingStatus(user: PublicUser | null): OnboardingStatus {
   // onboarding gate. The remaining Meta jobs must each have one clean run.
   const jobs = getCronJobsByUserId(user.id).filter(
     (job) =>
-      job.requires === "metaAds" && job.name !== "Daily Competitor Research",
+      job.requires === "metaAds" &&
+      job.name !== COMPETITOR_RESEARCH_JOB_NAME,
   );
   const onboardingMetaJobs = jobs;
   const metaRan =

@@ -1,7 +1,8 @@
 import {
-  getDetailBarItemById,
-  readAllRootRows,
   readChildRows,
+  readAllRootRows,
+  readBarItemFor,
+  getDetailBarItemById,
   resolveDetailBarSession,
   upsertDetailBarItems,
   type BarItemInput,
@@ -10,14 +11,14 @@ import { tabChildFields } from "@/lib/detail.bar/fields";
 import {
   AD_CATEGORIES,
   type AdCategory,
+  type BarCard,
   type CampaignAd,
   type CampaignAdAction,
+  type CampaignAdMeta,
 } from "@/lib/detail.bar/types";
 import { toolFailure as failure } from "@/lib/tools/utils";
 import type { ToolInput, ToolOutput } from "@/lib/tools/types";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
-
-const MAX_ADS_PER_CALL = 20;
 
 export const upsertAdsClassifiedToolDefinition = {
   type: "function" as const,
@@ -30,7 +31,6 @@ export const upsertAdsClassifiedToolDefinition = {
     properties: {
       ads: {
         type: "array",
-        maxItems: MAX_ADS_PER_CALL,
         description: "One verdict and its ad data, keyed by the Meta ad id.",
         items: {
           type: "object",
@@ -43,18 +43,38 @@ export const upsertAdsClassifiedToolDefinition = {
               type: "string",
               enum: [...AD_CATEGORIES],
             },
-            campaignId: {
-              type: "string",
-              description:
-                "Campaign id. Required when the ad is not saved yet.",
+            meta: {
+              type: "object",
+              description: "Meta identifiers for the ad and its placement.",
+              properties: {
+                adAccountId: {
+                  type: "string",
+                  description: "Ad account id, e.g. 'act_1202159847230100'.",
+                },
+                campaignId: {
+                  type: "string",
+                  description:
+                    "Campaign id; the ad is attached to this campaign.",
+                },
+                adSetId: {
+                  type: "string",
+                  description: "Ad set id, if relevant.",
+                },
+                adId: {
+                  type: "string",
+                  description: "Meta ad id, same as `id`.",
+                },
+                creativeId: {
+                  type: "string",
+                  description: "Meta creative ID, if relevant.",
+                },
+              },
+              required: ["campaignId"],
+              additionalProperties: false,
             },
             name: {
               type: "string",
               description: "Meta ad name, exactly as fetchMetaAds returned it.",
-            },
-            adsetId: {
-              type: "string",
-              description: "Meta ad set id; returned by Meta.",
             },
             format: {
               type: "string",
@@ -129,9 +149,8 @@ export const upsertAdsClassifiedToolDefinition = {
           required: [
             "id",
             "category",
-            "campaignId",
+            "meta",
             "name",
-            "adsetId",
             "format",
             "mediaUrl",
             "metrics",
@@ -148,12 +167,111 @@ export const upsertAdsClassifiedToolDefinition = {
 /** The whole card, with the verdict and its parent added. */
 type UpsertAdsClassifiedArgs = {
   ads?: Array<
-    Required<Omit<CampaignAd, "action">> & {
-      campaignId: string;
+    Required<Omit<CampaignAd, "action" | "meta" | "adsetId">> & {
+      meta: CampaignAdMeta;
       action: CampaignAdAction;
     }
   >;
 };
+
+type AdInput = NonNullable<UpsertAdsClassifiedArgs["ads"]>[number];
+
+/** Optional text, trimmed; blank becomes undefined. */
+function text(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+/** Validate one submitted ad and fill its required identifiers. */
+function normaliseAd(ad: AdInput): {
+  ad?: AdInput & { id: string; category: AdCategory; meta: CampaignAdMeta };
+  error?: string;
+} {
+  const rawMeta = ad.meta ?? {};
+  const meta: CampaignAdMeta = {
+    ...(text(rawMeta.adAccountId)
+      ? { adAccountId: text(rawMeta.adAccountId)! }
+      : {}),
+    campaignId: text(rawMeta.campaignId) ?? "",
+    ...(text(rawMeta.adSetId) ? { adSetId: text(rawMeta.adSetId)! } : {}),
+    ...(text(rawMeta.adId) ? { adId: text(rawMeta.adId)! } : {}),
+    ...(text(rawMeta.creativeId)
+      ? { creativeId: text(rawMeta.creativeId)! }
+      : {}),
+  };
+
+  const id = text(ad.id) ?? meta.adId ?? "";
+  if (!id) return { error: "Every ad needs a non-empty 'id'." };
+
+  const category = text(ad.category)?.toLowerCase() ?? "";
+  if (!AD_CATEGORIES.includes(category as AdCategory)) {
+    return {
+      error: `Unknown category "${category}"; use ${AD_CATEGORIES.join(", ")}.`,
+    };
+  }
+
+  if (!text(ad.action?.fix)) {
+    return { error: "Every ad needs an action.fix." };
+  }
+
+  return {
+    ad: { ...ad, id, category: category as AdCategory, meta },
+  };
+}
+
+/** One ad merged onto its stored row; user-owned fields stay untouched. */
+function mergeAd(
+  ad: AdInput & { id: string; category: AdCategory; meta: CampaignAdMeta },
+  existing: BarCard<CampaignAd> | undefined,
+): CampaignAd {
+  const previous = existing?.meta;
+  const adAccountId = ad.meta.adAccountId ?? previous?.adAccountId ?? "";
+  const campaignId = ad.meta.campaignId || previous?.campaignId || "";
+  const adSetId = ad.meta.adSetId ?? previous?.adSetId;
+  const adId = ad.meta.adId ?? previous?.adId ?? ad.id;
+  const creativeId = ad.meta.creativeId ?? previous?.creativeId;
+
+  const fix = text(ad.action?.fix) ?? existing?.action?.fix ?? "";
+  const before = text(ad.action?.before) ?? existing?.action?.before;
+  const after = text(ad.action?.after) ?? existing?.action?.after;
+
+  const format = ad.format ?? existing?.format;
+  const mediaUrl = text(ad.mediaUrl) ?? existing?.mediaUrl;
+  const metrics = ad.metrics
+    ? { ...(existing?.metrics ?? {}), ...ad.metrics }
+    : existing?.metrics;
+
+  const siblingComparison =
+    text(ad.siblingComparison) ?? existing?.siblingComparison;
+  const resultShare = text(ad.resultShare) ?? existing?.resultShare;
+  const value = text(ad.value) ?? existing?.value;
+  const whyItWorks = text(ad.whyItWorks) ?? existing?.whyItWorks;
+
+  return {
+    id: ad.id,
+    name: text(ad.name) ?? existing?.name ?? "Ad",
+    category: ad.category,
+    meta: {
+      adAccountId,
+      campaignId,
+      ...(adSetId ? { adSetId } : {}),
+      adId,
+      ...(creativeId ? { creativeId } : {}),
+    },
+    ...(adSetId ? { adsetId: adSetId } : {}),
+    ...(format ? { format } : {}),
+    ...(mediaUrl ? { mediaUrl } : {}),
+    ...(metrics ? { metrics } : {}),
+    ...(siblingComparison ? { siblingComparison } : {}),
+    ...(resultShare ? { resultShare } : {}),
+    ...(value ? { value } : {}),
+    ...(whyItWorks ? { whyItWorks } : {}),
+    action: {
+      fix,
+      ...(before ? { before } : {}),
+      ...(after ? { after } : {}),
+    },
+  };
+}
 
 export async function executeUpsertAdsClassifiedTool(
   input: ToolInput<UpsertAdsClassifiedArgs>,
@@ -180,63 +298,26 @@ export async function executeUpsertAdsClassifiedTool(
     readAllRootRows(session.id, "campaigns").map((row) => row.id),
   );
 
-  const text = (value: unknown) =>
-    typeof value === "string" && value.trim() ? value.trim() : undefined;
-
   const items: BarItemInput[] = [];
-  for (const ad of raw.slice(0, MAX_ADS_PER_CALL)) {
-    const id = typeof ad?.id === "string" ? ad.id.trim() : "";
-    const category =
-      typeof ad?.category === "string" ? ad.category.trim().toLowerCase() : "";
-    const campaignId = text(ad?.campaignId);
-    if (!id) return failure("Every ad needs a non-empty 'id'.");
-    if (!AD_CATEGORIES.includes(category as AdCategory)) {
-      return failure(
-        `Unknown category "${category}"; use ${AD_CATEGORIES.join(", ")}.`,
-      );
-    }
-    if (!campaignId || !campaignIds.has(campaignId)) continue;
+  const saved: CampaignAd[] = [];
+  for (const rawAd of raw) {
+    const normalised = normaliseAd(rawAd);
+    if (normalised.error !== undefined) return failure(normalised.error);
+    const ad = normalised.ad!;
+    if (!ad.meta.campaignId || !campaignIds.has(ad.meta.campaignId)) continue;
 
-    const action = text(ad?.action?.fix)
-      ? {
-          fix: text(ad.action?.fix)!,
-          ...(text(ad.action?.before)
-            ? { before: text(ad.action?.before)! }
-            : {}),
-          ...(text(ad.action?.after) ? { after: text(ad.action?.after)! } : {}),
-        }
-      : undefined;
-    if (!action) return failure("Every ad needs an action.fix.");
-
-    const metrics =
-      ad?.metrics &&
-      typeof ad.metrics === "object" &&
-      !Array.isArray(ad.metrics)
-        ? ad.metrics
-        : undefined;
-
+    const stored = readBarItemFor(
+      userId,
+      adsField,
+      ad.id,
+    ) as BarCard<CampaignAd> | null;
+    const data = mergeAd(ad, stored ?? undefined);
+    saved.push(data);
     items.push({
-      id,
-      parentId: campaignId,
-      data: {
-        name: text(ad?.name) ?? "Ad",
-        category,
-        ...(text(ad?.adsetId) ? { adsetId: text(ad?.adsetId) } : {}),
-        ...(ad?.format === "video" || ad?.format === "image"
-          ? { format: ad.format }
-          : {}),
-        ...(text(ad?.mediaUrl) ? { mediaUrl: text(ad?.mediaUrl) } : {}),
-        ...(metrics ? { metrics } : {}),
-        ...(text(ad?.siblingComparison)
-          ? { siblingComparison: text(ad?.siblingComparison) }
-          : {}),
-        ...(text(ad?.resultShare)
-          ? { resultShare: text(ad?.resultShare) }
-          : {}),
-        ...(text(ad?.value) ? { value: text(ad?.value) } : {}),
-        ...(text(ad?.whyItWorks) ? { whyItWorks: text(ad?.whyItWorks) } : {}),
-        action,
-      },
+      id: data.id,
+      parentId: ad.meta.campaignId,
+      ...(stored?.status ? { status: stored.status } : {}),
+      data,
     });
   }
 
@@ -246,7 +327,6 @@ export async function executeUpsertAdsClassifiedTool(
 
   upsertDetailBarItems(session, adsField, items);
 
-  // The verdicts are the only derived root field: recount the chips.
   const campaignItems: BarItemInput[] = [];
   for (const parentId of new Set(items.map((item) => item.parentId!))) {
     const parent = getDetailBarItemById(session.id, parentId);
@@ -278,13 +358,18 @@ export async function executeUpsertAdsClassifiedTool(
     upsertDetailBarItems(session, "campaigns", campaignItems);
   }
 
+  // Hand the model the ids it just saved, so a later call can cite them.
+  const savedLines = saved
+    .map((ad) => `- ${ad.category} · ${ad.id}${ad.name ? ` · ${ad.name}` : ""}`)
+    .join("\n");
+
   return {
     success: true,
     data: {
       contentParts: [
         {
           type: "input_text",
-          text: `Classified ${items.length} ad(s).`,
+          text: `Classified ${saved.length} ad(s):\n${savedLines}`,
         },
       ],
     },

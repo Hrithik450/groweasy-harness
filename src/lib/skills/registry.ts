@@ -25,10 +25,6 @@ export const SKILL_REGISTRY = {
     name: "competitor-research",
     path: "src/lib/skills/competitor-research/SKILL.md",
   },
-  "campaign-health": {
-    name: "campaign-health",
-    path: "src/lib/skills/campaign-health/SKILL.md",
-  },
   "ads-classifier": {
     name: "ads-classifier",
     path: "src/lib/skills/ads-classifier/SKILL.md",

@@ -17,7 +17,7 @@ export const updateDailyReportToolDefinition = {
   preSkills: "daily-report",
   description:
     "Prerequisite: reports skill is a prerequisite.\n\n" +
-    "Saves one daily report as a UI-block spec into the Ad Strategist Reports tab. One report per day: re-running the same day updates that day's report.",
+    "Saves one daily report as a UI-block spec into the session.",
   parameters: {
     type: "object",
     properties: {

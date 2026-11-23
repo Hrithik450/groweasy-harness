@@ -97,6 +97,7 @@ export interface CampaignChips {
 export const AD_CATEGORIES = [
   "winner",
   "scaler",
+  "fading",
   "potential",
   "loser",
   "untested",
@@ -133,10 +134,21 @@ export interface CampaignAdAction {
   after?: string;
 }
 
+/** Meta identifiers carried on a classified ad. */
+export interface CampaignAdMeta {
+  adAccountId?: string;
+  campaignId: string;
+  adSetId?: string;
+  adId?: string;
+  creativeId?: string;
+}
+
 /** One ad; the campaign's inner panel groups these by category. */
 export interface CampaignAd {
   id: string;
   name: string;
+  /** Meta identifiers for the ad and its placement. */
+  meta?: CampaignAdMeta;
   /** Meta ad set the ad belongs to; classification compares within it. */
   adsetId?: string;
   category: AdCategory;
@@ -184,6 +196,7 @@ export interface AlertMeta {
   campaignId: string;
   adSetId?: string;
   adId?: string;
+  creativeId?: string;
 }
 
 export interface AlertAction {

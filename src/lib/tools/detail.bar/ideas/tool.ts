@@ -2,12 +2,14 @@ import type { ToolInput, ToolOutput } from "@/lib/tools/types";
 import { toolFailure as errorResult } from "@/lib/tools/utils";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
 import {
+  readBarItemFor,
   upsertDetailBarItems,
   resolveDetailBarSession,
 } from "@/lib/detail.bar/service";
 import { uuidv7 } from "@/lib/utils/uuid";
 import {
   IDEA_SOURCES,
+  type BarCard,
   type Idea,
   type IdeaSource,
 } from "@/lib/detail.bar/types";
@@ -63,7 +65,7 @@ export const updateIdeasToolDefinition = {
             mediaUrl: {
               type: "string",
               description:
-                "The ad's own media: an '/api/attachments/…' URL or the ad's https URL. Omit when the idea is new.",
+                "The reference ad's own media: an '/api/attachments/…' URL or the ad's https URL. Required for a new card (omit `id`); an update may omit it and keeps the stored one.",
             },
             aspectRatio: {
               type: "string",
@@ -122,6 +124,7 @@ export async function executeUpdateIdeasTool(
   const createdAt = new Date(now).toISOString();
   const items = [] as Array<{ id: string; data: Record<string, unknown> }>;
   const missing: number[] = [];
+  const missingMedia: number[] = [];
 
   rawIdeas.slice(0, MAX_IDEAS_PER_CALL).forEach((idea, index) => {
     const sourceRaw = trimmed(idea.source).toUpperCase();
@@ -134,6 +137,11 @@ export async function executeUpdateIdeasTool(
       missing.push(index + 1);
       return;
     }
+
+    const existingId = trimmed(idea.id);
+    const stored = existingId
+      ? (readBarItemFor(userId, "ideas", existingId) as BarCard<Idea> | null)
+      : null;
 
     const data: Record<string, unknown> = {
       source,
@@ -151,22 +159,25 @@ export async function executeUpdateIdeasTool(
     const why = trimmed(idea.why);
     if (why) data.why = why;
 
-    // The ad the idea is modelled on, so the card can show it.
-    const mediaUrl = trimmed(idea.mediaUrl);
-    if (mediaUrl) {
-      if (!isRenderableAssetUrl(mediaUrl)) {
-        missing.push(index + 1);
-        return;
-      }
-      data.mediaUrl = mediaUrl;
+    // A new card must cite the ad it is modelled on; an update keeps the
+    // stored reference. Without media the card cannot be formed.
+    const mediaUrl =
+      trimmed(idea.mediaUrl) || (stored ? trimmed(stored.mediaUrl) : "");
+    if (!mediaUrl || !isRenderableAssetUrl(mediaUrl)) {
+      missingMedia.push(index + 1);
+      return;
     }
-    const aspectRatio = trimmed(idea.aspectRatio);
+    data.mediaUrl = mediaUrl;
+
+    const aspectRatio =
+      trimmed(idea.aspectRatio) || (stored ? trimmed(stored.aspectRatio) : "");
     if (aspectRatio) data.aspectRatio = aspectRatio;
-    const sourceUrl = trimmed(idea.sourceUrl);
+    const sourceUrl =
+      trimmed(idea.sourceUrl) || (stored ? trimmed(stored.sourceUrl) : "");
     if (sourceUrl) data.sourceUrl = sourceUrl;
 
     items.push({
-      id: trimmed(idea.id) || uuidv7(),
+      id: existingId || uuidv7(),
       data,
     });
   });
@@ -174,6 +185,11 @@ export async function executeUpdateIdeasTool(
   if (missing.length > 0) {
     return errorResult(
       `Idea card(s) ${missing.join(", ")} are missing a valid 'source', 'title', or 'description'.`,
+    );
+  }
+  if (missingMedia.length > 0) {
+    return errorResult(
+      `Idea card(s) ${missingMedia.join(", ")} need a 'mediaUrl' — the reference ad the card is modelled on. A new idea cannot be saved without one.`,
     );
   }
 

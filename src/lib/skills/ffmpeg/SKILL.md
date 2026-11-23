@@ -24,18 +24,18 @@ description: "Cross-platform FFmpeg reference for video stitching, audio mixing,
 
 ## Encoders
 
-| Codec | Encoder | Use |
-|---|---|---|
-| H.264 | `libx264` | Universal default: `-c:v libx264 -preset fast -crf 20 -pix_fmt yuv420p` |
-| H.264 NVIDIA | `h264_nvenc` | Linux/Windows GPU: `-hwaccel cuda -c:v h264_nvenc -preset p4 -cq 23 -pix_fmt yuv420p` |
-| H.264 VAAPI | `h264_vaapi` | Linux Intel/AMD: `-c:v h264_vaapi -vf 'format=nv12,hwupload'` |
-| H.264 macOS | `h264_videotoolbox` | Apple Silicon/Intel: `-hwaccel videotoolbox -c:v h264_videotoolbox -q:v 60 -pix_fmt yuv420p` |
-| H.265 | `libx265` | Universal: `-c:v libx265 -preset fast -crf 26 -pix_fmt yuv420p` |
-| H.265 NVIDIA | `hevc_nvenc` | `-hwaccel cuda -c:v hevc_nvenc -preset p4 -cq 26` |
-| H.265 macOS | `hevc_videotoolbox` | `-hwaccel videotoolbox -c:v hevc_videotoolbox -q:v 65` |
-| VP9 | `libvpx-vp9` | Web: `-b:v 0 -crf 33` |
-| AV1 | `libsvtav1` | Maximum compression |
-| Audio | `aac` / `libmp3lame` / `libopus` | `-c:a aac -b:a 192k`, `-q:a 2`, `-b:a 128k` |
+| Codec        | Encoder                          | Use                                                                                          |
+| ------------ | -------------------------------- | -------------------------------------------------------------------------------------------- |
+| H.264        | `libx264`                        | Universal default: `-c:v libx264 -preset fast -crf 20 -pix_fmt yuv420p`                      |
+| H.264 NVIDIA | `h264_nvenc`                     | Linux/Windows GPU: `-hwaccel cuda -c:v h264_nvenc -preset p4 -cq 23 -pix_fmt yuv420p`        |
+| H.264 VAAPI  | `h264_vaapi`                     | Linux Intel/AMD: `-c:v h264_vaapi -vf 'format=nv12,hwupload'`                                |
+| H.264 macOS  | `h264_videotoolbox`              | Apple Silicon/Intel: `-hwaccel videotoolbox -c:v h264_videotoolbox -q:v 60 -pix_fmt yuv420p` |
+| H.265        | `libx265`                        | Universal: `-c:v libx265 -preset fast -crf 26 -pix_fmt yuv420p`                              |
+| H.265 NVIDIA | `hevc_nvenc`                     | `-hwaccel cuda -c:v hevc_nvenc -preset p4 -cq 26`                                            |
+| H.265 macOS  | `hevc_videotoolbox`              | `-hwaccel videotoolbox -c:v hevc_videotoolbox -q:v 65`                                       |
+| VP9          | `libvpx-vp9`                     | Web: `-b:v 0 -crf 33`                                                                        |
+| AV1          | `libsvtav1`                      | Maximum compression                                                                          |
+| Audio        | `aac` / `libmp3lame` / `libopus` | `-c:a aac -b:a 192k`, `-q:a 2`, `-b:a 128k`                                                  |
 
 ---
 
@@ -167,22 +167,22 @@ colorkey=color=green:similarity=0.3:blend=0.1
 
 ## Input / Output Flags
 
-| Before `-i` | Effect |
-|---|---|
-| `-loop 1` | Loop a still image |
-| `-t DURATION` | Limit input duration |
-| `-ss TIMESTAMP` | Fast seek |
+| Before `-i`             | Effect                 |
+| ----------------------- | ---------------------- |
+| `-loop 1`               | Loop a still image     |
+| `-t DURATION`           | Limit input duration   |
+| `-ss TIMESTAMP`         | Fast seek              |
 | `-framerate N` / `-r N` | Force input frame rate |
 
-| Before output | Effect |
-|---|---|
-| `-t DURATION` | Limit output duration |
-| `-frames:v N` | Exact frame count |
-| `-r N` | Output frame rate |
-| `-c:v` / `-crf` / `-preset` | Encoder, quality, speed (`ultrafast` … `veryslow`) |
-| `-pix_fmt yuv420p` | H.264 compatibility (always) |
-| `-c:a` / `-b:a` / `-an` / `-vn` | Audio codec, bitrate, drop audio or video |
-| `-movflags +faststart` | Web streaming |
+| Before output                   | Effect                                             |
+| ------------------------------- | -------------------------------------------------- |
+| `-t DURATION`                   | Limit output duration                              |
+| `-frames:v N`                   | Exact frame count                                  |
+| `-r N`                          | Output frame rate                                  |
+| `-c:v` / `-crf` / `-preset`     | Encoder, quality, speed (`ultrafast` … `veryslow`) |
+| `-pix_fmt yuv420p`              | H.264 compatibility (always)                       |
+| `-c:a` / `-b:a` / `-an` / `-vn` | Audio codec, bitrate, drop audio or video          |
+| `-movflags +faststart`          | Web streaming                                      |
 
 ---
 
@@ -235,11 +235,11 @@ ffmpeg -y -loop 1 -i /api/attachments/<stillAttachmentId> -t 5 -vf "scale=8000:-
 
 ## Does NOT Exist in This Build
 
-| Hallucination | Reality |
-|---|---|
-| `overlay=w=...` or `overlay=h=...` | Not options. Scale the input first. |
+| Hallucination                                        | Reality                                                    |
+| ---------------------------------------------------- | ---------------------------------------------------------- |
+| `overlay=w=...` or `overlay=h=...`                   | Not options. Scale the input first.                        |
 | `rotate=out_h='roth(angle)'` / `out_w='rotw(angle)'` | Functions do not exist. Use `hypot(iw,ih)`, `ih`, or `iw`. |
-| `drawtext=...` | Not compiled (no libfreetype). |
-| `subtitles=...` / `ass=...` | Only available through the caption-burning path. |
-| `zoompan` without `min()` | Zoom exceeds 10× and crashes. Clamp it. |
-| `concat` with mismatched fps/resolution | Errors or distortion. Normalize first. |
+| `drawtext=...`                                       | Not compiled (no libfreetype).                             |
+| `subtitles=...` / `ass=...`                          | Only available through the caption-burning path.           |
+| `zoompan` without `min()`                            | Zoom exceeds 10× and crashes. Clamp it.                    |
+| `concat` with mismatched fps/resolution              | Errors or distortion. Normalize first.                     |

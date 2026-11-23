@@ -1,26 +1,24 @@
 ---
 name: ideas
-description: "Daily idea scout for the Ad Creator. Reads competitor research, inspects the winning competitor ads, and reads our creatives, campaigns, alerts, and suggestions. Then saves a ranked backlog of up to 10 evidence-backed ad ideas, each with its reference ad."
+description: "Daily idea scout for the Ad Creation: reads the profile, competitor research, classified winners, creatives and briefs, self-searches Ad Library when thin, and always saves 1-2+ ranked ideas."
 ---
 
 ## Rules
 
-- **Every idea is an ad idea.** If it comes from a competitor ad or one of our winners, save that ad's media on the card. A card without its ad renders as plain text.
+- **Never end with zero ideas.** Every run saves at least 1-2 new ideas, up to 10. When the evidence is thin they are starting ideas built from the Business Profile and live campaigns; that is a complete run, not an empty one.
+- **Every new card has its reference ad.** A new card (no `id`) must carry `mediaUrl` and its `aspectRatio`; without a reference ad the idea cannot be formed or saved. An update may omit them and keeps the stored reference.
 - **Inspect before ideating.** View the winning ads (videos and images) before turning them into ideas. Never build an idea on a pattern from an ad you did not view.
 - **Patterns over one-offs.** A pattern appears in 2 or more inspected ads. A single ad is a signal, and the card says so.
-- **Read the backlog first.** Page `ideas` until exhausted. Never repeat an idea already there by title, hook, or core angle. Near-duplicates count.
-- **Up to 10 ranked cards, strongest first.** Fewer is fine when the evidence is thin. Never pad. Rank by expected impact, fit with live campaigns, and how cheaply it can be produced.
 - **Evidence on every card.** Name where the idea came from.
 - **Remake structure, never assets.** Borrow the angle, hook, pacing, and proof device. Never copy a competitor's script, visuals, logo, or claims.
 - **Daily cadence.** A second run on the same day adds only genuinely new ideas.
-- **Not this skill:** finished assets are `creatives`; daily reporting is `reports`; account diagnostics are `alerts`.
 
 ## Clarifications
 
+- Missing profile, research, or campaign data: keep going with what exists. Starting ideas still ship.
+- Research has no ads or winners: run your own Meta Ad Library search (Step 3) before falling back to starting ideas.
 - Format unspecified: mix video and image and let the ranking decide the split. If the user asks for static or video, use only that format.
 - Single theme requested (for example "retargeting"): still read all the context, then rank within that theme.
-- Missing profile or campaign data: say so in one line and use the lists that exist.
-- Vague request: ask one question with a multi-select block: video-first, image-first, or balanced.
 
 ## Guardrails
 
@@ -32,61 +30,67 @@ description: "Daily idea scout for the Ad Creator. Reads competitor research, in
 
 ## Execution Workflow
 
-### Step 1: Load the context
+### Step 1: Load the full context
 
-Use `fetchDetailBar` with small limits, and page only where the decision needs older rows:
+Pull everything before writing. Small limits are for the extra rows, never for the inputs the ideas depend on:
 
-1. `competitorResearches` (latest 1-2): verified winners with angle, hook, offer, and days live.
-2. `creatives` (latest 10): what we already made, so ideas don't repeat assets.
-3. `campaigns` (latest 5): what is running, what won, what failed.
-4. `alerts` and `suggestions` (active): fatigue, saturation, landing-page mismatch, and growth openings.
-5. `ideas` (all, paged): the current backlog.
+1. `fetchBusinessProfile` — products, USPs, audience, offers, and brand voice. This is the source for starting ideas when no ads exist.
+2. `fetchDetailBar` `competitorResearches` (latest 3–4, page if the latest has no ads): every saved ad, with its angle, hook, offer, format and days live.
+3. `fetchDetailBar` `campaigns` (roots, limit 25) and `campaigns.ads` (limit 50, page as needed): our classified ads, including each ad's `category`, metrics and action. Winners are here.
+4. `fetchDetailBar` `creatives` (latest 20): what we already made, so ideas don't repeat assets.
+5. `fetchDetailBar` `alerts` and `suggestions`: fatigue, saturation, landing-page mismatch, and growth openings.
+6. `fetchDetailBar` `campaignBriefs` (latest 5): planned angles and offers.
+7. `fetchDetailBar` `ideas` (all, paged): the current backlog.
 
-### Step 2: Study the competitor ads
+### Step 2: Pull the winners
 
-- Pick up to 5 verified winners from the research, long-running first, then potential. Prefer ads for the same product, category, or objective as our live campaigns.
-- View every video and image before using it. If an ad can't be opened, leave it out.
-- For each ad, note: the hook (first 3 seconds or headline), the angle, the structure (order of beats), the proof device, the offer framing and CTA, and the format, length, and language.
+- **Ours:** ads in `campaigns.ads` with `category` `winner`; add `fading` (a winner that is slipping) and `scaler` when present. Read their metrics, action, and media.
+- **Theirs:** verified winners from the competitor research, long-running first, then potential. Prefer ads for the same product, category, or objective as our live campaigns.
+- View every video and image before using it.
+- For each ad note: the hook (first 3 seconds or headline), the angle, the structure (order of beats), the proof device, the offer framing and CTA, and the format, length, and language.
 - Find the patterns: what repeats in 2 or more ads, and what none of them show (our gap).
 - Keep each ad's media URL exactly as returned, and verify its aspect ratio (9/16, 4/5, 1/1, 16/9, or 3/2).
 
-### Step 3: Find the four kinds of signal
+### Step 3: Research when the inputs are thin
+
+Do this before ideating when any of these is true:
+
+- no `competitorResearches` rows, or the latest research has no ads or no winners;
+- the saved research is older than 14 days;
+- the profile lists products or offers that the research never covers.
+
+Then:
+
+- Use `searchAdLibrary` with the brand's products, broad category phrases, and offer phrases from the Business Profile. Find creative ideas in the best-performing ads from competitors and other advertisers.
+- Rank the sample by long-running and top-impression ads; view the strongest with `readImages` and `readVideos`.
+- Use `webSearch` and `scrapeWebPage` for category angles, seasonal offers, and claims the library does not show.
+- If the library returns nothing usable too, move straight to starting ideas. Never stop with no ideas.
+
+### Step 4: Find the four kinds of signal
 
 - A competitor pattern or winner that is absent from our backlog (`COMPETITOR WINNER`).
 - One of our winners whose winning element can become a new idea (`OUR WINNER`).
 - A variant of an existing creative, with the change named (`VARIANT`).
 - A gap in the research about audience, offer, or proof, or an alert / suggestion opening (`FROM INSIGHTS`).
 
-### Step 4: Write each card
+### Step 5: Fill the floor with starting ideas
 
-Each card fills these fields. This is what the UI renders.
+When the evidence would leave fewer than 1-2 cards, top the run up from the Business Profile and live campaigns. These are `FROM INSIGHTS` and must still be specific to the brand, never generic filler. They also need a reference ad: use one from the self-search or our own ads. No `mediaUrl` means no card.
 
-| Field         | What to write                                                                                                                                                                                             |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `title`       | 8 words or fewer. The idea in plain words.                                                                                                                                                                |
-| `description` | 20-40 words. Why it should work, tied to the evidence: the pattern, its count, and the gap it fills. Never a promise.                                                                                     |
-| `source`      | One of `COMPETITOR WINNER`, `OUR WINNER`, `FROM INSIGHTS`, `VARIANT`. Rendered as the card chip; never invent a new value.                                                                                |
-| `format`      | `video` or `image`. It picks the preview component.                                                                                                                                                       |
-| `hook`        | The opening line or first 3 seconds of the ad we would make, in our words.                                                                                                                                |
-| `why`         | One line: what we make (the asset and its core beat).                                                                                                                                                     |
-| `makeFor`     | The audience or funnel stage.                                                                                                                                                                             |
-| `mediaUrl`    | The reference ad's own https URL (a competitor's or ours), or an `/api/attachments/…` URL when a tool produced it. Exactly as returned. Omit for ideas with no reference ad (insight, alert, suggestion). |
-| `aspectRatio` | The verified ratio of `mediaUrl`. Omit if there is no `mediaUrl`.                                                                                                                                         |
-| `sourceUrl`   | Only our own ad's URL when the reference is ours. Leave empty for competitor ads.                                                                                                                         |
+- **Hero product proof:** the main product, its strongest USP, and the objection it answers.
+- **Objection / FAQ:** the question buyers ask before ordering, answered in the hook.
+- **Offer framing:** the live offer, bundle, or festive angle in one clear promise.
+- **Category education:** why our category matters, shown with the product in use.
+- **Proof device:** founder, sourcing, process, reviews, or before/after — whichever the profile supports.
+- **Live campaign fit:** a new angle for the campaign already spending the most, named with its objective.
 
-Rules for the content:
+Write them like any other card: concrete hook, one asset, one audience. Never invent numbers or claim results. If the profile is empty too, use the website content already saved for the brand and say the idea is a starting point.
 
-- The hook, title, and copy are original wording for our brand, in our product, proof, and language. Never reuse a competitor's words.
-- A competitor-based card says which pattern it remakes in `description` (for example "question hook plus real founder, seen in 3 of 5 winners").
-- A card built on a single ad says "single signal".
-- Don't plan something we already made. If the idea is a variant of an existing creative, use `VARIANT` and say what changes.
+### Step 6: Rank and save
 
-### Step 5: Rank and save
-
-- Rank by expected impact, fit with live campaigns, and production cost.
+- Always save at least 1-2+ cards, at most 10. Rank by expected impact, fit with live campaigns, and production cost.
 - Save with `updateIdeas`. Omit `id` for new cards. Pass an existing `id` only to update a backlog item deliberately.
 - If saving fails, say so. Never present a saved state that did not happen.
-- Never write idea JSON in the chat reply.
 
 ## Reference example
 
@@ -106,10 +110,11 @@ One saved card, as an illustration. Borrow the density and wording style. Don't 
 }
 ```
 
-An idea with no reference ad (from insights) omits `mediaUrl`, `aspectRatio` and `sourceUrl`:
+An update passes the existing `id`; it may omit the media fields and keeps the stored reference:
 
 ```json
 {
+  "id": "01a2b3c4-existing-idea",
   "title": "Fresh Hook For Tiring Unboxing Video",
   "description": "Frequency on the unboxing winner passed 2.5 and CTR is falling. A new first 3 seconds keeps the proven structure.",
   "source": "FROM INSIGHTS",
@@ -120,10 +125,26 @@ An idea with no reference ad (from insights) omits `mediaUrl`, `aspectRatio` and
 }
 ```
 
+A starting idea still cites a reference ad from the self-search or our own ads:
+
+```json
+{
+  "title": "Cold-Pressed In 24 Hours, Not Months",
+  "description": "The profile's strongest USP is pressing to order; no saved ad uses the time gap. A starting idea from the product story.",
+  "source": "FROM INSIGHTS",
+  "format": "video",
+  "hook": "Most oil sits in a warehouse. Ours is pressed the day you order.",
+  "why": "A 12s product-in-use video: the press, the pour, the delivery box.",
+  "makeFor": "New buyers, category cold audience",
+  "mediaUrl": "https://cdn.example.com/category-reference.mp4",
+  "aspectRatio": "9/16"
+}
+```
+
 ## Before saving
 
 - Every card is a new idea, not in the backlog by title, hook, or angle.
-- Every competitor-based card comes from ads you inspected, and `mediaUrl` and `aspectRatio` are set and unchanged.
+- Every new card carries `mediaUrl` and `aspectRatio`, exactly as returned; an update without them keeps the stored reference.
 - No competitor words, assets, or links anywhere.
 - No invented numbers. No guaranteed results.
 - Ranked strongest first, 10 or fewer.

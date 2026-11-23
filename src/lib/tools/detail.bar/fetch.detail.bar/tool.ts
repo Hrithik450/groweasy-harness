@@ -128,6 +128,7 @@ export async function executeFetchDetailBarTool(
         delete data.blocks;
         return data;
       });
+
       const label = `the last ${hours} hours`;
       const preamble =
         rows.length === 0

@@ -76,6 +76,10 @@ export const updateAlertToolDefinition = {
                   description: "Ad set ID, if relevant.",
                 },
                 adId: { type: "string", description: "Ad ID, if relevant." },
+                creativeId: {
+                  type: "string",
+                  description: "Meta creative ID, if relevant.",
+                },
               },
             },
             action: {
@@ -141,6 +145,8 @@ function mergeAlert(
     rawMeta.campaignId?.trim() || existing?.meta.campaignId || "";
   const adSetId = rawMeta.adSetId?.trim() || existing?.meta.adSetId;
   const adId = rawMeta.adId?.trim() || existing?.meta.adId;
+  const creativeId =
+    rawMeta.creativeId?.trim() || existing?.meta.creativeId;
 
   const rawAction =
     typeof item.action === "object" && item.action !== null ? item.action : {};
@@ -169,6 +175,7 @@ function mergeAlert(
       campaignId,
       ...(adSetId ? { adSetId } : {}),
       ...(adId ? { adId } : {}),
+      ...(creativeId ? { creativeId } : {}),
     },
     action: {
       fix,

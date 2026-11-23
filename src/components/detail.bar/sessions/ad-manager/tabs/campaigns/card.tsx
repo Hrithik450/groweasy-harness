@@ -41,6 +41,10 @@ const CATEGORY_TAG: Record<AdCategory, { label: string; className: string }> = {
     label: "Scaler",
     className: "bg-brand text-primary-foreground border border-brand-border/30",
   },
+  fading: {
+    label: "Fading",
+    className: "bg-warning-tint text-warning border border-warning-border",
+  },
   loser: {
     label: "Loser",
     className:

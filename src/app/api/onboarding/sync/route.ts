@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/auth";
 import { cronWorker } from "@/lib/cron/worker";
-import { getCronJobsByUserId } from "@/lib/repositories";
+import {
+  COMPETITOR_RESEARCH_JOB_NAME,
+  DAILY_REPORT_JOB_NAME,
+  IDEAS_JOB_NAME,
+  getCronJobsByUserId,
+} from "@/lib/repositories";
+import { getConnectorByUserIdAndSlug } from "@/lib/services";
 
-/** The report reads what the other sync jobs write, so it runs after them. */
-const REPORT_JOB = "Daily Report";
 const REPORT_WAIT_MS = 20 * 60_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -15,18 +19,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const business = await getConnectorByUserIdAndSlug(
+    user.id,
+    "businessProfile",
+  );
+  const businessReady =
+    business.success && business.data?.status === "connected";
+
   const jobs = getCronJobsByUserId(user.id).filter(
     (job) =>
       job.status === "active" &&
       job.requires === "metaAds" &&
-      job.name !== "Daily Competitor Research",
+      job.name !== COMPETITOR_RESEARCH_JOB_NAME &&
+      (businessReady || job.name !== IDEAS_JOB_NAME),
   );
 
   const needingRun = jobs.filter(
     (job) => !job.lastRunAt || Boolean(job.lastError),
   );
-  const lead = needingRun.filter((job) => job.name !== REPORT_JOB);
-  const report = needingRun.filter((job) => job.name === REPORT_JOB);
+  const lead = needingRun.filter((job) => job.name !== DAILY_REPORT_JOB_NAME);
+  const report = needingRun.filter((job) => job.name === DAILY_REPORT_JOB_NAME);
 
   for (const job of lead) {
     void cronWorker.triggerNow(job.id).catch((error) => {

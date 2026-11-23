@@ -10,11 +10,11 @@ import type { InputContentParam } from "openai/resources/beta/agents/agents";
 import { validateAndNormalizeUI } from "@/lib/generative.ui";
 import { type BarItemInput } from "@/lib/detail.bar/service";
 import type {
+  BarCard,
   AlertMeta,
   Suggestion,
   AlertStatus,
   AlertAction,
-  BarCard,
 } from "@/lib/detail.bar";
 
 /** Suggestions accepted per call; the bar keeps the rest. */
@@ -51,6 +51,26 @@ export const updateSuggestionsToolDefinition = {
               type: "string",
               description:
                 "Short headline: insight plus where it applies (e.g. 'High-Yield Placement · Instagram Reels').",
+            },
+            meta: {
+              type: "object",
+              description: "Meta identifiers the suggestion applies to.",
+              properties: {
+                adAccountId: {
+                  type: "string",
+                  description: "e.g. 'act_1202159847230100'.",
+                },
+                campaignId: { type: "string", description: "Campaign ID." },
+                adSetId: {
+                  type: "string",
+                  description: "Ad set ID, if relevant.",
+                },
+                adId: { type: "string", description: "Ad ID, if relevant." },
+                creativeId: {
+                  type: "string",
+                  description: "Meta creative ID, if relevant.",
+                },
+              },
             },
             action: {
               type: "object",
@@ -113,6 +133,7 @@ function mergeSuggestion(
     rawMeta.campaignId?.trim() || existing?.meta.campaignId || "";
   const adSetId = rawMeta.adSetId?.trim() || existing?.meta.adSetId;
   const adId = rawMeta.adId?.trim() || existing?.meta.adId;
+  const creativeId = rawMeta.creativeId?.trim() || existing?.meta.creativeId;
 
   const rawAction =
     typeof item.action === "object" && item.action !== null ? item.action : {};
@@ -145,6 +166,7 @@ function mergeSuggestion(
       campaignId,
       ...(adSetId ? { adSetId } : {}),
       ...(adId ? { adId } : {}),
+      ...(creativeId ? { creativeId } : {}),
     },
     action: {
       fix,
