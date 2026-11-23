@@ -123,6 +123,32 @@ systemPromptRegistry.section({
 ${generateLegoComponentsPrompt()}`,
 });
 
+/** Exact local time to the second; the anchor for any rolling window. */
+function formatClock(now: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const part = (type: string) =>
+    parts.find((entry) => entry.type === type)?.value ?? "";
+  const seconds = now.toISOString().slice(0, 19);
+  return `${part("weekday")}, ${part("day")} ${part("month")} ${part("year")}, ${part("hour")}:${part("minute")}:${part("second")} IST (Asia/Kolkata) · UTC ${seconds}Z`;
+}
+
+systemPromptRegistry.section({
+  name: "harness:clock",
+  order: SECTION_ORDERS.CLOCK,
+  text: () =>
+    `## Now\n${formatClock(new Date())}\nUse this exact instant as the end of any relative window ("last 24 hours" ends here).`,
+});
+
 export function compileSystemPrompt(
   name?: string | null,
   skillUpdates: readonly SkillUpdateNotice[] = [],

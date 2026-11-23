@@ -1,21 +1,20 @@
 ---
 name: daily-report
-description: "Daily report that reads the latest campaigns, research, briefs, ideas, creatives, alerts, and suggestions, then saves one compact UI-block report per day covering what changed and everything created yesterday."
+description: "Daily report that reads the latest campaigns, research, briefs, ideas, creatives, alerts, and suggestions, then saves one compact UI-block report covering what changed and everything created in the last 24 hours."
 ---
 
 ## Rules
 
 - **Lead with the biggest change:** a `critical` alert takes the headline. Otherwise rank by money impact, then by size of the period-over-period change.
-- **Compare equal periods:** the day against the previous day, and against the account's 28-day average for the same objective. Never compare a partial period with a full one.
+- **Window:** the 24 hours ending at the moment this job fired — take that instant from the `Now` line in your instructions, not a calendar day. Compare it with the previous 24 hours and the account's 28-day average for the same objective. Never compare a partial window with a full one.
 - **Today's moves:** up to 3 informational moves. No buttons or per-item actions; the reader applies them manually.
-- **Quiet day:** if nothing meaningful changed, write a one-line report and skip the table and charts. Don't manufacture a story.
+- **Thin data:** campaigns may have no data in the window. Still ship the report from the detail-bar progress (research, briefs, ideas, creatives, alerts, suggestions) and today's moves. Never save an empty report.
 - **Never invent numbers:** every figure comes from a tool result. Missing data is "n/a". A projection is allowed only when labelled "estimate" and built from tool numbers.
-- **Not this skill:** alert cards are `alerts`; growth ideas are `suggestions`; a campaign plan is `campaign-brief`.
 
 ## Clarifications
 
-- If the user names a day, report that day. Otherwise report the latest completed day with data.
-- If the account is disconnected or has no data, save a one-line report saying so.
+- If the user names a day, report that day. Otherwise report the 24 hours ending now.
+- A disconnected account with nothing recorded is the only case for a one-line report.
 
 ## Guardrails
 
@@ -28,10 +27,10 @@ description: "Daily report that reads the latest campaigns, research, briefs, id
 
 ### Step 1: Read the latest inputs
 
-Use `fetchDetailBar` for both current context and the report day. It accepts optional `startDate`/`endDate`; when present, the response includes `count` and the rows created inside that inclusive range. Skip a list that is empty.
+Use `fetchDetailBar` for both current context and the window. Pass `hours: 24` to read the rows created in the last 24 hours; the response includes `count` and `items`. Skip a list only when it is empty.
 
-1. `campaigns`: yesterday vs the day before and the 28-day average (spend, purchases, CPA, revenue, ROAS, AOV, conversion rate), plus which ads won or stopped.
-2. For `ideas`, `creatives`, `competitorResearches`, `campaignBriefs`, `alerts`, and `suggestions`, call `fetchDetailBar` once per field with `startDate` and `endDate` both set to the report day (`YYYY-MM-DD`). Use each response's `count` as the work-generated number and its `items` for titles/details. If the report covers a different day, use that day instead.
+1. `campaigns`: the last 24 hours vs the previous 24 hours and the 28-day average (spend, purchases, CPA, revenue, ROAS, AOV, conversion rate), plus which ads won or stopped. If there are no campaign rows, say so in one line and keep building from the lists below.
+2. For `ideas`, `creatives`, `competitorResearches`, `campaignBriefs`, `alerts`, and `suggestions`, call `fetchDetailBar` once per field with `hours: 24`. Use each response's `count` as the work-generated number and its `items` for titles/details. If the user named a day, pass `startDate`/`endDate` for that day instead.
 3. `competitorResearches`, `alerts`, and `suggestions`: newest rows only for the latest context (limit 4-6).
 4. `campaignBriefs`, `ideas`, `creatives`: only what shipped, was queued or was changed since the last report.
 
@@ -61,8 +60,8 @@ The reference example is the required output bar, not inspiration. Match its sec
 
 - **Headline & scope:** the finding as `h1`, then a one-row Table (Date, Account, Spend, Results, Avg CPP).
 - **01 The short version:** dark Card with 3 dark finding cards (number, finding, evidence) and an accent The-move Card.
-- **02 Yesterday in numbers:** 4 stat cards (label, `xl` value, `xs` comparison).
-- **03 Work generated:** light Card with an explicit count line in the meta (research, briefs, creatives, ideas, alerts) and a Table (Created, Item, Detail). Include every competitor research, brief, creative, idea and alert created yesterday.
+- **02 Last 24 hours in numbers:** 4 stat cards (label, `xl` value, `xs` comparison).
+- **03 Work generated:** light Card with an explicit count line in the meta (research, briefs, creatives, ideas, alerts) and a Table (Created, Item, Detail). Include every competitor research, brief, creative, idea and alert created in the last 24 hours.
 - **04 Campaigns:** 6-column Table (Campaign, Spend, Results, Avg CPP, vs prior 7d, Why).
 - **05 Ads that moved:** one winner and one waste Card, each `Grid columns: 3` with media + body. Video for video, Image for static. Body has name + Badge, 3 stats, one line of reasoning, and an accent The-move Card.
 - **06 Market overnight:** Table (Market, Move, Why), verified research only.
@@ -80,8 +79,8 @@ Below is the required daily report output standard, not inspiration. Your report
   "root": "root",
   "elements": {
     "root": {"type":"Stack","props":{"direction":"vertical","gap":"md","align":"stretch","justify":"start"},"children":["title","scope","d1","d2","d3w","d3","d4","d5","d6","d7"]},
-    "title": {"type":"Heading","props":{"text":"Yesterday beat your week. One ad is wasting money.","level":"h1"}},
-    "scope": {"type":"Table","props":{"variant":"light","headerVariant":"light","columns":["Date","Account","Spend","Results","Avg CPP"],"rows":[["Yesterday","Telesales account","₹4,820","14","₹344"]]}},
+    "title": {"type":"Heading","props":{"text":"The last 24 hours beat your week. One ad is wasting money.","level":"h1"}},
+    "scope": {"type":"Table","props":{"variant":"light","headerVariant":"light","columns":["Date","Account","Spend","Results","Avg CPP"],"rows":[["Last 24h","Telesales account","₹4,820","14","₹344"]]}},
     "d1": {"type":"Card","props":{"variant":"dark"},"children":["d1-header","d1-div","d1-findings","d1-move"]},
     "d1-header": {"type":"Stack","props":{"direction":"horizontal","gap":"sm","align":"baseline","justify":"start"},"children":["d1-eyebrow","d1-heading"]},
     "d1-eyebrow": {"type":"Eyebrow","props":{"text":"01","size":"sm","variant":"accent"}},
@@ -111,7 +110,7 @@ Below is the required daily report output standard, not inspiration. Your report
     "d2-header": {"type":"Stack","props":{"direction":"horizontal","gap":"md","align":"baseline","justify":"between"},"children":["d2-title","d2-meta"]},
     "d2-title": {"type":"Stack","props":{"direction":"horizontal","gap":"sm","align":"baseline","justify":"start"},"children":["d2-eyebrow","d2-heading"]},
     "d2-eyebrow": {"type":"Eyebrow","props":{"text":"02","size":"sm","variant":"accent"}},
-    "d2-heading": {"type":"Heading","props":{"text":"Yesterday in numbers","level":"h1"}},
+    "d2-heading": {"type":"Heading","props":{"text":"Last 24 hours in numbers","level":"h1"}},
     "d2-meta": {"type":"Text","props":{"text":"VS 7-DAY AVERAGE","size":"xs"}},
     "d2-div": {"type":"Separator","props":{"orientation":"horizontal"}},
     "d2-grid": {"type":"Grid","props":{"columns":4},"children":["d2-1","d2-2","d2-3","d2-4"]},
@@ -156,7 +155,7 @@ Below is the required daily report output standard, not inspiration. Your report
     "d4-title": {"type":"Stack","props":{"direction":"horizontal","gap":"sm","align":"baseline","justify":"start"},"children":["d4-eyebrow","d4-heading"]},
     "d4-eyebrow": {"type":"Eyebrow","props":{"text":"05","size":"sm","variant":"accent"}},
     "d4-heading": {"type":"Heading","props":{"text":"Ads that moved","level":"h1"}},
-    "d4-meta": {"type":"Text","props":{"text":"YESTERDAY · WINNER AND WASTE","size":"xs"}},
+    "d4-meta": {"type":"Text","props":{"text":"LAST 24H · WINNER AND WASTE","size":"xs"}},
     "d4-div": {"type":"Separator","props":{"orientation":"horizontal"}},
     "d4-list": {"type":"Stack","props":{"direction":"vertical","gap":"md","align":"stretch","justify":"start"},"children":["d4-a1","d4-a2"]},
     "d4-a1": {"type":"Card","props":{"variant":"light"},"children":["d4-a1-grid"]},
@@ -216,7 +215,7 @@ Below is the required daily report output standard, not inspiration. Your report
     "d6-title": {"type":"Stack","props":{"direction":"horizontal","gap":"sm","align":"baseline","justify":"start"},"children":["d6-eyebrow","d6-heading"]},
     "d6-eyebrow": {"type":"Eyebrow","props":{"text":"07","size":"sm","variant":"accent"}},
     "d6-heading": {"type":"Heading","props":{"text":"Week so far","level":"h1"}},
-    "d6-meta": {"type":"Text","props":{"text":"MON–YESTERDAY","size":"xs"}},
+    "d6-meta": {"type":"Text","props":{"text":"MON–NOW","size":"xs"}},
     "d6-div": {"type":"Separator","props":{"orientation":"horizontal"}},
     "d6-bars": {"type":"Stack","props":{"direction":"vertical","gap":"md","align":"stretch","justify":"start"},"children":["d6-b1","d6-b2","d6-b3","d6-b4"]},
     "d6-b1": {"type":"ProgressBar","props":{"label":"Budget pace · ₹13,480 of ₹24,000","value":56,"color":"dark"}},

@@ -106,7 +106,7 @@ export const DEFAULT_CRON_JOBS: readonly DefaultCronJobConfig[] = [
     sessionSlug: "adStrategist",
     name: "Daily Report",
     prompt:
-      "Write today's report using the `daily-report` skill. Read the latest campaigns, competitor research, alerts and suggestions, plus any briefs, ideas and creatives that changed. Lead with the biggest change, end with one action for today, and save it with `updateDailyReport`. If nothing meaningful changed, save a one-line report.",
+      "Write the report for the last 24 hours using the `daily-report` skill. Read the latest campaigns, competitor research, alerts and suggestions, plus any briefs, ideas and creatives created in that window. Lead with the biggest change, end with one action for today, and save it with `updateDailyReport`. If campaigns have no data, still report the detail-bar progress and today's moves.",
     timing: { kind: "cron", expression: "0 9 * * *" },
     requires: "metaAds",
   },

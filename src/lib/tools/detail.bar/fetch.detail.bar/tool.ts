@@ -15,7 +15,7 @@ export const fetchDetailBarToolDefinition = {
   type: "function" as const,
   name: "fetchDetailBar",
   description:
-    "Reads one saved list from the detail bar, newest first. Use it before writing so you do not repeat rows. Page older entries with `nextCursor`, or pass `startDate`/`endDate` to read only rows created inside an inclusive date range.",
+    "Reads one saved list from the detail bar, newest first. Use it before writing so you do not repeat rows. Page older entries with `nextCursor`, pass `startDate`/`endDate` to read an inclusive date range, or pass `hours` to read a rolling window ending now.",
   parameters: {
     type: "object",
     properties: {
@@ -44,6 +44,11 @@ export const fetchDetailBarToolDefinition = {
         description:
           "Optional inclusive end day, YYYY-MM-DD in the app timezone.",
       },
+      hours: {
+        type: "number",
+        description:
+          "Optional rolling window in hours, ending now. Use 24 for the last 24 hours. Cannot be combined with startDate/endDate.",
+      },
     },
     required: ["field"],
   },
@@ -55,6 +60,7 @@ export interface FetchDetailBarArgs {
   cursor?: string;
   startDate?: string;
   endDate?: string;
+  hours?: number;
 }
 
 export async function executeFetchDetailBarTool(
@@ -86,11 +92,20 @@ export async function executeFetchDetailBarTool(
     return failure("Pass both startDate and endDate, or neither.");
   }
 
+  const hours =
+    typeof input.args?.hours === "number" && input.args.hours > 0
+      ? input.args.hours
+      : null;
+  if (hours !== null && hasRange) {
+    return failure("Pass either hours or startDate/endDate, not both.");
+  }
+  const hasWindow = hasRange || hours !== null;
+
   const rawLimit = input.args?.limit;
   const limit =
     typeof rawLimit === "number" && rawLimit > 0
-      ? Math.min(Math.floor(rawLimit), hasRange ? 100 : 50)
-      : hasRange
+      ? Math.min(Math.floor(rawLimit), hasWindow ? 100 : 50)
+      : hasWindow
         ? 50
         : 10;
   const cursor =
@@ -99,6 +114,43 @@ export async function executeFetchDetailBarTool(
       : undefined;
 
   try {
+    if (hours !== null) {
+      const endIso = new Date().toISOString();
+      const startIso = new Date(Date.now() - hours * 3_600_000).toISOString();
+      const rows = getDetailBarPagesInDateRange(
+        session.id,
+        field,
+        startIso,
+        endIso,
+      );
+      const items = rows.slice(0, limit).map((row) => {
+        const data = { ...(row.data as Record<string, unknown>) };
+        delete data.blocks;
+        return data;
+      });
+      const label = `the last ${hours} hours`;
+      const preamble =
+        rows.length === 0
+          ? `No '${field}' rows created in ${label}.`
+          : `${rows.length} '${field}' row(s) created in ${label} (showing ${items.length}):`;
+
+      return {
+        success: true,
+        data: {
+          contentParts: [
+            {
+              type: "input_text",
+              text: `${preamble}\n\n${JSON.stringify(
+                { field, hours, count: rows.length, items },
+                null,
+                2,
+              )}`,
+            },
+          ],
+        },
+      };
+    }
+
     if (hasRange) {
       const range = dayRangeToIso(startDate!, endDate!);
       const rows = getDetailBarPagesInDateRange(
