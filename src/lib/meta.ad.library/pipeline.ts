@@ -37,7 +37,7 @@ const MAX_GRAPHQL_RESULTS = 500;
 const VALIDATION_TARGET_COUNT = 2;
 /** Validation scans stop after the first cards. */
 const VALIDATION_SCROLL_STEPS = 3;
-const MAX_MEDIA_CONCURRENCY = 3;
+const MAX_MEDIA_CONCURRENCY = 6;
 
 const EMPTY_MEDIA: { videos: string[]; images: string[] } = {
   videos: [],
@@ -262,8 +262,17 @@ export class MetaAdLibrary {
         },
       });
 
-      const cards = page.ads.map((ad) => this.cardFromGraphQL(ad));
+      const cards = page.ads
+        .map((ad) => this.cardFromGraphQL(ad))
+        .filter((card) => this.isCandidate(card, context))
+        .slice(0, context.shortage + 4);
+
+      const mediaStartedAt = Date.now();
       const ingested = await this.ingestStored(context, cards);
+      this.logger.info(
+        `[meta.ad.library] stored media + ingested ${cards.length} candidate ad(s) ` +
+          `in ${Date.now() - mediaStartedAt}ms`,
+      );
       context.fresh = this.selectAds(ingested, context, context.shortage);
       if (context.fresh.length > 0) context.source = "graphql";
       context.telemetry = {
@@ -313,7 +322,15 @@ export class MetaAdLibrary {
         ),
       }));
 
-      const ingested = await this.ingestStored(context, cards);
+      const candidates = cards
+        .filter((card) => this.isCandidate(card, context))
+        .slice(0, context.shortage + 4);
+      const mediaStartedAt = Date.now();
+      const ingested = await this.ingestStored(context, candidates);
+      this.logger.info(
+        `[meta.ad.library] stored media + ingested ${candidates.length} candidate ad(s) ` +
+          `in ${Date.now() - mediaStartedAt}ms`,
+      );
       context.fresh = this.selectAds(ingested, context, context.shortage);
       if (context.fresh.length > 0) context.source = "crawler";
     } catch (error) {
@@ -327,6 +344,31 @@ export class MetaAdLibrary {
   // ------------------------------------------------------------------
   // Selection + assembly
   // ------------------------------------------------------------------
+
+  /**
+   * Cheap pre-filter on a raw candidate, before any media is downloaded: an ad
+   * that can never be delivered must not cost a download or upload.
+   */
+  private isCandidate(card: AdCardInput, context: SearchContext): boolean {
+    if (
+      context.excludeIds.has(card.libraryId) ||
+      context.selectedIds.has(card.libraryId)
+    ) {
+      return false;
+    }
+    if (
+      card.startDate &&
+      (card.startDate < context.startDate || card.startDate > context.endDate)
+    ) {
+      return false;
+    }
+    if (context.mediaType !== "all") {
+      return (card.mediaSources ?? []).some(
+        (source) => source.kind === context.mediaType,
+      );
+    }
+    return true;
+  }
 
   /** Apply the date window, exclusions, dedupe and the requested media kind. */
   private isEligible(ad: AdRecord, context: SearchContext): boolean {
