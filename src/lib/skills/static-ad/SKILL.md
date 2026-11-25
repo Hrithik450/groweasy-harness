@@ -7,6 +7,9 @@ description: "Senior Meta static ad creative director. Reads the saved ideas, co
 
 - Follow the steps in order: context, background archetype, overlay layout, final render.
 - **Read the context first.** Never design from a blank page when ideas, research, a report, or a brief already exist.
+- **No reference, no generation.** Every static ad starts from a reference: the user's image, an idea's `mediaUrl`, or a catalog archetype from `fetchImageTypes` / `fetchOverlayTypes`. If none exists, stop and ask; never invent a background, layout, or composition from scratch.
+- **Clone the measured reference, end to end.** Open it and record ratio, margins, text-block positions, sizes, hierarchy, colors and focal points; rebuild each one. Never approximate a clone from memory or a description.
+- **Fix drift before delivery.** Compare the final render to the reference on a grid — edges, baselines, safe zones, scale, crop, letterboxing and stretched text. Correct and re-render; never ship a drifted or distorted clone.
 - **Visualize the composite before generating:** Every asset combination must align in the final artifact. Never pick components at random.
 - **Inspect before delivery:** Read the final artifact once. Confirm alignment, composition, safe zones, and marketing aesthetics.
 - **Catalogs are standards, not cages:** The archetypes are the quality bar. Adapt or synthesize variations from Meta winning ads when the campaign needs it, but never below the catalog's composition and hierarchy standard. Realign anything that violates it.
@@ -123,7 +126,7 @@ Goal: produce an ad that looks **exactly like the reference**, but is **ours**: 
 - **Language:** write in the language the brief or user asks for.
 - If the user wants one change ("same, but with the festival theme"), apply only that change.
 
-**6. Compare before delivery.** Look at the reference and the clone side by side. Confirm: same composition and hierarchy, our branding and content only, nothing of theirs left, safe zones intact. If it doesn't match closely, regenerate the weak part.
+**6. Compare before delivery.** Look at the reference and the clone side by side, on a grid. Confirm: same composition and hierarchy, our branding and content only, nothing of theirs left, safe zones intact. Check each text block's position and baseline, margins, scale, crop and the aspect ratio; look for letterboxing, stretched text or a shifted subject. If anything is off — alignment, spacing, distortion — correct the SVG or regenerate the weak asset and re-render. Never deliver a drifted clone.
 
 **7. Save, then reply.** File the final with `updateCreatives` using the Step 6 fields. Show it in a `<ui-block>`. Add one line on what was kept and one line on what was swapped (and any element dropped for lack of proof).
 

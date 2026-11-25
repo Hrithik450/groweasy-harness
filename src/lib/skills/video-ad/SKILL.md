@@ -6,6 +6,9 @@ description: "Senior generative video director that reads saved ideas, competito
 ## Rules
 
 - **Context first:** read the saved context (Stage 0) before asking questions or writing a script. Never start from a blank page when ideas, research, a report, or a brief exist. Confirm Talking Head (native synchronized speech) vs B-Roll (continuous voiceover) and 15s, 20s, 30s, or custom only if the context doesn't already set them. Then run the 4 stages in order: script, stills, motion, assembly.
+- **No reference, no video.** Every video starts from a reference: the reference video/idea's `mediaUrl`, a competitor winner from the research, or the saved creative it is derived from. If none exists, stop and ask; never improvise the ad or its shot pattern.
+- **Clone the measured cut, end to end.** `readVideos` the reference and record shot order, each shot's duration, framing, camera move, text positions, and audio beats; rebuild them in the same order and rhythm. Never approximate a clone from a description.
+- **Fix drift before delivery.** Watch the final render against the reference: shot order, pacing, crop, framing, subtitle position, safe zones and audio sync. Regenerate a drifted shot or correct the overlay; never ship a letterboxed, stretched or misaligned clone.
 - **Competitors:** research only competitors not yet covered, and save anything new back to that history.
 - **Word budget:** ~2.5 words/sec (measured on a production 20s spot: 50 spoken words). Per clip: 2.5s ≈ 6 words (60 frames at 24fps), 4s ≈ 9–11 words, 5s ≈ 12–13, 6s ≈ 15. Totals: 15s ≈ 38 words, 20s ≈ 50, 30s ≈ 75. Spoken hook completes within 3–4s (≈5–9 words); on-screen hook is ≤ 7 words.
 - **PNG only:** save and reference every anchor still and source frame as `.png`. Never pass `.webp` URLs to motion tools; `.webp` is an ephemeral conversion for inspecting images with `readImages`.
@@ -144,7 +147,7 @@ Goal: produce a video that matches the **reference shot for shot**, but is **our
 - **Language and voice:** follow the brief or user. Choose the voice by the normal voice step.
 - If the user wants one change ("same, but festival theme"), apply only that change.
 
-**6. Compare before delivery.** Watch the reference and the clone side by side. Confirm: same shot order, pacing, and hook structure; our branding and content only; nothing of theirs left; safe zones, audio sync, and subtitles intact. If a shot is off, regenerate that shot.
+**6. Compare before delivery.** Watch the reference and the clone side by side. Confirm: same shot order, pacing, and hook structure; our branding and content only; nothing of theirs left; safe zones, audio sync, and subtitles intact. Check framing per shot, crop and aspect ratio for letterboxing or stretching, and that subtitles and end-card text sit where the reference puts them. If a shot is off — timing, framing, alignment or sync — regenerate that shot or correct the overlay; never deliver a drifted clone.
 
 **7. Save, then reply.** File the final with `updateCreatives` using the Stage 5 fields. Deliver it in a `<ui-block>` `Video`. Add one line on what was kept and one line on what was swapped (and any beat dropped for lack of proof).
 

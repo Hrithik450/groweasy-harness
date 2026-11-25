@@ -22,6 +22,7 @@ description: "Saves finished video and image assets into the session with their 
 - **No tool talk:** never mention tool names or projections in user-facing text.
 - **No duplicate entries:** check existing creatives first; update the matching entry instead of adding a twin.
 - **Aspect ratio must be real:** use the measured ratio, for example `9:16`, `4:5`, `1:1`, or `16:9`. Never round a non-standard export into a different ratio silently.
+- **Reference fidelity before filing:** when the asset is a clone or is derived from a reference, open the reference and the finished asset and compare composition and alignment. File it only if it matches; never label a freehand asset as a clone.
 
 ## Execution Workflow
 
