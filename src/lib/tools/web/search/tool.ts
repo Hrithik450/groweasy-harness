@@ -6,7 +6,7 @@ export const webSearchToolDefinition = {
   type: "function" as const,
   name: "webSearch",
   description:
-    "High-performance self-hosted web searcher/scraper with native media extraction. Scrapes dynamic websites, single-page applications, and media-rich pages, capturing LLM-ready markdown.",
+    "Reads one web page with the self-hosted headless crawler and returns LLM-ready markdown plus media URLs. One page-load, no scrolling — use `scrapeWebPage` when the whole page must be scraped.",
   parameters: {
     type: "object",
     properties: {
@@ -14,11 +14,6 @@ export const webSearchToolDefinition = {
         type: "string",
         description:
           "The full website URL to search/scrape (e.g. 'https://www.facebook.com/ads/library/?...' or 'https://groweasy.ai').",
-      },
-      scanFullPage: {
-        type: "boolean",
-        description:
-          "Auto-scrolls the entire page from top to bottom. Recommended for infinite-scroll feeds like Meta Ad Library or product catalogs.",
       },
       waitForSelector: {
         type: "string",
@@ -367,7 +362,8 @@ export async function crawlWebPage(
       wait_until: "domcontentloaded",
       page_timeout: pageTimeout ?? 60000,
       scan_full_page: scanFullPage ?? false,
-      scroll_delay: scrollDelay ?? 2.0,
+      // 1s per scroll step by default; deep crawls pass their own delay.
+      scroll_delay: scrollDelay ?? (scanFullPage ? 1.0 : 2.0),
       delay_before_return_html: delayBeforeSnapshot ?? 1.5,
       remove_consent_popups: true,
       remove_overlay_elements: true,
@@ -377,7 +373,11 @@ export async function crawlWebPage(
       exclude_external_images: false,
     };
 
-    if (maxScrollSteps !== undefined) {
+    if (scanFullPage) {
+      // A full-page scan must never run unbounded: cap it unless the caller
+      // (the ad-library pipeline) passes its own depth.
+      crawlerParams.max_scroll_steps = maxScrollSteps ?? 10;
+    } else if (maxScrollSteps !== undefined) {
       crawlerParams.max_scroll_steps = maxScrollSteps;
     }
 
@@ -492,7 +492,10 @@ export async function crawlWebPage(
 export async function executeWebSearchTool(
   input: ToolInput<WebSearchCrawlArgs>,
 ): Promise<ToolOutput<{ contentParts: Array<InputContentParam> }>> {
-  const crawled = await crawlWebPage(input);
+  // The model no longer controls scanning (see the tool schema): one page
+  // load, no scrolling. Internal callers use crawlWebPage directly.
+  const { scanFullPage: _ignored, ...modelArgs } = input.args ?? {};
+  const crawled = await crawlWebPage({ ...input, args: modelArgs });
   if (!crawled.success || !crawled.data) {
     return {
       success: false,
