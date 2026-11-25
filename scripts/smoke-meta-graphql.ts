@@ -7,7 +7,7 @@
  * Exits non-zero when fewer ads than requested come back.
  */
 
-import { fetchMetaAdsViaGraphQL } from "../src/lib/services/scraper/meta-graphql";
+import { fetchMetaAdsViaGraphQL } from "../src/lib/meta.ad.library/graphql";
 
 const query = process.argv[2] ?? "physiotherapy centre";
 const targetCount = Number(process.argv[3] ?? 100);

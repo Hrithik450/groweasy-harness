@@ -4,7 +4,7 @@
  * Embeddings cross this boundary as `Float32Array` while storage keeps plain
  * JSON numbers in the `scraped_ads.embedding` text column.
  *
- * @module @/lib/services/scraper/types
+ * @module @/lib/meta.ad.library/ad.scraper/types
  */
 
 import type {

@@ -4,7 +4,7 @@
  * Defines "the same ad" across scrapes by removing volatile, non-creative
  * surface area from hashing and embedding input.
  *
- * @module @/lib/services/scraper/utils
+ * @module @/lib/meta.ad.library/ad.scraper/utils
  */
 
 import crypto from "node:crypto";

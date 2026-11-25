@@ -4,7 +4,7 @@
  * Ads are written once per `library_id`; relevance is written to the derived
  * `(query, ad)` relation table.
  *
- * @module @/lib/services/scraper/ingestion.service
+ * @module @/lib/meta.ad.library/ad.scraper/ingestion.service
  */
 
 import * as repo from "@/lib/repositories/scraper.repo";
@@ -19,7 +19,7 @@ import {
   type EmbeddingProvider,
 } from "./ad.relevance.service";
 import { EXACT_CACHE_MIN_SCORE } from "./policy";
-import { parseMetaAdCards } from "./scraper.service";
+import { parseMetaAdCards } from "../parse";
 import {
   canonicalizeAdText,
   canonicalizeQueryText,

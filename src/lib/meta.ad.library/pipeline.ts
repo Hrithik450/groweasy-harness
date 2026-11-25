@@ -184,14 +184,8 @@ export class MetaAdLibrary {
     return this.buildResult(context);
   }
 
-  // ------------------------------------------------------------------
-  // Phases
-  // ------------------------------------------------------------------
-
   /** Validate arguments and open the per-search state. */
-  private buildContext(
-    params: MetaAdLibrarySearchParams,
-  ): SearchContext {
+  private buildContext(params: MetaAdLibrarySearchParams): SearchContext {
     const query = params.query.trim();
     if (!query) throw new Error("A search query is required.");
 
@@ -245,7 +239,10 @@ export class MetaAdLibrary {
     try {
       const fetchTarget = Math.min(
         MAX_GRAPHQL_RESULTS,
-        context.shortage + context.excludeIds.size + context.excludeHashes.size + 2,
+        context.shortage +
+          context.excludeIds.size +
+          context.excludeHashes.size +
+          2,
       );
       const page = await this.graphql({
         query: context.query,
@@ -401,10 +398,7 @@ export class MetaAdLibrary {
       country: context.country,
       startDate: context.startDate,
       endDate: context.endDate,
-      ads: [...context.cached, ...context.fresh].slice(
-        0,
-        context.targetCount,
-      ),
+      ads: [...context.cached, ...context.fresh].slice(0, context.targetCount),
       excludeCount: context.excludeIds.size,
       notice: context.notice,
       source: context.source,

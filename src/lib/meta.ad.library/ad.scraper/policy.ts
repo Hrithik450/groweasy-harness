@@ -4,7 +4,7 @@
  * Both the ingestion pipeline and the repository read these values so a
  * threshold change cannot drift between the write and read paths.
  *
- * @module @/lib/services/scraper/policy
+ * @module @/lib/meta.ad.library/ad.scraper/policy
  */
 
 /**

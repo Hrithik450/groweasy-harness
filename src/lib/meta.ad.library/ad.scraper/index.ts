@@ -1,10 +1,11 @@
 /**
- * Scraper public surface: card parsing, ingestion, and stored-ad reads.
+ * Ad scraper internals: markdown parsing, ingestion, and stored-ad reads.
  *
- * @module @/lib/services/scraper
+ * @module @/lib/meta.ad.library/ad.scraper
  */
 
-export { buildMetaAdLibraryUrl, parseMetaAdCards } from "./scraper.service";
+export { buildMetaAdLibraryUrl } from "../urls";
+export { parseMetaAdCards } from "../parse";
 export { ingestScrapedAds, ingestScrapedAdCards } from "./ingestion.service";
 export { EXACT_CACHE_MIN_SCORE } from "./policy";
 export {

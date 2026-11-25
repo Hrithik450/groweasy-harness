@@ -18,14 +18,14 @@ import {
   type NewScrapedAdRecord,
   type ScrapedAdRecord,
 } from "@/lib/db";
-import { EXACT_CACHE_MIN_SCORE } from "@/lib/services/scraper/policy";
-import { normalizeQueryKey } from "@/lib/services/scraper/utils";
+import { EXACT_CACHE_MIN_SCORE } from "@/lib/meta.ad.library/ad.scraper/policy";
+import { normalizeQueryKey } from "@/lib/meta.ad.library/ad.scraper/utils";
 import type {
   NewAdQueryRelevance,
   NewScrapedAd,
   ScoredScrapedAd,
   ScrapedAd,
-} from "@/lib/services/scraper/types";
+} from "@/lib/meta.ad.library/ad.scraper/types";
 
 export type { ScrapedAdRecord, NewScrapedAdRecord };
 

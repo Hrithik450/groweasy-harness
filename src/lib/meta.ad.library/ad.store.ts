@@ -13,7 +13,7 @@ import {
   ingestScrapedAdCards,
   type AnchoredMedia,
   type ScoredScrapedAd,
-} from "@/lib/services/scraper";
+} from "@/lib/meta.ad.library/ad.scraper";
 import type { AdCardInput, AdMediaRef, AdRecord, AdStore } from "./types";
 
 const INTERNAL_URL_RE = /^\/api\/attachments\/([A-Za-z0-9]+)$/;

@@ -1,7 +1,6 @@
 export * from "./connectors.service";
 export * from "./cron.service";
 export * from "./default";
-export * from "./scraper";
 export * from "./session.history.service";
 export * from "./sessions.service";
 export * from "./types";

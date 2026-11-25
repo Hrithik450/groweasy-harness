@@ -6,7 +6,7 @@
  * characters, and creative images embedded as markdown. This module turns that
  * into the crisp card the model reads.
  *
- * @module @/lib/services/scraper/display
+ * @module @/lib/meta.ad.library/ad.scraper/display
  */
 
 /** Frontend chrome lines that carry no ad information. */

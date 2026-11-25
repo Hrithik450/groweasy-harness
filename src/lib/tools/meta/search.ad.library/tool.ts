@@ -21,7 +21,7 @@ import {
 } from "@/lib/detail.bar/service";
 import type { CompetitorResearchItem } from "@/lib/detail.bar/types";
 import { extractAdIdFromReference } from "@/lib/services/utils";
-import { getScrapedAdsByIds } from "@/lib/services/scraper";
+import { getScrapedAdsByIds } from "@/lib/meta.ad.library/ad.scraper";
 import {
   MetaAdLibrary,
   fetchMetaAdsViaGraphQL,

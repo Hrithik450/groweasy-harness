@@ -10,7 +10,7 @@ import type {
   BusinessProfileKeywords,
   Country,
 } from "@/lib/connectors/business.profile";
-import { getScrapedAdsByIds } from "@/lib/services/scraper";
+import { getScrapedAdsByIds } from "@/lib/meta.ad.library/ad.scraper";
 
 /** One submitted ad, keyed by its Meta Ad Library ID. */
 /**
