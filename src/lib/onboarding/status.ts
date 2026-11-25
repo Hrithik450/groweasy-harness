@@ -26,6 +26,23 @@ export interface OnboardingStatus {
   sync: StatusState & { ready: boolean; jobs: OnboardingJobStatus[] };
 }
 
+/** A "running" connector older than the scan cap is a crashed/interrupted run. */
+function staleRunningThresholdMs(): number {
+  const raw = Number(process.env.ONBOARDING_SCAN_TIMEOUT_MS);
+  const scanMs = Number.isFinite(raw) && raw > 0 ? raw : 10 * 60 * 1000;
+  return scanMs + 60_000;
+}
+
+function isStaleRunning(connector: {
+  status?: string | null;
+  updatedAt?: string | null;
+} | null | undefined): boolean {
+  if (connector?.status !== "running") return false;
+  const updatedAt = connector.updatedAt ? Date.parse(connector.updatedAt) : NaN;
+  if (!Number.isFinite(updatedAt)) return false;
+  return Date.now() - updatedAt > staleRunningThresholdMs();
+}
+
 function connectorError(metadata: unknown): string | null {
   if (!metadata || typeof metadata !== "object") return null;
   const error = (metadata as { error?: unknown }).error;
@@ -57,6 +74,7 @@ export function getOnboardingStatus(user: PublicUser | null): OnboardingStatus {
   const business = getConnectorByUserIdAndProviderSlug(user.id, "adsEasy");
   const metaConnected = meta?.status === "connected";
   const businessConnected = business?.status === "connected";
+  const businessStale = isStaleRunning(business);
 
   // Business-profile refresh is covered by the scan itself, so it is not a
   // sync gate and does not appear in the sync list.
@@ -95,13 +113,15 @@ export function getOnboardingStatus(user: PublicUser | null): OnboardingStatus {
     },
     business: {
       connected: businessConnected,
-      status: business?.status ?? null,
+      status: businessStale ? "error" : (business?.status ?? null),
       url:
         typeof (business?.metadata as { url?: unknown } | null)?.url ===
         "string"
           ? ((business?.metadata as { url: string }).url ?? null)
           : null,
-      error: connectorError(business?.metadata),
+      error: businessStale
+        ? "The brand analysis was interrupted (the server restarted). Analyze the website again."
+        : connectorError(business?.metadata),
     },
     sync: {
       ready: syncReady,

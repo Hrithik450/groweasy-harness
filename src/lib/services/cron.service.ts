@@ -3,7 +3,11 @@ import * as cronRepo from "@/lib/repositories/cron.repo";
 import * as sessionsRepo from "@/lib/repositories/sessions.repo";
 import { MessageId } from "@/lib/llm/llm/brand";
 import { randomUUID } from "@/lib/utils/uuid";
-import { enqueuePrompt, whenAgentIdle } from "@/lib/core/agent/registry";
+import {
+  cancelAgent,
+  enqueuePrompt,
+  whenAgentIdle,
+} from "@/lib/core/agent/registry";
 import { ensureAgentForSession } from "@/lib/session/agent.host";
 import { sessionEventsRepo } from "@/lib/session/persistence/events.repo";
 import { nextOccurrenceForTiming } from "@/lib/cron/schedule";
@@ -18,6 +22,12 @@ import type { Response } from "./types";
  * makes this set sufficient.
  */
 const runningJobs = new Set<string>();
+
+/** Hard cap on one cron turn; a stalled provider must not hold the job open. */
+function cronJobTimeoutMs(): number {
+  const raw = Number(process.env.CRON_JOB_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 10 * 60 * 1000;
+}
 
 /** Next run time for a job's timing, or null when it cannot be computed. */
 function nextRunFor(timing: CronJob["timing"], from = new Date()): Date | null {
@@ -197,7 +207,21 @@ export async function executeJob(
       ],
       "queue",
     );
-    await whenAgentIdle(session.id);
+    const deadline = AbortSignal.timeout(cronJobTimeoutMs());
+    const onAbort = (): void => {
+      cancelAgent(session.id);
+    };
+    deadline.addEventListener("abort", onAbort, { once: true });
+    try {
+      await whenAgentIdle(session.id);
+    } finally {
+      deadline.removeEventListener("abort", onAbort);
+    }
+    if (deadline.aborted) {
+      throw new Error(
+        `Cron turn exceeded ${Math.round(cronJobTimeoutMs() / 1000)}s and was cancelled`,
+      );
+    }
 
     // The agent settling is not success; the turn's own end reason is.
     const tail = await sessionEventsRepo.getLastTurnEnd(session.id);

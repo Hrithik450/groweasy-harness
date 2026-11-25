@@ -108,8 +108,7 @@ class CronWorker {
     while (this.active.size < this.concurrencyLimit) {
       const busy = new Set(this.active.values());
       const next = [...this.queue].find(
-        ([, sessionId]) =>
-          !busy.has(sessionId) && !isAgentRunning(sessionId),
+        ([, sessionId]) => !busy.has(sessionId) && !isAgentRunning(sessionId),
       );
       if (!next) return;
 

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   cancelAgent,
   enqueuePrompt,
-  isAgentRunning,
   whenAgentIdle,
 } from "@/lib/core/agent/registry";
 import { MessageId } from "@/lib/llm/llm/brand";
@@ -21,14 +20,17 @@ import {
   upsertConnector,
   ensureDefaultCronJobs,
   getConnectorByUserIdAndSlug,
+  getConnectorInstances,
   normalizeInstanceKey,
   DEFAULT_BUSINESS_PROFILE_CRON_JOBS,
 } from "@/lib/services";
 
-const SCAN_TIMEOUT_MS = 20 * 60 * 1000;
+const SCAN_TIMEOUT_MS = (() => {
+  const raw = Number(process.env.ONBOARDING_SCAN_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 10 * 60 * 1000;
+})();
 
-/** One in-flight connect per analyzer session, across overlapping requests. */
-const activeScans = new Set<string>();
+const SCAN_TIMEOUT_MINUTES = Math.max(1, Math.round(SCAN_TIMEOUT_MS / 60_000));
 
 /**
  * POST /api/connectors/business.profile/connect
@@ -37,7 +39,6 @@ const activeScans = new Set<string>();
 export async function POST(req: NextRequest) {
   const user = await getAuthSessionFromRequest(req);
   let instance: string | null = null;
-  let lockedSession: string | null = null;
 
   try {
     if (!user?.id) {
@@ -92,26 +93,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // One analyzer turn at a time: a second brand would otherwise redirect the
-    // running turn's save to a different instance.
     await ensureAgentForSession(session);
-    if (activeScans.has(session.id) || isAgentRunning(session.id)) {
-      return NextResponse.json(
-        {
-          error:
-            "A brand analysis is already running. Please wait for it to finish.",
+
+    const existingConnectors = await getConnectorInstances(
+      user.id,
+      "businessProfile",
+    );
+    for (const connector of existingConnectors.data ?? []) {
+      if (connector.status !== "running") continue;
+      await upsertConnector({
+        userId: user.id,
+        slug: "businessProfile",
+        providerSlug: "adsEasy",
+        instance: connector.instance,
+        status: "error",
+        metadata: {
+          ...((connector.metadata as Record<string, unknown> | null) ?? {}),
+          error: "Cancelled — user started a new brand analysis.",
         },
-        { status: 409 },
-      );
+      });
     }
-    activeScans.add(session.id);
-    lockedSession = session.id;
+
+    cancelAgent(session.id);
+    await whenAgentIdle(session.id);
 
     const existingConnector = await getConnectorByUserIdAndSlug(
       user.id,
       "businessProfile",
       instance,
     );
+
     const metadata: Record<string, unknown> = {
       ...(existingConnector.data?.metadata ?? {}),
       url: cleanUrl,
@@ -141,7 +152,6 @@ export async function POST(req: NextRequest) {
           id: MessageId(randomUUID()),
           role: "user",
           content: [{ type: "text", text: inputText }],
-          // The build is background work; its turn must not render as input.
           source: { kind: "system" },
         },
       ],
@@ -169,12 +179,13 @@ export async function POST(req: NextRequest) {
         status: "error",
         metadata: {
           ...metadata,
-          error:
-            "The analysis did not finish within 20 minutes. Please try again.",
+          error: `The analysis did not finish within ${SCAN_TIMEOUT_MINUTES} minutes. Please try again.`,
         },
       });
       return NextResponse.json(
-        { error: "The analysis did not finish within 20 minutes." },
+        {
+          error: `The analysis did not finish within ${SCAN_TIMEOUT_MINUTES} minutes.`,
+        },
         { status: 504 },
       );
     }
@@ -185,6 +196,22 @@ export async function POST(req: NextRequest) {
       instance,
     );
     if (settled.data?.status !== "connected") {
+      if (settled.data?.status === "error") {
+        // Another request already recorded why (e.g. a newer analysis
+        // cancelled this one); keep that message.
+        const existingError = (
+          settled.data.metadata as { error?: unknown } | null
+        )?.error;
+        return NextResponse.json(
+          {
+            error:
+              typeof existingError === "string" && existingError
+                ? existingError
+                : "The analysis did not complete. Please try again.",
+          },
+          { status: 502 },
+        );
+      }
       const error =
         settled.data?.status === "running"
           ? "The analysis finished without saving a profile. Please try again."
@@ -253,7 +280,5 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: errorMsg }, { status: 500 });
-  } finally {
-    if (lockedSession) activeScans.delete(lockedSession);
   }
 }
