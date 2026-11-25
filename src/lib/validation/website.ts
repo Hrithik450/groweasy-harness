@@ -171,7 +171,9 @@ export function isAdultOrBlockedHostname(hostname: string): {
  * Validate syntax, HTTPS-only protocol and hostname structure. Synchronous and
  * safe on the client; the business-profile routes also call the live verifier.
  */
-export function validateWebsiteSyntax(inputUrl: string): WebsiteValidationResult {
+export function validateWebsiteSyntax(
+  inputUrl: string,
+): WebsiteValidationResult {
   if (!inputUrl || typeof inputUrl !== "string") {
     return {
       valid: false,
@@ -248,7 +250,11 @@ export function validateWebsiteSyntax(inputUrl: string): WebsiteValidationResult
     };
   }
   for (const part of parts) {
-    if (!part || part.length > 63 || !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(part)) {
+    if (
+      !part ||
+      part.length > 63 ||
+      !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(part)
+    ) {
       return {
         valid: false,
         error: "The domain contains invalid characters. Check the URL.",
