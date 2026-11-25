@@ -5,7 +5,7 @@
  */
 
 export { buildMetaAdLibraryUrl, parseMetaAdCards } from "./scraper.service";
-export { ingestScrapedAds } from "./ingestion.service";
+export { ingestScrapedAds, ingestScrapedAdCards } from "./ingestion.service";
 export { EXACT_CACHE_MIN_SCORE } from "./policy";
 export {
   getAdsByQuery,

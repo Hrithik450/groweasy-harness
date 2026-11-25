@@ -18,9 +18,13 @@ import {
   getAdsByQuery,
   getScrapedAdsByIds,
   ingestScrapedAds,
+  ingestScrapedAdCards,
   buildMetaAdLibraryUrl,
+  type AnchoredMedia,
   type ScoredScrapedAd,
+  type ScrapedAdCard,
 } from "@/lib/services/scraper";
+import { fetchMetaAdsViaGraphQL } from "@/lib/services/scraper/meta-graphql";
 
 export const searchAdLibraryToolDefinition = {
   type: "function" as const,
@@ -84,6 +88,9 @@ interface CrawlDepth {
 const VALIDATION_TARGET_COUNT = 2;
 /** Validation scans stop after the first cards. */
 const VALIDATION_SCROLL_STEPS = 3;
+
+/** GraphQL caps each search at 500 ads; the crawler has no separate cap. */
+const MAX_GRAPHQL_RESULTS = 500;
 
 /**
  * Crawl depth from intent, ported from the legacy harness.
@@ -307,6 +314,57 @@ export async function executeSearchAdLibraryTool(
 
   const shortage = targetCount - cachedAds.length;
 
+  // Shared by both paths: date window, exclusions, id and content dedupe.
+  const deliveredIds = new Set(cachedAds.map((ad) => ad.libraryId));
+  const selectFresh = (ads: ScoredScrapedAd[]): ScoredScrapedAd[] => {
+    const fresh: ScoredScrapedAd[] = [];
+    for (const ad of ads) {
+      if (fresh.length >= shortage) break;
+      if (ad.startDate) {
+        if (
+          ad.startDate < dateRange.startDate ||
+          ad.startDate > dateRange.endDate
+        ) {
+          continue;
+        }
+      }
+      if (excludedHashes.has(ad.contentHash)) continue;
+      if (!deliveredIds.has(ad.libraryId) && !excludeIds.has(ad.libraryId)) {
+        deliveredIds.add(ad.libraryId);
+        fresh.push(ad);
+      }
+    }
+    return fresh;
+  };
+
+  const deliver = (
+    finalAds: ScoredScrapedAd[],
+    notice?: string,
+  ): ToolOutput<{ contentParts: Array<InputContentParam> }> => {
+    for (const ad of finalAds) {
+      reservation.ids.add(ad.libraryId);
+      reservation.hashes.add(ad.contentHash);
+    }
+    return {
+      success: true,
+      data: {
+        contentParts: [
+          {
+            type: "input_text",
+            text: buildAdLibraryTelemetry({
+              query,
+              country: defaultCountry,
+              dateRange,
+              ads: finalAds,
+              excludeCount: permanentExcludeIds.size,
+              notice,
+            }),
+          },
+        ],
+      },
+    };
+  };
+
   const targetUrl = buildMetaAdLibraryUrl({
     query,
     country: defaultCountry,
@@ -316,6 +374,65 @@ export async function executeSearchAdLibraryTool(
   });
 
   const depth = resolveCrawlDepth({ targetCount });
+
+  /**
+   * Primary path: the Ad Library's own GraphQL payload (SSR ads plus cursor
+   * pagination). Crawl4AI remains the fallback, so the crawler env is
+   * optional whenever this path works.
+   */
+  if (shortage > 0) {
+    const fetchTarget = Math.min(
+      MAX_GRAPHQL_RESULTS,
+      shortage + excludeIds.size + excludedHashes.size + 2,
+    );
+
+    try {
+      const result = await fetchMetaAdsViaGraphQL({
+        query,
+        country: defaultCountry,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+        mediaType,
+        targetCount: fetchTarget,
+        pageTimeoutMs: depth.pageTimeout,
+        settleMs: targetCount <= VALIDATION_TARGET_COUNT ? 4000 : 6000,
+        onTelemetry: (telemetry) => {
+          console.info(
+            `[searchAdLibrary] graphql "${query}" ${defaultCountry}: ` +
+              `${telemetry.ssrAds} ssr + ${telemetry.requests} req · ` +
+              `${telemetry.bytes}B · ${telemetry.totalMs}ms`,
+          );
+        },
+      });
+
+      const cards: ScrapedAdCard[] = result.ads.map((ad) => ({
+        libraryId: ad.libraryId,
+        adUrl: ad.adUrl,
+        content: ad.content,
+        startDate: ad.startDate,
+        status: ad.status,
+      }));
+      const mediaByAnchor: AnchoredMedia[] = result.ads
+        .filter(
+          (ad) => ad.media.videos.length > 0 || ad.media.images.length > 0,
+        )
+        .map((ad) => ({ anchor: ad.libraryId, ...ad.media }));
+
+      const ingested = await ingestScrapedAdCards({
+        searchQuery: query,
+        cards,
+        mediaByAnchor,
+      });
+      const finalAds = [...cachedAds, ...selectFresh(ingested.relevantAds)];
+      if (finalAds.length > 0) return deliver(finalAds);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `[searchAdLibrary] GraphQL path failed for "${query}" (${message}); ` +
+          "falling back to Crawl4AI.",
+      );
+    }
+  }
 
   const crawl = async (d: CrawlDepth) =>
     crawlWebPage({
@@ -419,48 +536,7 @@ export async function executeSearchAdLibraryTool(
     excludeIds,
   });
 
-  const deliveredIds = new Set(cachedAds.map((a) => a.libraryId));
-  const freshAccepted: ScoredScrapedAd[] = [];
-  for (const ad of ingestResult.relevantAds) {
-    if (freshAccepted.length >= shortage) break;
-    if (ad.startDate) {
-      if (
-        ad.startDate < dateRange.startDate ||
-        ad.startDate > dateRange.endDate
-      ) {
-        continue;
-      }
-    }
-    if (excludedHashes.has(ad.contentHash)) continue;
-    if (!deliveredIds.has(ad.libraryId) && !excludeIds.has(ad.libraryId)) {
-      deliveredIds.add(ad.libraryId);
-      freshAccepted.push(ad);
-    }
-  }
-
-  const finalAds = [...cachedAds, ...freshAccepted];
+  const finalAds = [...cachedAds, ...selectFresh(ingestResult.relevantAds)];
   if (finalAds.length === 0) return emptyResult(query, dateRange);
-
-  for (const ad of finalAds) {
-    reservation.ids.add(ad.libraryId);
-    reservation.hashes.add(ad.contentHash);
-  }
-
-  return {
-    success: true,
-    data: {
-      contentParts: [
-        {
-          type: "input_text",
-          text: buildAdLibraryTelemetry({
-            query,
-            country: defaultCountry,
-            dateRange,
-            ads: finalAds,
-            excludeCount: permanentExcludeIds.size,
-          }),
-        },
-      ],
-    },
-  };
+  return deliver(finalAds);
 }

@@ -190,6 +190,14 @@ export interface IngestScrapedAdsResult {
   relevantAds: ScoredScrapedAd[];
 }
 
+export interface IngestScrapedAdCardsParams {
+  searchQuery: string;
+  cards: ScrapedAdCard[];
+  mediaByAnchor?: AnchoredMedia[];
+  /** Injectable embedding seam; production uses the OpenAI provider. */
+  embedder?: EmbeddingProvider;
+}
+
 export async function ingestScrapedAds({
   searchQuery,
   rawMarkdown,
@@ -200,7 +208,20 @@ export async function ingestScrapedAds({
   const cards = parseMetaAdCards(rawMarkdown).filter(
     (card) => !excludeIds?.has(card.libraryId),
   );
+  return ingestScrapedAdCards({ searchQuery, cards, mediaByAnchor, embedder });
+}
 
+/**
+ * The same pipeline as `ingestScrapedAds`, for ads that already arrive as
+ * structured cards — the Ad Library GraphQL path, which knows each ad's
+ * fields directly instead of parsing them out of rendered markdown.
+ */
+export async function ingestScrapedAdCards({
+  searchQuery,
+  cards,
+  mediaByAnchor,
+  embedder = createOpenAIEmbeddingProvider(),
+}: IngestScrapedAdCardsParams): Promise<IngestScrapedAdsResult> {
   if (cards.length === 0) {
     return { searchQuery, totalParsed: 0, relevantAds: [] };
   }

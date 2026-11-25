@@ -69,8 +69,14 @@ Required app keys (names only — values stay in the server's `.env`):
   `META_ACCESS_TOKEN`, `APIFY_API_TOKEN`, `GOOGLE_CLIENT_ID` /
   `GOOGLE_CLIENT_SECRET` / `NEXT_PUBLIC_GOOGLE_CLIENT_ID`,
   `SHOPIFY_CLIENT_ID` / `SHOPIFY_CLIENT_SECRET`, `FIRECRAWL_API_KEY`,
-  `ALTERNATIVE_WEB_SCRAPER_URL` / `ALTERNATIVE_WEB_SCRAPER_TOKEN`, and the
-  `R2_*` set.
+  `ALTERNATIVE_WEB_SCRAPER_URL` / `ALTERNATIVE_WEB_SCRAPER_TOKEN` (Crawl4AI
+  fallback), and the `R2_*` set.
+- Ad Library GraphQL path — optional overrides for the primary
+  `searchAdLibrary` source: `META_BROWSER_EXECUTABLE_PATH` (or
+  `META_BROWSER_CHANNEL`, default `chrome`), `META_AD_LIBRARY_DOC_ID` and
+  `META_AD_LIBRARY_GRAPHQL_VERSION`. Google Chrome must be installed on the
+  host. When this path fails, the tool falls back to Crawl4AI, so the crawler
+  keys above are not required while GraphQL works.
 - `DATABASE_PATH` / `SCRAPER_DATABASE_PATH` — optional. When unset the app's
   `./data` resolves through the release symlink to
   `~/Programming/servers/harness/data`.

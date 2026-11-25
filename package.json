@@ -10,7 +10,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/lib/drizzle/migration.ts",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "smoke:meta": "tsx scripts/smoke-meta-graphql.ts"
   },
   "dependencies": {
     "@aryanjsx/knowindia": "^1.2.4",
@@ -30,6 +31,7 @@
     "lucide-react": "^1.61.0",
     "next": "16.4.3",
     "openai": "^7.43.0",
+    "playwright-core": "^1.65.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-markdown": "^10.1.0",
