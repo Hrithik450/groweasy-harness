@@ -16,6 +16,7 @@ import {
   normalizeBusinessProfilePayload,
   mergeBusinessProfilePayload,
 } from "../utils";
+import { verifyWebsiteLive } from "@/lib/validation/website.server";
 
 export const updateBusinessProfileToolDefinition = {
   type: "function" as const,
@@ -244,8 +245,26 @@ export async function executeUpdateBusinessProfileTool(
   }
 
   try {
-    const requestedInstance = input.args?.url
-      ? (normalizeInstanceKey(input.args.url) ?? undefined)
+    // A website provided in the profile update must pass the same live check
+    // as onboarding; the canonical URL is what gets stored.
+    let args = input.args;
+    if (input.args?.url) {
+      const website = await verifyWebsiteLive(input.args.url);
+      if (!website.valid || !website.cleanUrl) {
+        const errorMsg = website.error ?? "Enter a valid website URL.";
+        return {
+          success: false,
+          data: {
+            contentParts: [{ type: "input_text", text: `Error: ${errorMsg}` }],
+          },
+          error: errorMsg,
+        };
+      }
+      args = { ...input.args, url: website.cleanUrl };
+    }
+
+    const requestedInstance = args?.url
+      ? (normalizeInstanceKey(args.url) ?? undefined)
       : undefined;
     const existingRes = await getConnectorByUserIdAndSlug(
       userId,
@@ -260,11 +279,11 @@ export async function executeUpdateBusinessProfileTool(
         existingConnector.metadata,
         (existingConnector.metadata as { url?: string })?.url,
       );
-      finalProfile = mergeBusinessProfilePayload(existingProfile, input.args);
+      finalProfile = mergeBusinessProfilePayload(existingProfile, args ?? {});
     } else {
       finalProfile = normalizeBusinessProfilePayload(
-        input.args,
-        input.args?.url,
+        args ?? {},
+        args?.url,
       );
     }
 

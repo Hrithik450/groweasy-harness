@@ -8,6 +8,7 @@ import {
 import { MessageId } from "@/lib/llm/llm/brand";
 import { randomUUID } from "@/lib/utils/uuid";
 import { getAuthSessionFromRequest } from "@/lib/auth";
+import { verifyWebsiteLive } from "@/lib/validation/website.server";
 import {
   IDEAS_JOB_NAME,
   activateCronJobsByRequires,
@@ -53,6 +54,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Syntax, DNS, TLS liveness, redirects and adult/placeholder content are
+    // checked before a session or connector row is created.
+    const website = await verifyWebsiteLive(url);
+    if (!website.valid || !website.cleanUrl) {
+      return NextResponse.json(
+        { error: website.error ?? "Enter a valid website URL." },
+        { status: 400 },
+      );
+    }
+
     const sessionRes = await resolveSession({
       userId: user.id,
       slug: "businessProfile",
@@ -69,7 +80,7 @@ export async function POST(req: NextRequest) {
     }
 
     const session = sessionRes.data;
-    const cleanUrl = url.trim();
+    const cleanUrl = website.cleanUrl;
 
     // The brand domain selects the instance: reconnecting the same brand
     // resumes that profile, a different brand gets its own row.

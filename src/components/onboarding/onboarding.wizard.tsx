@@ -7,6 +7,7 @@ import { useOnboardingStatus } from "./use.onboarding.status";
 import { useSessionStream } from "@/hooks/use.stream";
 import { BusinessProfileProcess } from "@/components/business.profile/process.feed";
 import { SESSION_ONBOARDING_EVENT } from "@/lib/session/journal";
+import { validateWebsiteSyntax } from "@/lib/validation/website";
 
 const STEPS = ["login", "meta", "business", "sync"] as const;
 type Step = (typeof STEPS)[number];
@@ -36,22 +37,6 @@ const STEP_ICON: Record<Step, string> = {
   business: "/images/connectors/business-profile.svg",
   sync: "/bot/face-amber.svg",
 };
-
-/** Accept "brand.com" or a full URL; return the normalized absolute URL. */
-function normalizeSiteUrl(value: string): string | null {
-  const raw = value.trim();
-  if (!raw) return null;
-  const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-  try {
-    const url = new URL(candidate);
-    if (!url.hostname.includes(".") || url.hostname.startsWith(".")) {
-      return null;
-    }
-    return url.toString().replace(/\/$/, "");
-  } catch {
-    return null;
-  }
-}
 
 /** Read a JSON body without ever throwing on an HTML error page. */
 async function readJson<T>(res: Response): Promise<T | null> {
@@ -178,11 +163,12 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
 
   const connectBusiness = async (event: React.FormEvent) => {
     event.preventDefault();
-    const siteUrl = normalizeSiteUrl(brandUrl);
-    if (!siteUrl) {
-      setUrlError("Please enter a valid URL (e.g. https://example.com)");
+    const website = validateWebsiteSyntax(brandUrl);
+    if (!website.valid || !website.cleanUrl) {
+      setUrlError(website.error ?? "Please enter a valid website URL.");
       return;
     }
+    const siteUrl = website.cleanUrl;
     setUrlError(null);
     setBusy(true);
     setError(null);
