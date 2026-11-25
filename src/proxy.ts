@@ -1,22 +1,20 @@
-import { NextResponse, type NextRequest } from "next/server";
 import {
-  AUTH_SESSION_COOKIE_NAME,
-  authSessionCookieOptions,
   createAuthSession,
   verifyAuthSession,
+  AUTH_SESSION_COOKIE_NAME,
+  authSessionCookieOptions,
 } from "@/lib/auth";
 import {
   createAnonymousUser,
   getUserByUserId,
 } from "@/lib/services/users.service";
+import { NextResponse, type NextRequest } from "next/server";
 import { getDefaultSession } from "@/lib/services/sessions.service";
 
 export async function proxy(request: NextRequest) {
   const token = request.cookies.get(AUTH_SESSION_COOKIE_NAME)?.value;
   const verified = token ? await verifyAuthSession(token) : null;
-  const existingRes = verified?.id
-    ? await getUserByUserId(verified.id)
-    : null;
+  const existingRes = verified?.id ? await getUserByUserId(verified.id) : null;
   let user = existingRes?.success ? existingRes.data : null;
 
   let newToken: string | null = null;

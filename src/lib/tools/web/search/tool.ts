@@ -460,7 +460,6 @@ export async function crawlWebPage(
       (result.media?.images ?? []).map((image: { src?: string }) => image.src),
     );
 
-    // Markdown drops <video>/<img> tags, so card order has to come from HTML.
     const mediaByAnchor =
       mediaAnchorPattern && typeof result.html === "string"
         ? associateMediaByAnchor(
