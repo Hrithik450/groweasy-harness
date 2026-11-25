@@ -26,11 +26,16 @@ import { skillRegistry } from "./registry";
 import type { SkillDefinition } from "./types";
 import { shortSkillVersion } from "./utils";
 
-/** Hard cap on one judge hop; the turn waits on it, so keep it short. */
-const JUDGE_TIMEOUT_MS = 8_000;
+/** Hard cap on one judge hop; the full skill + spec makes this a large call. */
+const JUDGE_TIMEOUT_MS = 20_000;
 
-/** The judge sees a compact outline, never the full spec or skill body. */
-const MAX_PROJECTED_SPEC_CHARS = 8_000;
+/**
+ * The judge must see the complete skill (reference example included) and the
+ * full spec. Compact inputs let collapsed reports through, so completeness
+ * wins over token count here.
+ */
+const MAX_SPEC_CHARS = 80_000;
+const MAX_SKILL_CHARS = 150_000;
 const MAX_USER_MESSAGES = 3;
 const MAX_USER_CHARS = 500;
 
@@ -51,17 +56,19 @@ export interface FormatVerdict {
   readonly skills: readonly string[];
 }
 
-const JUDGE_SYSTEM_PROMPT = `You are a minimal UI-block checker.
+const JUDGE_SYSTEM_PROMPT = `You are a UI-block checker.
 
-You receive: the user's recent requests, the name and one-line description of the skill that produced the block, and a compact structural outline of the rendered block (element ids, types, text excerpts, media and links).
+You receive: the user's recent requests, the COMPLETE instructions of the skill that produced the block (including its reference example), and the full block spec as JSON.
 
-Check exactly three things:
+The skill's reference example is the quality bar. Compare structure and density against it.
 
-1. Dense and rich enough. The block must present the requested deliverable with real structure — multiple sections or cards, substantive text, and media where the request calls for it. Fail only if it is visibly thin: the deliverable collapsed into a plain list, a handful of text blocks, or a bare summary.
-2. No broken links. Every href must be a real URL or app path, and every media src must be a real URL. Fail if a link or media value is empty, a placeholder, or the outline shows a reference to a missing element.
+Check three things:
+
+1. Dense, structured deliverable that looks like the reference example. It must present the requested deliverable with the structure the skill and its reference example call for — multiple sections or cards, substantive text, and media where the request needs it. Fail if the deliverable is collapsed into a wall of text, one giant accent block, a plain list, or a bare summary, even when the total text is long. Long content packed into one element is a failure, not density. Also fail when every surface uses the same color — e.g. all Cards left on the default/accent variant so the page reads as one colored wall — while the reference alternates light or muted surfaces and reserves accent for focal points.
+2. No broken links. Every href must be a real URL or app path, and every media src must be a real URL. Fail if a link or media value is empty, a placeholder, or references a missing element.
 3. Inline ads. If the block contains ad content, each ad must show its own inline Image or Video. Fail if ads appear only as text or links, or are gathered into a single gallery instead of inline with each ad.
 
-Do not judge style, colors, component anatomy, section order, badge choices, label/value formatting, word limits, or wording. A different but equally rich layout passes.
+Do not fail for wording, specific content or numbers, or small style choices. A different but equally rich layout passes.
 
 If the block is a question, a partial update, a confirmation, or anything that is not the requested deliverable, pass it.
 
@@ -201,98 +208,31 @@ export async function getInvokedSkills(
   return skillsFromEvents(events, context.turn);
 }
 
-const TEXT_PROP_KEYS = [
-  "text",
-  "content",
-  "title",
-  "label",
-  "description",
-  "heading",
-] as const;
-
-function excerpt(value: unknown, limit: number): string | null {
-  if (typeof value !== "string") return null;
-  const text = value.replace(/\s+/g, " ").trim();
-  if (text.length === 0) return null;
-  return text.length > limit ? `${text.slice(0, limit)}…` : text;
-}
-
-/**
- * A compact outline: enough structure to judge density, inline ads and links,
- * without shipping the full (up to 80k-char) spec to the judge.
- */
-function projectSpec(spec: UIBlockSpec): string {
-  const entries = Object.entries(spec.elements ?? {});
-  const typeCounts = new Map<string, number>();
-  const lines: string[] = [];
-  let textChars = 0;
-  let images = 0;
-  let videos = 0;
-
-  for (const [id, element] of entries) {
-    typeCounts.set(element.type, (typeCounts.get(element.type) ?? 0) + 1);
-    if (element.type === "Image") images += 1;
-    if (element.type === "Video") videos += 1;
-
-    const props = (element.props ?? {}) as Record<string, unknown>;
-    for (const key of TEXT_PROP_KEYS) {
-      const value = props[key];
-      if (typeof value === "string") textChars += value.length;
-    }
-
-    if (lines.length >= 80) continue;
-    const parts = [`${id}=${element.type}`];
-    const childCount = Array.isArray(element.children)
-      ? element.children.length
-      : 0;
-    if (childCount > 0) parts.push(`children:${childCount}`);
-    const text = excerpt(
-      TEXT_PROP_KEYS.map((key) => props[key]).find(
-        (value) => typeof value === "string",
-      ),
-      120,
-    );
-    if (text) parts.push(`text: ${text}`);
-    const src = excerpt(props.src ?? props.url, 80);
-    if (src) parts.push(`src: ${src}`);
-    const href = excerpt(props.href, 80);
-    if (href) parts.push(`href: ${href}`);
-    lines.push(parts.join(" · "));
-  }
-
-  if (entries.length > lines.length) {
-    lines.push(`… ${entries.length - lines.length} more elements`);
-  }
-
-  const outline = [
-    `root: ${spec.root}`,
-    `elements: ${entries.length}`,
-    `types: ${[...typeCounts]
-      .map(([type, count]) => `${type}×${count}`)
-      .join(", ")}`,
-    `inline media: ${images} image, ${videos} video`,
-    `text chars: ${textChars}`,
-    "",
-    ...lines,
-  ].join("\n");
-
-  return outline.length > MAX_PROJECTED_SPEC_CHARS
-    ? `${outline.slice(0, MAX_PROJECTED_SPEC_CHARS)}…[truncated]`
-    : outline;
-}
-
 /** Render the judge's user turn: requests, skill summary, compact outline. */
 function judgeUserContent(
-  projectedSpec: string,
+  spec: UIBlockSpec,
   skills: readonly SkillDefinition[],
   userRequests: readonly string[],
 ): string {
   const skillText = skills
-    .map(
-      (skill) =>
-        `<skill name="${skill.name}" version="${shortSkillVersion(skill.version)}">${skill.description}</skill>`,
-    )
-    .join("\n");
+    .map((skill) => {
+      const content =
+        skill.content.length > MAX_SKILL_CHARS
+          ? `${skill.content.slice(0, MAX_SKILL_CHARS)}\n…[truncated]`
+          : skill.content;
+      return [
+        `<skill name="${skill.name}" version="${shortSkillVersion(skill.version)}">`,
+        content,
+        "</skill>",
+      ].join("\n");
+    })
+    .join("\n\n");
+
+  const specText = JSON.stringify(spec);
+  const blockText =
+    specText.length > MAX_SPEC_CHARS
+      ? `${specText.slice(0, MAX_SPEC_CHARS)}…[truncated]`
+      : specText;
 
   const userText =
     userRequests.length > 0
@@ -308,11 +248,11 @@ function judgeUserContent(
     userText,
     skillText,
     "",
-    "<ui_block_outline>",
-    projectedSpec,
-    "</ui_block_outline>",
+    "<ui_block>",
+    blockText,
+    "</ui_block>",
     "",
-    "Check only density, broken links, and inline ads. Pass questions, partials and confirmations.",
+    "Judge the block against the complete skill and its reference example: density/structure, broken links, and inline ads. Pass questions, partials and confirmations.",
   ]
     .filter((part) => part.length > 0)
     .join("\n");
@@ -334,8 +274,8 @@ export async function judgeUIBlockFormat(
   if (!client) return null;
 
   const model = getOpenAIJudgeModel();
-  const projected = projectSpec(spec);
-  const userContent = judgeUserContent(projected, skills, userRequests);
+  const specChars = JSON.stringify(spec).length;
+  const userContent = judgeUserContent(spec, skills, userRequests);
   console.log(
     "[FormatJudge] Input:",
     JSON.stringify({
@@ -345,8 +285,8 @@ export async function judgeUIBlockFormat(
       ...(meta?.turn !== undefined ? { turn: meta.turn } : {}),
       userRequests,
       skills: skills.map((skill) => skill.name),
-      specChars: JSON.stringify(spec).length,
-      judgeChars: projected.length,
+      specChars,
+      judgeChars: userContent.length,
     }).slice(0, 500),
   );
 
