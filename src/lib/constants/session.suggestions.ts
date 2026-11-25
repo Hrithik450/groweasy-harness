@@ -90,6 +90,12 @@ export const SESSION_SUGGESTIONS: Record<
       prompt:
         "Write today's performance report with the top three moves we should make.",
     },
+    {
+      icon: "lightbulb",
+      title: "Fresh ad ideas",
+      prompt:
+        "Turn our competitor research and winning ads into five fresh ad ideas for us.",
+    },
   ],
   businessProfile: [
     {
@@ -131,6 +137,7 @@ export const SESSION_CHIPS: Record<SessionSlug, readonly string[]> = {
     "Find audiences",
     "Competitor research",
     "Daily report",
+    "Ad ideas",
   ],
   businessProfile: [
     "Refresh profile",
