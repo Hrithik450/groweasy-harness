@@ -208,18 +208,21 @@ export async function executeSaveCompetitorResearchTool(
     });
 
     if (!saved.ok) {
-      return {
-        success: false,
+      const failure = {
+        success: false as const,
         data: {
           contentParts: [
             {
-              type: "input_text",
+              type: "input_text" as const,
               text: `Error: ${saved.error}`,
             },
           ],
         },
         error: saved.error,
       };
+      return saved.terminal
+        ? ({ ...failure, concludesTurn: true } as typeof failure)
+        : failure;
     }
 
     const writtenId = id;

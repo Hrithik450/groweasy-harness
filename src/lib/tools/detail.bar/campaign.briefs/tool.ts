@@ -129,7 +129,10 @@ export async function executeUpdateCampaignBriefsTool(
   });
 
   if (!saved.ok) {
-    return errorResult(saved.error);
+    const failure = errorResult(saved.error);
+    return (saved.terminal
+      ? { ...failure, concludesTurn: true }
+      : failure) as ToolOutput<UpdateCampaignBriefsOutput>;
   }
 
   const url = ` View it at /c/${session.id}/briefs/${id}.`;

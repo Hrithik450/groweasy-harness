@@ -92,7 +92,10 @@ export async function executeUpdateDailyReportTool(
   });
 
   if (!saved.ok) {
-    return errorResult(saved.error);
+    const failure = errorResult(saved.error);
+    return (saved.terminal
+      ? { ...failure, concludesTurn: true }
+      : failure) as ToolOutput<{ contentParts: Array<InputContentParam> }>;
   }
 
   const url = ` View it at /c/${session.id}/reports/${id}.`;

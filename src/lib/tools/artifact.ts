@@ -24,9 +24,16 @@ import type { ToolEvent } from "@/lib/tools/types";
 
 export const ARTIFACT_SAVE_ATTEMPTS = 3;
 
+/** Hard stop after this many calls for one artifact, whatever failed. */
+const MAX_ARTIFACT_CALLS = 4;
+/** Identical spec resubmitted after a rejection is a loop, not a revision. */
+const MAX_IDENTICAL_CALLS = 2;
+
 interface AttemptState {
   count: number;
   updatedAt: number;
+  lastSpec: string | null;
+  identical: number;
 }
 
 const attempts = new Map<string, AttemptState>();
@@ -40,16 +47,26 @@ function attemptKey(params: ArtifactSaveParams): string {
   ].join(":");
 }
 
-function nextAttempt(key: string, now = Date.now()): number {
+function nextAttempt(
+  key: string,
+  specText: string,
+  now = Date.now(),
+): AttemptState {
   if (attempts.size > 500) {
     for (const [entryKey, state] of attempts) {
       if (now - state.updatedAt > ATTEMPT_TTL_MS) attempts.delete(entryKey);
     }
   }
   const current = attempts.get(key);
-  const count = (current?.count ?? 0) + 1;
-  attempts.set(key, { count, updatedAt: now });
-  return count;
+  const state: AttemptState = {
+    count: (current?.count ?? 0) + 1,
+    updatedAt: now,
+    lastSpec: specText,
+    identical:
+      current?.lastSpec === specText ? (current.identical ?? 0) + 1 : 0,
+  };
+  attempts.set(key, state);
+  return state;
 }
 
 export interface ArtifactSaveParams {
@@ -68,7 +85,7 @@ export interface ArtifactSaveParams {
 
 export type ArtifactSaveResult =
   | { ok: true; spec: CanonicalUIMesssage }
-  | { ok: false; error: string };
+  | { ok: false; error: string; terminal?: boolean };
 
 function rejectionText(
   reason: string,
@@ -164,7 +181,8 @@ function reportStructureError(spec: CanonicalUIMesssage): string | null {
     (card) => (card.props as { variant?: unknown })?.variant,
   );
   const allDefault = variants.every(
-    (variant) => variant === undefined || variant === null || variant === "accent",
+    (variant) =>
+      variant === undefined || variant === null || variant === "accent",
   );
   if (allDefault) {
     return "Every Card is on the default accent surface, so the report reads as one colored wall. Use light/muted surfaces and reserve accent for focal points.";
@@ -194,13 +212,38 @@ export async function saveArtifact(
     return { ok: false, error: "Missing required argument 'blocks'." };
   }
 
-  const structureError = reportStructureError(spec);
-  if (structureError !== null) {
-    return { ok: false, error: `The report was not saved: ${structureError}` };
+  const specText = JSON.stringify(spec);
+  const key = attemptKey(params);
+  const state = nextAttempt(key, specText);
+  const attempt = state.count;
+  const looped = state.identical >= MAX_IDENTICAL_CALLS;
+  const exhausted = attempt > MAX_ARTIFACT_CALLS;
+
+  if (exhausted || looped) {
+    attempts.delete(key);
+    return {
+      ok: false,
+      terminal: true,
+      error: looped
+        ? "This exact report was already rejected. Stop resubmitting the same blocks: rebuild it as a vertical Stack of section Cards (heading + content) and call the tool once more, or tell the user it could not be saved."
+        : "The report was rejected too many times. Stop calling this tool and tell the user the report could not be saved; do not resubmit it.",
+    };
   }
 
-  const key = attemptKey(params);
-  const attempt = nextAttempt(key);
+  const structureError = reportStructureError(spec);
+  if (structureError !== null) {
+    const terminal = attempt >= ARTIFACT_SAVE_ATTEMPTS;
+    return {
+      ok: false,
+      terminal,
+      error: `The report was not saved: ${structureError}${
+        terminal
+          ? " Stop retrying with the same layout; rebuild it as a Stack of section Cards or tell the user it could not be saved."
+          : ""
+      }`,
+    };
+  }
+
   const finalAttempt = attempt >= ARTIFACT_SAVE_ATTEMPTS;
   const skill = skillRegistry.get(params.skillName);
 
@@ -212,6 +255,7 @@ export async function saveArtifact(
     if (verdict !== null && !verdict.pass) {
       return {
         ok: false,
+        terminal: attempt >= ARTIFACT_SAVE_ATTEMPTS - 1 && state.identical > 0,
         error: rejectionText(verdict.reason, verdict.issues, attempt),
       };
     }
