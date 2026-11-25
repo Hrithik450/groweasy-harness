@@ -9,7 +9,7 @@ import {
 import { uuidv7 } from "@/lib/utils/uuid";
 import { reportIsoDate } from "@/lib/utils/report.date";
 import type { DailyReport } from "@/lib/detail.bar/types";
-import { saveArtifact } from "@/lib/tools/artifact.save";
+import { saveArtifact } from "@/lib/tools/artifact";
 
 export const updateDailyReportToolDefinition = {
   type: "function" as const,

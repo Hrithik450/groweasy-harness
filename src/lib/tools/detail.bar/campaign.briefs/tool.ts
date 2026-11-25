@@ -8,7 +8,7 @@ import {
 } from "@/lib/detail.bar/service";
 import { uuidv7 } from "@/lib/utils/uuid";
 import type { CampaignBrief } from "@/lib/detail.bar/types";
-import { saveArtifact } from "@/lib/tools/artifact.save";
+import { saveArtifact } from "@/lib/tools/artifact";
 
 export const updateCampaignBriefsToolDefinition = {
   type: "function" as const,

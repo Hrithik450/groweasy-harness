@@ -8,7 +8,7 @@ import {
   upsertDetailBarItems,
   resolveDetailBarSession,
 } from "@/lib/detail.bar/service";
-import { saveArtifact } from "@/lib/tools/artifact.save";
+import { saveArtifact } from "@/lib/tools/artifact";
 
 export const saveCompetitorResearchToolDefinition = {
   type: "function" as const,
