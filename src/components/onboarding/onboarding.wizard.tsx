@@ -38,6 +38,17 @@ const STEP_ICON: Record<Step, string> = {
   sync: "/bot/face-amber.svg",
 };
 
+/** Friendly text for a failed request, including a client timeout. */
+function fetchErrorMessage(err: unknown, fallback: string): string {
+  if (
+    err instanceof Error &&
+    (err.name === "TimeoutError" || err.name === "AbortError")
+  ) {
+    return "The server didn’t respond in time. Try again.";
+  }
+  return err instanceof Error ? err.message : fallback;
+}
+
 /** Read a JSON body without ever throwing on an HTML error page. */
 async function readJson<T>(res: Response): Promise<T | null> {
   const text = await res.text().catch(() => "");
@@ -63,8 +74,10 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
   const [done, setDone] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const syncFired = useRef(false);
+  const pollFailures = useRef(0);
 
   useEffect(() => {
     if (status?.business.url) setBrandUrl(status.business.url);
@@ -74,9 +87,42 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
     try {
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load setup.");
+      setError(fetchErrorMessage(err, "Could not load setup."));
     }
   }, [refresh]);
+
+  /**
+   * One sync request for both the automatic first fire and the manual Retry.
+   * Manual reports into the main error banner; automatic failures surface via
+   * the connection banner so an unattended run does not flash an error.
+   */
+  const runSync = useCallback(
+    async (manual: boolean): Promise<void> => {
+      if (manual) setError(null);
+      try {
+        const res = await fetch("/api/onboarding/sync", {
+          method: "POST",
+          credentials: "include",
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!res.ok) {
+          const json = await readJson<{ error?: string }>(res);
+          throw new Error(
+            json?.error ?? "Could not restart the sync. Try again.",
+          );
+        }
+        await refresh();
+      } catch (err) {
+        const message = fetchErrorMessage(
+          err,
+          "Could not restart the sync. Try again.",
+        );
+        if (manual) setError(message);
+        else setConnectionError(message);
+      }
+    },
+    [refreshStatus],
+  );
 
   // Status changes ride the same session stream as connectors and bar updates.
   useSessionStream(
@@ -109,59 +155,51 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
       return;
     }
     syncFired.current = true;
-    void fetch("/api/onboarding/sync", {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => undefined);
-  }, [status?.authenticated, status?.meta.connected, status?.sync.ready]);
+    void runSync(false);
+  }, [
+    status?.authenticated,
+    status?.meta.connected,
+    status?.sync.ready,
+    runSync,
+  ]);
 
-  // A job turning "running" publishes no event, so keep the sync step fresh
-  // until every job has finished or failed.
+  // Status changes ride the session stream (connector/job events). This
+  // low-frequency poll is the safety net when an event is missed or the server
+  // stalls — including the business step, where the scan's completion/error is
+  // the one update we cannot afford to miss. One pass every 45s until
+  // onboarding is done or the sync is ready.
   useEffect(() => {
-    if (
-      loading ||
-      !status ||
-      status.onboardedAt ||
-      status.step !== "sync" ||
-      status.sync.ready
-    ) {
-      return;
-    }
+    if (loading || !status || status.onboardedAt || status.sync.ready) return;
+
+    let cancelled = false;
+    const tick = async (): Promise<void> => {
+      try {
+        await refresh();
+        pollFailures.current = 0;
+        setConnectionError(null);
+      } catch {
+        pollFailures.current += 1;
+        if (pollFailures.current >= 2) {
+          setConnectionError("Can’t reach the server. Retrying automatically…");
+        }
+      }
+    };
+
     const timer = window.setInterval(() => {
-      void refresh().catch(() => undefined);
-    }, 3000);
-    return () => window.clearInterval(timer);
-  }, [loading, status?.onboardedAt, status?.step, status?.sync.ready, refresh]);
+      if (!cancelled) void tick();
+    }, 45_000);
 
-  // Errors raised on an earlier step must not follow the user into sync.
-  useEffect(() => {
-    if (status?.step === "sync") setError(null);
-  }, [status?.step]);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [loading, status?.onboardedAt, status?.sync.ready, refresh]);
 
   if (loading || !status || status.onboardedAt || done) return null;
 
   const retrySync = async () => {
     syncFired.current = false;
-    setError(null);
-    try {
-      const res = await fetch("/api/onboarding/sync", {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const json = await readJson<{ error?: string }>(res);
-        throw new Error(
-          json?.error ?? "Could not restart the sync. Try again.",
-        );
-      }
-      await refreshStatus();
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Could not restart the sync. Try again.",
-      );
-    }
+    await runSync(true);
   };
 
   const submitEmail = async (event: React.FormEvent) => {
@@ -174,12 +212,13 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ email, password }),
+        signal: AbortSignal.timeout(15_000),
       });
       const json = await readJson<{ error?: string }>(res);
       if (!res.ok) throw new Error(json?.error ?? "Could not sign in.");
       await refreshStatus();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not sign in.");
+      setError(fetchErrorMessage(err, "Could not sign in."));
     } finally {
       setBusy(false);
     }
@@ -202,6 +241,7 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ url: siteUrl }),
+        signal: AbortSignal.timeout(270_000),
       });
       const json = await readJson<{ error?: string }>(res);
       if (!res.ok) {
@@ -214,9 +254,7 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
       }
       await refreshStatus();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not start the import.",
-      );
+      setError(fetchErrorMessage(err, "Could not start the import."));
     } finally {
       setBusy(false);
     }
@@ -235,6 +273,7 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
       const res = await fetch("/api/onboarding/finish", {
         method: "POST",
         credentials: "include",
+        signal: AbortSignal.timeout(15_000),
       });
       const json = await readJson<{
         data?: { sessionId?: string };
@@ -247,7 +286,7 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
       router.push(`/c/${json.data.sessionId}`);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not finish setup.");
+      setError(fetchErrorMessage(err, "Could not finish setup."));
       setBusy(false);
     }
   };
@@ -499,6 +538,11 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
                 {status.sync.error ? (
                   <p className="text-[12px] text-destructive">
                     {status.sync.error}
+                  </p>
+                ) : null}
+                {connectionError ? (
+                  <p className="text-[12px] text-destructive">
+                    {connectionError}
                   </p>
                 ) : null}
 

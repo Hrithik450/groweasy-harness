@@ -4,6 +4,7 @@ import { getAuthSessionFromRequest } from "@/lib/auth";
 import { enqueuePrompt, subscribeEvents } from "@/lib/core/agent/registry";
 import { ensureAgentForSession } from "@/lib/session/agent.host";
 import type { UserMessage } from "@/lib/llm/llm/message";
+import type { SessionRequestId } from "@/lib/llm/llm/brand";
 import type { SessionEvent } from "@/lib/core/session/events";
 import {
   hasPromptContent,
@@ -31,6 +32,53 @@ class AdmissionError extends Error {
   ) {
     super(message);
     this.name = "AdmissionError";
+  }
+}
+
+/**
+ * One unit for "send this prompt": warm the agent, subscribe for the claim so
+ * dedupe releases, enqueue, and bind file receipts. The caller never has to
+ * know the ordering.
+ */
+async function submitPrompt(params: {
+  session: { id: string } & Parameters<typeof ensureAgentForSession>[0];
+  message: UserMessage;
+  mode: "queue" | "steer";
+  requestId: SessionRequestId;
+  fileReceiptIds: readonly string[];
+}): Promise<void> {
+  const sessionId = String(params.session.id);
+
+  await ensureAgentForSession(params.session);
+
+  // Subscribe before enqueueing so a fast claim cannot race the listener.
+  const unsubscribe = subscribeEvents(sessionId, (event) => {
+    if (event.type !== "user/message") return;
+    const source = event.data.source;
+    if (!source || !("rpcId" in source)) return;
+    if (source.rpcId !== params.requestId) return;
+
+    releasePromptRequest(sessionId, params.requestId);
+    unsubscribe();
+  });
+
+  if (!enqueuePrompt(sessionId, [params.message], params.mode)) {
+    unsubscribe();
+    releasePromptRequest(sessionId, params.requestId);
+    throw new Error(`Session ${sessionId} has no warm agent`);
+  }
+
+  try {
+    bindReceipts([...params.fileReceiptIds], {
+      sessionId,
+      requestId: params.requestId,
+    });
+  } catch (error) {
+    // Binding is bookkeeping; never fail an accepted turn over it.
+    console.error(
+      "[Session Events API] Failed to bind attachment receipts:",
+      error,
+    );
   }
 }
 
@@ -168,39 +216,15 @@ export async function POST(
       throw error;
     }
 
-    await ensureAgentForSession(session);
-    const unsubscribeEvents = subscribeEvents(sessionId, (event) => {
-      if (event.type !== "user/message") return;
-      const source = event.data.source;
-      if (!source || !("rpcId" in source)) return;
-      if (source.rpcId !== request.requestId) return;
-
-      releasePromptRequest(sessionId, request.requestId);
-      unsubscribeEvents();
-    });
-
-    if (!enqueuePrompt(sessionId, [userMessage], request.mode)) {
-      unsubscribeEvents();
-      releasePromptRequest(sessionId, request.requestId);
-      throw new Error(`Session ${sessionId} has no warm agent`);
-    }
-
-    // The turn is accepted, so its files are in use and must not be swept.
-    try {
-      const receiptIds = request.content.flatMap((part) =>
+    await submitPrompt({
+      session,
+      message: userMessage,
+      mode: request.mode,
+      requestId: request.requestId,
+      fileReceiptIds: request.content.flatMap((part) =>
         part.type === "file" ? [part.receiptId] : [],
-      );
-      bindReceipts(receiptIds, {
-        sessionId,
-        requestId: request.requestId,
-      });
-    } catch (error) {
-      // Binding is bookkeeping; never fail an accepted turn over it.
-      console.error(
-        "[Session Events API] Failed to bind attachment receipts:",
-        error,
-      );
-    }
+      ),
+    });
 
     return NextResponse.json({ accepted: true });
   } catch (error) {

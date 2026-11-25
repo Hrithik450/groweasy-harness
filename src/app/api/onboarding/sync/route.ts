@@ -8,10 +8,20 @@ import {
   getCronJobsByUserId,
 } from "@/lib/repositories";
 import { getConnectorByUserIdAndSlug } from "@/lib/services";
+import * as cronRepo from "@/lib/repositories/cron.repo";
 
 const REPORT_WAIT_MS = 20 * 60_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** One pending report waiter per job, across overlapping sync requests. */
+const reportWaiters = new Set<string>();
+
+/** Re-read the job: it may have completed while this request was waiting. */
+function stillNeedsRun(jobId: string): boolean {
+  const job = cronRepo.getCronJobById(jobId);
+  return job !== undefined && (!job.lastRunAt || Boolean(job.lastError));
+}
 
 export async function POST(req: NextRequest) {
   const user = await getSessionFromRequest(req);
@@ -41,15 +51,20 @@ export async function POST(req: NextRequest) {
   const report = needingRun.filter((job) => job.name === DAILY_REPORT_JOB_NAME);
 
   for (const job of lead) {
+    if (!stillNeedsRun(job.id)) continue;
     void cronWorker.triggerNow(job.id).catch((error) => {
       console.error(`[Onboarding] Sync job ${job.name} failed:`, error);
     });
   }
 
-  if (report.length > 0) {
-    void runReportAfter(lead, report).catch((error) => {
-      console.error("[Onboarding] Daily report failed:", error);
-    });
+  for (const job of report) {
+    if (reportWaiters.has(job.id)) continue;
+    reportWaiters.add(job.id);
+    void runReportAfter(lead, [job])
+      .catch((error) => {
+        console.error("[Onboarding] Daily report failed:", error);
+      })
+      .finally(() => reportWaiters.delete(job.id));
   }
 
   return NextResponse.json({
@@ -72,6 +87,7 @@ async function runReportAfter(
   }
 
   for (const job of report) {
+    if (!stillNeedsRun(job.id)) continue;
     await cronWorker.triggerNow(job.id);
   }
 }

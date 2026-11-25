@@ -9,6 +9,8 @@ export async function fetchOnboardingStatus(): Promise<OnboardingStatus> {
     method: "GET",
     credentials: "include",
     cache: "no-store",
+    // A hung server must not leave the gate waiting forever.
+    signal: AbortSignal.timeout(10_000),
   });
   const json = (await res.json()) as {
     success: boolean;
