@@ -127,6 +127,7 @@ export class ReactLoopAgent<
       running: this._status === "running",
       keepInbox: options.keepInbox === true,
     });
+
     if (!options.keepInbox) {
       this.inbox.clear();
       if (this._status === "running") {
