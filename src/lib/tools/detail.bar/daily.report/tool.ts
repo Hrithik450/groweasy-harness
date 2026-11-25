@@ -9,7 +9,7 @@ import {
 import { uuidv7 } from "@/lib/utils/uuid";
 import { reportIsoDate } from "@/lib/utils/report.date";
 import type { DailyReport } from "@/lib/detail.bar/types";
-import { validateAndNormalizeUI } from "@/lib/generative.ui";
+import { saveArtifact } from "@/lib/tools/artifact.save";
 
 export const updateDailyReportToolDefinition = {
   type: "function" as const,
@@ -60,15 +60,8 @@ export async function executeUpdateDailyReportTool(
   const args = input.args ?? {};
   const title = trimmed(args.title);
   const summary = trimmed(args.summary);
-  let blocks: Record<string, unknown>;
-  try {
-    const normalized = validateAndNormalizeUI(args.blocks);
-    if (!normalized) {
-      return errorResult("Missing required argument 'blocks'.");
-    }
-    blocks = normalized;
-  } catch (err: unknown) {
-    return errorResult(err instanceof Error ? err.message : String(err));
+  if (args.blocks == null) {
+    return errorResult("Missing required argument 'blocks'.");
   }
 
   const createdAt = new Date().toISOString();
@@ -86,9 +79,21 @@ export async function executeUpdateDailyReportTool(
   if (!session) {
     return errorResult("Ad Strategist session not found.");
   }
-  upsertDetailBarItems(session, "reports", [
-    { id, data: { title, summary, blocks, createdAt } },
-  ]);
+
+  const saved = await saveArtifact({
+    rawSpec: args.blocks,
+    skillName: "daily-report",
+    context: input.context,
+    persist: (spec) => {
+      upsertDetailBarItems(session, "reports", [
+        { id, data: { title, summary, blocks: spec, createdAt } },
+      ]);
+    },
+  });
+
+  if (!saved.ok) {
+    return errorResult(saved.error);
+  }
 
   const url = ` View it at /c/${session.id}/reports/${id}.`;
 
@@ -98,7 +103,7 @@ export async function executeUpdateDailyReportTool(
       contentParts: [
         {
           type: "input_text",
-          text: `Saved today's report "${title}" as ${id}.${url}`,
+          text: `Saved today's report "${title}" as ${id} and displayed it in chat.${url}`,
         },
       ],
     },

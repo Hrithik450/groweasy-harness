@@ -8,7 +8,7 @@ import {
 } from "@/lib/detail.bar/service";
 import { uuidv7 } from "@/lib/utils/uuid";
 import type { CampaignBrief } from "@/lib/detail.bar/types";
-import { validateAndNormalizeUI } from "@/lib/generative.ui";
+import { saveArtifact } from "@/lib/tools/artifact.save";
 
 export const updateCampaignBriefsToolDefinition = {
   type: "function" as const,
@@ -36,7 +36,7 @@ export const updateCampaignBriefsToolDefinition = {
       blocks: {
         type: "object",
         description:
-          "Flat UI-block spec { root, elements } for the brief page: the same block you rendered in chat.",
+          "Flat UI-block spec { root, elements } for the brief page. The tool validates it, saves it and displays it in chat — do not render the report with renderUIBlock.",
         additionalProperties: true,
       },
     },
@@ -82,15 +82,7 @@ export async function executeUpdateCampaignBriefsTool(
 
   let blocks: Record<string, unknown> | undefined;
   if (args.blocks != null) {
-    try {
-      const normalized = validateAndNormalizeUI(args.blocks);
-      if (!normalized) {
-        return errorResult("Missing required argument 'blocks'.");
-      }
-      blocks = normalized;
-    } catch (err: unknown) {
-      return errorResult(err instanceof Error ? err.message : String(err));
-    }
+    blocks = args.blocks as Record<string, unknown>;
   }
 
   const now = Date.now();
@@ -106,6 +98,15 @@ export async function executeUpdateCampaignBriefsTool(
     return errorResult("Ad Strategist session not found.");
   }
 
+  // A title-only update reuses the stored spec; a save always validates and
+  // displays the brief itself.
+  const rawSpec = blocks ?? existing?.blocks;
+  if (rawSpec == null || typeof rawSpec !== "object") {
+    return errorResult(
+      "Missing required argument 'blocks': a brief has no report content to show without it.",
+    );
+  }
+
   const data: Record<string, unknown> = {
     title,
     summary,
@@ -115,16 +116,23 @@ export async function executeUpdateCampaignBriefsTool(
   else if (existing?.sourceSessionId) {
     data.sourceSessionId = existing.sourceSessionId;
   }
-  // Keep an existing spec on a title-only update; legacy rows stay spec-less.
-  if (blocks !== undefined) data.blocks = blocks;
-  else if (existing?.blocks) data.blocks = existing.blocks;
 
-  upsertDetailBarItems(session, "campaignBriefs", [{ id, data }]);
+  const saved = await saveArtifact({
+    rawSpec,
+    skillName: "campaign-brief",
+    context: input.context,
+    persist: (spec) => {
+      upsertDetailBarItems(session, "campaignBriefs", [
+        { id, data: { ...data, blocks: spec } },
+      ]);
+    },
+  });
 
-  const url =
-    data.blocks !== undefined
-      ? ` View it at /c/${session.id}/briefs/${id}.`
-      : "";
+  if (!saved.ok) {
+    return errorResult(saved.error);
+  }
+
+  const url = ` View it at /c/${session.id}/briefs/${id}.`;
 
   return {
     success: true,
@@ -132,7 +140,7 @@ export async function executeUpdateCampaignBriefsTool(
       contentParts: [
         {
           type: "input_text",
-          text: `Saved campaign brief "${title}" as ${id}.${url}`,
+          text: `Saved campaign brief "${title}" as ${id} and displayed it in chat.${url}`,
         },
       ],
     },

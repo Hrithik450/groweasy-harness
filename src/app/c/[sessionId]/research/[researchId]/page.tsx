@@ -6,6 +6,7 @@ import { getSessionByUserIdAndSessionId } from "@/lib/services";
 import { getSessionFromCookies } from "@/lib/auth";
 import { readBarItemForSessionField } from "@/lib/detail.bar/service";
 import { GenerativeUIRenderer } from "@/components/generative.ui/renderer";
+import { isRenderableSpec } from "@/lib/generative.ui";
 import type { CompetitorResearchItem } from "@/lib/detail.bar/types";
 import { reportDateLabels } from "@/lib/utils/report.date";
 
@@ -75,7 +76,7 @@ export default async function ResearchPage({ params }: PageProps) {
           ) : null}
         </header>
 
-        {spec?.root && spec?.elements ? (
+        {isRenderableSpec(spec) ? (
           <GenerativeUIRenderer
             scopeId={`research-${research.id}`}
             spec={research.blocks}

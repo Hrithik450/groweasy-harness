@@ -1,6 +1,7 @@
 import { nestedToFlat } from "@json-render/core";
 import { isRenderableAssetUrl } from "@/lib/attachments/asset.url";
 import { catalog } from "./catalog";
+import { renderableTypeError } from "./renderable";
 
 type NestedUINode = {
   type: string;
@@ -151,6 +152,14 @@ function validateSpec(spec: CanonicalUIMesssage): void {
       !element.type
     ) {
       throw new Error(`Invalid element "${elId}": missing 'type'.`);
+    }
+
+    // The catalog validates props for shadcn's lowercase names too, but the
+    // renderer only implements the PascalCase set; a "valid" lowercase spec
+    // renders blank, so reject it here.
+    const typeError = renderableTypeError(element.type);
+    if (typeError !== null) {
+      throw new Error(`Invalid element "${elId}": ${typeError}.`);
     }
 
     const componentDef =

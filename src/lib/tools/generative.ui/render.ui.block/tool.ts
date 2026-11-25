@@ -4,10 +4,6 @@ import {
   type CanonicalUIMesssage,
   validateAndNormalizeUI,
 } from "@/lib/generative.ui";
-import {
-  formatRejection,
-  validateUIBlockFormat,
-} from "@/lib/skills/format.judge";
 
 export const renderUIBlockToolDefinition = {
   type: "function" as const,
@@ -229,21 +225,6 @@ export async function executeRenderUIBlockTool(
 
     // Every normalized draft is eligible for the fallback render.
     state.lastCandidate = normalizedSpec;
-
-    // On the last allowed attempt, skip the judge and render the draft: the
-    // user gets a real view instead of an apology loop.
-    const finalAttempt = state.rejected + 1 >= MAX_CONSECUTIVE_REJECTIONS;
-    if (!finalAttempt) {
-      // The verdict goes back to the loop as the tool result, so the model can
-      // retry with specific fixes.
-      const verdict = await validateUIBlockFormat(
-        normalizedSpec,
-        input.context,
-      );
-      if (verdict !== null && !verdict.pass) {
-        return rejection(input, formatRejection(verdict));
-      }
-    }
 
     if (input.context?.emitEvent) {
       await input.context.emitEvent({

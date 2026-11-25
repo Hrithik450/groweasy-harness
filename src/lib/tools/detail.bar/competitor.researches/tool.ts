@@ -8,7 +8,7 @@ import {
   upsertDetailBarItems,
   resolveDetailBarSession,
 } from "@/lib/detail.bar/service";
-import { validateAndNormalizeUI } from "@/lib/generative.ui";
+import { saveArtifact } from "@/lib/tools/artifact.save";
 
 export const saveCompetitorResearchToolDefinition = {
   type: "function" as const,
@@ -33,7 +33,7 @@ export const saveCompetitorResearchToolDefinition = {
       blocks: {
         type: "object",
         description:
-          "Flat UI-block spec { root, elements } for the research page: the same block you rendered in session.",
+          "Flat UI-block spec { root, elements } for the research report. The tool validates it, saves it and displays it in chat — do not render the report with renderUIBlock.",
         additionalProperties: true,
       },
       newCompetitors: {
@@ -67,7 +67,7 @@ export const saveCompetitorResearchToolDefinition = {
         description: "Static and video ad IDs discovered during the research.",
       },
     },
-    required: ["title", "content"],
+    required: ["title", "content", "blocks"],
   },
 };
 
@@ -117,21 +117,15 @@ export async function executeSaveCompetitorResearchTool(
   }
 
   try {
-    let blocks: Record<string, unknown> | undefined;
-    if (input.args?.blocks != null) {
-      const normalized = validateAndNormalizeUI(input.args.blocks);
-      if (!normalized) {
-        const errorMsg = "Missing required argument 'blocks'.";
-        return {
-          success: false,
-          data: {
-            contentParts: [{ type: "input_text", text: `Error: ${errorMsg}` }],
-          },
-          error: errorMsg,
-        };
-      }
-
-      blocks = normalized;
+    if (input.args?.blocks == null) {
+      const errorMsg = "Missing required argument 'blocks'.";
+      return {
+        success: false,
+        data: {
+          contentParts: [{ type: "input_text", text: `Error: ${errorMsg}` }],
+        },
+        error: errorMsg,
+      };
     }
 
     const rawStatic = Array.isArray(newAds?.staticAds) ? newAds.staticAds : [];
@@ -200,18 +194,36 @@ export async function executeSaveCompetitorResearchTool(
         videoAds: uniqueVideo,
       },
       createdAt: new Date().toISOString(),
-      ...(blocks !== undefined ? { blocks } : {}),
     };
 
-    const [written] = upsertDetailBarItems(session, "competitorResearches", [
-      { id, data },
-    ]);
+    const saved = await saveArtifact({
+      rawSpec: input.args?.blocks,
+      skillName: "competitor-research",
+      context,
+      persist: (spec) => {
+        upsertDetailBarItems(session, "competitorResearches", [
+          { id, data: { ...data, blocks: spec } },
+        ]);
+      },
+    });
 
-    const writtenId = written?.id ?? id;
-    const url =
-      blocks !== undefined
-        ? ` View it at /c/${session.id}/research/${writtenId}.`
-        : "";
+    if (!saved.ok) {
+      return {
+        success: false,
+        data: {
+          contentParts: [
+            {
+              type: "input_text",
+              text: `Error: ${saved.error}`,
+            },
+          ],
+        },
+        error: saved.error,
+      };
+    }
+
+    const writtenId = id;
+    const url = ` View it at /c/${session.id}/research/${writtenId}.`;
 
     return {
       success: true,
@@ -219,7 +231,7 @@ export async function executeSaveCompetitorResearchTool(
         contentParts: [
           {
             type: "input_text",
-            text: `Successfully saved competitor research "${String(data.title)}" as ${writtenId} in the session. ${url}${
+            text: `Successfully saved competitor research "${String(data.title)}" as ${writtenId} in the session and displayed it in chat.${url}${
               droppedIds.length > 0
                 ? ` Dropped ${droppedIds.length} unverified ad reference(s) not returned by searchAdLibrary: ${droppedIds.join(", ")}.`
                 : ""

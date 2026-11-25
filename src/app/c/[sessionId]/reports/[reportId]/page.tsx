@@ -6,6 +6,7 @@ import { getSessionByUserIdAndSessionId } from "@/lib/services";
 import { getSessionFromCookies } from "@/lib/auth";
 import { readBarItemForSession } from "@/lib/detail.bar/service";
 import { GenerativeUIRenderer } from "@/components/generative.ui/renderer";
+import { isRenderableSpec } from "@/lib/generative.ui";
 import type { DailyReport } from "@/lib/detail.bar/types";
 import { reportDateLabels } from "@/lib/utils/report.date";
 
@@ -68,7 +69,7 @@ export default async function ReportPage({ params }: PageProps) {
           ) : null}
         </header>
 
-        {spec?.root && spec?.elements ? (
+        {isRenderableSpec(spec) ? (
           <GenerativeUIRenderer
             scopeId={`report-${report.id}`}
             spec={report.blocks}

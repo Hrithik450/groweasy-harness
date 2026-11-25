@@ -432,8 +432,9 @@ Below is one high-quality competitor report built from a phrase search. It is th
 
 ### Step 5: Persist
 
-- Render the complete report with `renderUIBlock` first. Only after it passes, save the same `blocks`; the save tool does not re-check format.
-- Fetch existing research first. Save only when new competitors, keywords, or ad IDs are found. Save with `saveCompetitorResearch`, passing `blocks` as the same flat `{ root, elements }` spec you rendered so the finding opens on its own page.
+- Save the complete report once with `saveCompetitorResearch`, passing `blocks` as the flat `{ root, elements }` spec. The tool validates it, saves it and displays it in chat; never render the report with `renderUIBlock`.
+- If the tool reports review issues, fix them and call it again (up to three attempts).
+- Fetch existing research first. Save only when new competitors, keywords, or ad IDs are found. Save with `saveCompetitorResearch`, passing `blocks` as the flat `{ root, elements }` spec so the finding opens on its own page.
 - Quote the exact research URL the tool returns. Never build one yourself.
 - If new direct competitors or phrases emerged, fetch the profile and persist only new entries (`updateBusinessProfile`).
 - Turn the report's verified winners and open gaps into idea cards. Before writing them, compare against the `ideas` backlog loaded in Step 1: skip any title, hook, or core angle that already exists, including near-duplicates.

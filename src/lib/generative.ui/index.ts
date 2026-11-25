@@ -3,3 +3,4 @@ export * from "./types";
 export * from "./utils";
 export * from "./validator";
 export function validateAndNormalizeChart(..._a: unknown[]): any { return undefined; }
+export * from "./renderable";

@@ -432,9 +432,10 @@ Below is the required campaign brief output standard, not inspiration. Your brie
 
 ### Step 4: Save
 
-- Render the complete brief with `renderUIBlock` first. Only after it passes, save the same `blocks`.
+- Save the complete brief with `updateCampaignBriefs`, passing `blocks` as the flat `{ root, elements }` spec. The tool validates it, saves it and displays it in chat; never render the brief with `renderUIBlock`.
+- If the tool reports review issues, fix them and call it again (up to three attempts).
 - Never write a Markdown version, and never fall back to Markdown if block validation fails; correct the block.
 - Keep the gist to two lines: objective and the one decision that matters.
-- Save with `updateCampaignBriefs`, passing `blocks` as the same flat `{ root, elements }` spec you rendered. A title-only re-save may omit `blocks`; the saved spec is kept.
+- A title-only re-save may omit `blocks`; the saved spec is kept.
 - Quote the exact brief URL the tool returns. Never build one yourself.
 - After saving, if the block does not already end in an interactive question, render a small single-select Chips + SubmitBar: "What's next?" with up to 4 relevant options (create the campaign, generate the ads, edit the brief, etc.. or anything which would be a possible next step, There is no forcce that you should render these 4 only). If it already asks, keep those and make its options equally relevant.
