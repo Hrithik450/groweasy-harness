@@ -666,12 +666,26 @@ export class R2AttachmentStore extends AttachmentStore {
 
   // ─── Public Edge URL Mapping ────────────────────────────────────────────
 
+  /**
+   * Stable browser/provider URL for one attachment.
+   *
+   * The R2 public bucket domain is not serving these objects (verified 404
+   * for the exact object key), so credentials stay in the app route, which
+   * streams the object. The URL is absolute when a public origin is
+   * configured because external providers (video/audio models) must fetch it.
+   * The id is hex: `sha256:`-prefixed ids are not valid route/object paths.
+   */
   getPublicUrl(ref: AttachmentRef): string {
     const hash = attachmentIdToHex(ref.attachmentId);
-    if (this.cdnBaseUrl) {
-      return `${this.cdnBaseUrl}/attachments/${ref.attachmentId}`;
-    }
-    return `/api/attachments/${ref.attachmentId}`;
+    const origin = (
+      process.env.NEXT_PUBLIC_APP_URL ??
+      process.env.PUBLIC_URL ??
+      ""
+    )
+      .trim()
+      .replace(/\/+$/, "");
+    const path = `/api/attachments/${hash}`;
+    return origin ? `${origin}${path}` : path;
   }
 
   // ─── Client Presigned Direct Upload ─────────────────────────────────────
