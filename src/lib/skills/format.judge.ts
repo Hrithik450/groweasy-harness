@@ -62,15 +62,14 @@ You receive: the user's recent requests, the COMPLETE instructions of the skill 
 
 The skill's reference example is the quality bar. Compare structure and density against it.
 
-Check three things:
+Check four things:
 
 1. Dense, structured deliverable that looks like the reference example. It must present the requested deliverable with the structure the skill and its reference example call for — multiple sections or cards, substantive text, and media where the request needs it. Fail if the deliverable is collapsed into a wall of text, one giant accent block, a plain list, or a bare summary, even when the total text is long. Long content packed into one element is a failure, not density. Also fail when every surface uses the same color — e.g. all Cards left on the default/accent variant so the page reads as one colored wall — while the reference alternates light or muted surfaces and reserves accent for focal points.
-2. No broken links. Every href must be a real URL or app path, and every media src must be a real URL. Fail if a link or media value is empty, a placeholder, or references a missing element.
-3. Inline ads. If the block contains ad content, each ad must show its own inline Image or Video. Fail if ads appear only as text or links, or are gathered into a single gallery instead of inline with each ad.
+2. Real section tree, not a flat paragraph. The spec must be a tree of sections: a vertical Stack root with section Cards under it, each Card holding its own heading and content. Fail when the whole report is one Card, one Text block, a single paragraph, or a flat list of lines placed directly under the root. Sections must be nested, not flattened.
+3. No broken links. Every href must be a real URL or app path, and every media src must be a real URL. Fail if a link or media value is empty, a placeholder, or references a missing element.
+4. Inline ads. If the block contains ad content, each ad must show its own inline Image or Video. Fail if ads appear only as text or links, or are gathered into a single gallery instead of inline with each ad.
 
 Do not fail for wording, specific content or numbers, or small style choices. A different but equally rich layout passes.
-
-If the block is a question, a partial update, a confirmation, or anything that is not the requested deliverable, pass it.
 
 Return ONLY a JSON object, no prose:
 {"pass": true|false, "reason": "one short line", "issues": ["concrete issue naming the element or section", "..."]}

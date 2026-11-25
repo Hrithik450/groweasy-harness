@@ -56,12 +56,22 @@ Scrape the primary website for:
    - `name`: official brand name.
    - `website`: canonical URL.
    - `logo`: direct remote image URL, or omit to use uppercase initials fallback.
-   - `overview`: punchy 300–400 character positioning summary.
+   - `overview`: punchy 300–400 character positioning summary. Name the core offering, the target customer, and one concrete differentiator — never a generic category sentence.
    - `ads`: at least 3 recent ads when the competitor runs ads (video or image); `[]` when it runs none. Three is the floor — do not spend extra collection rounds chasing a fifth. Each ad carries:
      - `id`: the Meta Ad Library ID returned by `searchAdLibrary`.
      - `media`: the `media` entries `searchAdLibrary` returned for that ad, as `[{ kind: "video" | "image", url }]`.
 
-### Step 5: Persist
+### Step 5: Collect competitor ads (required before persisting)
+
+Once the competitor list is chosen, fill its ads — this step is what makes the profile useful:
+
+- Run `searchAdLibrary` **once per competitor**: the brand name plus one product phrase, `targetCount: 3`, 30-day window, `mediaType: "all"`. Never re-run a phrase already searched this session.
+- Attach at least **3 ads per competitor** when the library returns them, copying the `id` and `media` exactly as returned.
+- If the first query returns fewer than 3, run **one** fallback phrase for that competitor; then keep what exists.
+- `ads: []` is valid only when both queries returned nothing, and the `overview` then says the competitor shows no visible ads.
+- Never save a profile with empty `ads` for competitors whose searches returned ads, and never invent ad IDs or media.
+
+### Step 6: Persist
 
 1. Save the complete business profile structured payload with `updateBusinessProfile`.
 2. Render the completed competitor research as a UI block with `renderUIBlock` first. Do not save competitor research until it passes.

@@ -17,6 +17,7 @@ import {
   validateAndNormalizeUI,
   type CanonicalUIMesssage,
 } from "@/lib/generative.ui";
+import type { UIBlockNode } from "@/lib/generative.ui/types";
 import { judgeUIBlockFormat } from "@/lib/skills/format.judge";
 import { skillRegistry } from "@/lib/skills/registry";
 import type { ToolEvent } from "@/lib/tools/types";
@@ -84,6 +85,94 @@ function rejectionText(
     .join("\n");
 }
 
+const MIN_REPORT_CARDS = 3;
+const MAX_TEXT_BLOCK_CHARS = 800;
+
+/**
+ * Deterministic report shape, independent of the judge. The judge can be
+ * talked into "richness"; these checks cannot: a saved report is a vertical
+ * Stack with real section Cards, headings, no essay inside one Text, and more
+ * than one surface treatment.
+ */
+function reportStructureError(spec: CanonicalUIMesssage): string | null {
+  const elements = spec.elements as Record<string, UIBlockNode>;
+  const root = elements[spec.root];
+  if (!root) return "The report has no root element.";
+  if (root.type !== "Stack") {
+    return `A report must be a Stack of sections, not a single ${root.type}. Build sections as Cards inside a vertical Stack.`;
+  }
+
+  const childrenOf = (node: UIBlockNode): string[] =>
+    Array.isArray(node.children) ? node.children : [];
+
+  const rootChildren = childrenOf(root);
+  if (rootChildren.length === 0) {
+    return "The report Stack has no sections.";
+  }
+
+  // A section is a Card directly under the root, or under a root-level Grid /
+  // Stack. Content thrown straight onto the root is a flat list, not a report.
+  const sectionIds = new Set<string>();
+  const rootContentIds: string[] = [];
+  const collectSections = (ids: string[]): void => {
+    for (const id of ids) {
+      const node = elements[id];
+      if (!node) continue;
+      if (node.type === "Card") {
+        sectionIds.add(id);
+      } else if (node.type === "Grid" || node.type === "Stack") {
+        collectSections(childrenOf(node));
+      } else {
+        rootContentIds.push(id);
+      }
+    }
+  };
+  collectSections(rootChildren);
+
+  if (rootContentIds.length > 0 && sectionIds.size === 0) {
+    return "The report is a flat list under the root Stack; nest the content inside section Cards.";
+  }
+  if (sectionIds.size < MIN_REPORT_CARDS) {
+    return `A report needs at least ${MIN_REPORT_CARDS} section Cards under the root Stack; this has ${sectionIds.size}.`;
+  }
+
+  for (const id of sectionIds) {
+    const card = elements[id];
+    if (childrenOf(card).length === 0) {
+      return `Section Card "${id}" is empty; each section needs a heading and its content.`;
+    }
+  }
+
+  const nodes = Object.values(elements);
+  const headings = nodes.filter(
+    (node) => node.type === "Heading" || node.type === "Eyebrow",
+  );
+  if (headings.length === 0) {
+    return "A report needs section headings (Heading or Eyebrow).";
+  }
+
+  for (const node of nodes) {
+    if (node.type !== "Text") continue;
+    const text = (node.props as { text?: unknown })?.text;
+    if (typeof text === "string" && text.length > MAX_TEXT_BLOCK_CHARS) {
+      return "One Text block is carrying an essay; split it into section Cards.";
+    }
+  }
+
+  const sectionCards = [...sectionIds].map((id) => elements[id]);
+  const variants = sectionCards.map(
+    (card) => (card.props as { variant?: unknown })?.variant,
+  );
+  const allDefault = variants.every(
+    (variant) => variant === undefined || variant === null || variant === "accent",
+  );
+  if (allDefault) {
+    return "Every Card is on the default accent surface, so the report reads as one colored wall. Use light/muted surfaces and reserve accent for focal points.";
+  }
+
+  return null;
+}
+
 /** Validate → judge → persist → emit. See the module contract above. */
 export async function saveArtifact(
   params: ArtifactSaveParams,
@@ -105,13 +194,21 @@ export async function saveArtifact(
     return { ok: false, error: "Missing required argument 'blocks'." };
   }
 
+  const structureError = reportStructureError(spec);
+  if (structureError !== null) {
+    return { ok: false, error: `The report was not saved: ${structureError}` };
+  }
+
   const key = attemptKey(params);
   const attempt = nextAttempt(key);
   const finalAttempt = attempt >= ARTIFACT_SAVE_ATTEMPTS;
   const skill = skillRegistry.get(params.skillName);
 
   if (!finalAttempt && skill) {
-    const verdict = await judgeUIBlockFormat(spec, [skill], []);
+    const verdict = await judgeUIBlockFormat(spec, [skill], [], {
+      sessionId: params.context?.sessionId,
+      turn: params.context?.turn,
+    });
     if (verdict !== null && !verdict.pass) {
       return {
         ok: false,
