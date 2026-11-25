@@ -155,28 +155,6 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
 
   if (loading || !status || status.onboardedAt || done) return null;
 
-  const retrySync = async () => {
-    syncFired.current = false;
-    setError(null);
-    try {
-      const res = await fetch("/api/onboarding/sync", {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const json = await readJson<{ error?: string }>(res);
-        throw new Error(
-          json?.error ?? "Could not restart the sync. Try again.",
-        );
-      }
-      await refreshStatus();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not restart the sync. Try again.",
-      );
-    }
-  };
-
   const submitEmail = async (event: React.FormEvent) => {
     event.preventDefault();
     setBusy(true);
@@ -525,15 +503,6 @@ export function OnboardingWizard({ sessionId }: { sessionId?: string }) {
                     Finish setup
                     <ArrowRight className="w-4 h-4" />
                   </button>
-                  {!hasRunningJob && (!status.sync.ready || hasFailedJob) ? (
-                    <button
-                      type="button"
-                      onClick={() => void retrySync()}
-                      className="inline-flex items-center gap-2 border border-border px-3 py-2.5 text-[12px] font-medium hover:bg-muted cursor-pointer"
-                    >
-                      Retry sync
-                    </button>
-                  ) : null}
                 </div>
               </div>
             ) : null}
