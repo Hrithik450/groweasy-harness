@@ -50,46 +50,54 @@ function toAdRecord(ad: ScoredScrapedAd): AdRecord {
   };
 }
 
-export function createAdStore(): AdStore {
-  return {
-    async findCached(params) {
-      const ads = getAdsByQuery(
-        params.query,
-        new Set(params.excludeIds),
-        params.targetCount,
-        { startDate: params.startDate, endDate: params.endDate },
-      );
-      return ads.map(toAdRecord);
-    },
+export class ScraperAdStore implements AdStore {
+  async findCached(params: {
+    query: string;
+    excludeIds: ReadonlySet<string>;
+    targetCount: number;
+    startDate: string;
+    endDate: string;
+  }): Promise<AdRecord[]> {
+    const ads = getAdsByQuery(
+      params.query,
+      new Set(params.excludeIds),
+      params.targetCount,
+      { startDate: params.startDate, endDate: params.endDate },
+    );
+    return ads.map(toAdRecord);
+  }
 
-    async ingest({ query, cards, excludeIds }) {
-      const mediaByAnchor: AnchoredMedia[] = cards
-        .filter((card) => card.media.length > 0)
+  async ingest(params: {
+    query: string;
+    cards: AdCardInput[];
+    excludeIds?: ReadonlySet<string>;
+  }): Promise<AdRecord[]> {
+    const mediaByAnchor: AnchoredMedia[] = params.cards
+      .filter((card) => card.media.length > 0)
+      .map((card) => ({
+        anchor: card.libraryId,
+        videos: card.media
+          .filter((media) => media.kind === "video")
+          .map((media) => media.url),
+        images: card.media
+          .filter((media) => media.kind === "image")
+          .map((media) => media.url),
+      }));
+
+    const result = await ingestScrapedAdCards({
+      searchQuery: params.query,
+      cards: params.cards
+        .filter((card) => !params.excludeIds?.has(card.libraryId))
         .map((card) => ({
-          anchor: card.libraryId,
-          videos: card.media
-            .filter((media) => media.kind === "video")
-            .map((media) => media.url),
-          images: card.media
-            .filter((media) => media.kind === "image")
-            .map((media) => media.url),
-        }));
+          libraryId: card.libraryId,
+          adUrl: card.adUrl,
+          content: card.content,
+          startDate: card.startDate,
+          status: card.status,
+        })),
+      mediaByAnchor,
+    });
 
-      const result = await ingestScrapedAdCards({
-        searchQuery: query,
-        cards: cards
-          .filter((card) => !excludeIds?.has(card.libraryId))
-          .map((card) => ({
-            libraryId: card.libraryId,
-            adUrl: card.adUrl,
-            content: card.content,
-            startDate: card.startDate,
-            status: card.status,
-          })),
-        mediaByAnchor,
-      });
-
-      return result.relevantAds.map(toAdRecord);
-    },
-  };
+    return result.relevantAds.map(toAdRecord);
+  }
 }

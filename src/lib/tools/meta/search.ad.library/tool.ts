@@ -23,13 +23,13 @@ import type { CompetitorResearchItem } from "@/lib/detail.bar/types";
 import { extractAdIdFromReference } from "@/lib/services/utils";
 import { getScrapedAdsByIds } from "@/lib/services/scraper";
 import {
-  createMetaAdLibrary,
+  MetaAdLibrary,
   fetchMetaAdsViaGraphQL,
   type MetaAdLibrarySearchResult,
 } from "@/lib/meta.ad.library";
-import { createAdStore } from "@/lib/meta.ad.library/ad.store";
-import { createMediaStore } from "@/lib/meta.ad.library/media.store";
-import { createCrawler } from "@/lib/meta.ad.library/crawler";
+import { ScraperAdStore } from "@/lib/meta.ad.library/ad.store";
+import { AttachmentMediaStore } from "@/lib/meta.ad.library/media.store";
+import { Crawl4AIFallback } from "@/lib/meta.ad.library/crawler";
 
 export const searchAdLibraryToolDefinition = {
   type: "function" as const,
@@ -82,10 +82,10 @@ export interface SearchAdLibraryArgs {
   mediaType?: "all" | "image" | "video";
 }
 
-const metaAdLibrary = createMetaAdLibrary({
-  store: createAdStore(),
-  media: createMediaStore(),
-  crawler: createCrawler(),
+const metaAdLibrary = new MetaAdLibrary({
+  store: new ScraperAdStore(),
+  media: new AttachmentMediaStore(),
+  crawler: new Crawl4AIFallback(),
   graphql: fetchMetaAdsViaGraphQL,
 });
 
@@ -101,8 +101,8 @@ interface InFlightReservation {
   expiresAt: number;
 }
 
-const inFlightAdIds = new Map<string, InFlightReservation>();
 const IN_FLIGHT_TTL_MS = 10 * 60 * 1000;
+const inFlightAdIds = new Map<string, InFlightReservation>();
 
 function inFlightReservation(
   sessionId?: string,

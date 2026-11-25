@@ -19,37 +19,35 @@ const DOWNLOAD_TIMEOUT_MS = 90_000;
 const DOWNLOAD_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36";
 
-export function createMediaStore(): AdMediaStore {
-  return {
-    async store(source: AdMediaSource): Promise<AdMediaRef | null> {
-      const res = await fetch(source.url, {
-        signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
-        headers: { "user-agent": DOWNLOAD_UA },
-      });
-      if (!res.ok) return null;
+export class AttachmentMediaStore implements AdMediaStore {
+  async store(source: AdMediaSource): Promise<AdMediaRef | null> {
+    const res = await fetch(source.url, {
+      signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+      headers: { "user-agent": DOWNLOAD_UA },
+    });
+    if (!res.ok) return null;
 
-      const mimeType = (res.headers.get("content-type") ?? "")
-        .split(";")[0]
-        .trim();
-      const data = new Uint8Array(await res.arrayBuffer());
-      if (data.byteLength === 0 || data.byteLength > MAX_MEDIA_BYTES) {
-        return null;
-      }
+    const mimeType = (res.headers.get("content-type") ?? "")
+      .split(";")[0]
+      .trim();
+    const data = new Uint8Array(await res.arrayBuffer());
+    if (data.byteLength === 0 || data.byteLength > MAX_MEDIA_BYTES) {
+      return null;
+    }
 
-      const ref = await getAttachmentStore().saveFile({
-        data,
-        mediaType: mimeType || undefined,
-        name: `ad-${source.kind}`,
-      });
+    const ref = await getAttachmentStore().saveFile({
+      data,
+      mediaType: mimeType || undefined,
+      name: `ad-${source.kind}`,
+    });
 
-      const assetId = attachmentIdToHex(ref.attachmentId);
-      return {
-        kind: source.kind,
-        assetId,
-        url: attachmentUrl(assetId),
-        mimeType: mimeType || null,
-        bytes: ref.bytes,
-      };
-    },
-  };
+    const assetId = attachmentIdToHex(ref.attachmentId);
+    return {
+      kind: source.kind,
+      assetId,
+      url: attachmentUrl(assetId),
+      mimeType: mimeType || null,
+      bytes: ref.bytes,
+    };
+  }
 }
