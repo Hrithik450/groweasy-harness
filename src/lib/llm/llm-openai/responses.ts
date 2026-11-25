@@ -415,6 +415,49 @@ export async function* streamResponsesFrames(
 /** Default bound on one model request's wait for response headers. */
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 
+/** How long a streamed response may go silent before it is aborted. */
+function streamIdleTimeoutMs(): number {
+  const raw = process.env.OPENAI_STREAM_IDLE_TIMEOUT_MS?.trim();
+  const value = raw ? Number(raw) : NaN;
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 90_000;
+}
+
+/**
+ * Bound an idle stream. The SDK timeout only covers waiting for response
+ * headers; a provider that accepts the request and then streams nothing would
+ * otherwise hold the turn open indefinitely.
+ */
+async function* withIdleTimeout<T>(
+  source: AsyncIterable<T>,
+  onIdle: () => void,
+  idleMs: number,
+): AsyncGenerator<T> {
+  const iterator = source[Symbol.asyncIterator]();
+  try {
+    for (;;) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const idle = new Promise<"idle">((resolve) => {
+        timer = setTimeout(() => resolve("idle"), idleMs);
+      });
+      const next = iterator.next();
+      const result = await Promise.race([next, idle]);
+      if (timer !== undefined) clearTimeout(timer);
+
+      if (result === "idle") {
+        void next.catch(() => {});
+        onIdle();
+        throw new Error(
+          `OpenAI response stream was idle for ${idleMs}ms and was aborted.`,
+        );
+      }
+      if (result.done === true) return;
+      yield result.value;
+    }
+  } finally {
+    await iterator.return?.();
+  }
+}
+
 /** Read the model-request timeout, falling back to the default. */
 function requestTimeoutMs(): number {
   const raw = process.env.OPENAI_REQUEST_TIMEOUT_MS?.trim();
@@ -457,16 +500,25 @@ export const openAIResponsesDriver: ModelDriver = {
 
     // A provider that accepts the request and never answers would hold the
     // turn open for the SDK's ten-minute default; bound the wait for headers.
+    const idleAbort = new AbortController();
+    const signal = input.signal
+      ? AbortSignal.any([input.signal, idleAbort.signal])
+      : idleAbort.signal;
+
     const stream = await client.responses.create(
       request as unknown as ResponseCreateParamsStreaming,
       {
-        signal: input.signal,
+        signal,
         timeout: requestTimeoutMs(),
         maxRetries: 1,
       },
     );
 
     // `stream: true` on the request selects the streaming overload.
-    yield* streamResponsesFrames(stream);
+    yield* withIdleTimeout(
+      streamResponsesFrames(stream),
+      () => idleAbort.abort(),
+      streamIdleTimeoutMs(),
+    );
   },
 };
