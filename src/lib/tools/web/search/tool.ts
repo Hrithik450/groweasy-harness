@@ -181,6 +181,39 @@ export function associateMediaByAnchor(
 /** Headroom on top of the crawler's own budget for queueing and transfer. */
 const CRAWL_ABORT_BUFFER_MS = 30_000;
 
+/**
+ * The crawler (Crawl4AI v0.9.6) is async-only: `POST /crawl` was removed, so
+ * a crawl is submitted to `/crawl/job` and its result collected by polling
+ * `/crawl/job/{task_id}`. Two seconds keeps polling comfortably under the
+ * server's 120 req/min limit while still surfacing a typical crawl promptly.
+ */
+const CRAWL_JOB_POLL_MS = 2_000;
+
+interface Crawl4aiResult {
+  success?: boolean;
+  error_message?: string;
+  cleaned_html?: string;
+  html?: string;
+  markdown?:
+    | string
+    | {
+        fit_markdown?: string;
+        raw_markdown?: string;
+        markdown_with_citations?: string;
+      };
+  media?: {
+    videos?: Array<{ src?: string }>;
+    images?: Array<{ src?: string }>;
+  };
+  metadata?: { title?: string };
+}
+
+interface Crawl4aiJobStatus {
+  status?: string;
+  error?: string;
+  result?: unknown;
+}
+
 function resolveCrawlAbortMs(args: WebSearchCrawlArgs): number {
   return (
     (args.pageTimeout ?? 60000) +
@@ -188,6 +221,113 @@ function resolveCrawlAbortMs(args: WebSearchCrawlArgs): number {
     (args.delayBeforeSnapshot ?? 1.5) * 1000 +
     CRAWL_ABORT_BUFFER_MS
   );
+}
+
+/** Abort-aware sleep so the crawl budget also bounds time spent polling. */
+function delay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+/** A job response carries `{success, results: [...]}`; older shapes are flat. */
+function crawlResultFrom(payload: unknown): Crawl4aiResult | undefined {
+  if (Array.isArray(payload)) {
+    return payload[0] as Crawl4aiResult | undefined;
+  }
+  if (payload && typeof payload === "object") {
+    const body = payload as Crawl4aiResult & { results?: Crawl4aiResult[] };
+    return body.results?.[0] ?? body;
+  }
+  return undefined;
+}
+
+async function submitCrawlJob(
+  baseUrl: string,
+  token: string,
+  body: unknown,
+  signal: AbortSignal,
+): Promise<string> {
+  const res = await fetch(`${baseUrl}/crawl/job`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (!res.ok) {
+    const detail = (await res.text().catch(() => "")).slice(0, 300).trim();
+    throw new Error(
+      `Crawl4AI rejected the crawl job (HTTP ${res.status})${detail ? `: ${detail}` : ""}`,
+    );
+  }
+
+  const json = (await res.json().catch(() => ({}))) as { task_id?: unknown };
+  if (typeof json.task_id !== "string" || json.task_id.length === 0) {
+    throw new Error("Crawl4AI did not return a job id.");
+  }
+  return json.task_id;
+}
+
+async function waitForCrawlJob(
+  baseUrl: string,
+  token: string,
+  taskId: string,
+  signal: AbortSignal,
+): Promise<Crawl4aiResult> {
+  for (;;) {
+    const res = await fetch(
+      `${baseUrl}/crawl/job/${encodeURIComponent(taskId)}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+        signal,
+      },
+    );
+
+    if (!res.ok) {
+      throw new Error(
+        `Crawl4AI job ${taskId} status check failed (HTTP ${res.status})`,
+      );
+    }
+
+    const job = (await res.json().catch(() => ({}))) as Crawl4aiJobStatus;
+
+    if (job.status === "completed") {
+      const result = crawlResultFrom(job.result);
+      if (!result) {
+        throw new Error("No result returned from Crawl4AI scraper.");
+      }
+      if (result.success === false) {
+        throw new Error(
+          result.error_message || "Crawl4AI reported success: false.",
+        );
+      }
+      return result;
+    }
+
+    if (job.status === "failed") {
+      const error = typeof job.error === "string" ? job.error.trim() : "";
+      throw new Error(error || `Crawl4AI job ${taskId} failed.`);
+    }
+
+    await delay(CRAWL_JOB_POLL_MS, signal);
+  }
 }
 
 export async function crawlWebPage(
@@ -213,6 +353,13 @@ export async function crawlWebPage(
   const normUrl = url.trim();
   const baseUrl = process.env.ALTERNATIVE_WEB_SCRAPER_URL?.trim();
   const token = process.env.ALTERNATIVE_WEB_SCRAPER_TOKEN?.trim();
+
+  if (!baseUrl) {
+    return failure("ALTERNATIVE_WEB_SCRAPER_URL is not configured.");
+  }
+  if (!token) {
+    return failure("ALTERNATIVE_WEB_SCRAPER_TOKEN is not configured.");
+  }
 
   try {
     const crawlerParams: Record<string, unknown> = {
@@ -258,15 +405,12 @@ export async function crawlWebPage(
       controller.abort();
     }, abortAfterMs);
 
-    let res: Response;
+    let result: Crawl4aiResult;
     try {
-      res = await fetch(`${baseUrl}/crawl`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const taskId = await submitCrawlJob(
+        baseUrl,
+        token,
+        {
           urls: [normUrl],
           browser_config: {
             type: "BrowserConfig",
@@ -281,9 +425,10 @@ export async function crawlWebPage(
             type: "CrawlerRunConfig",
             params: crawlerParams,
           },
-        }),
-        signal: controller.signal,
-      });
+        },
+        controller.signal,
+      );
+      result = await waitForCrawlJob(baseUrl, token, taskId, controller.signal);
     } catch (err) {
       if (timedOut) {
         throw new Error(`Web search timed out after ${abortAfterMs}ms`, {
@@ -293,19 +438,6 @@ export async function crawlWebPage(
       throw err;
     } finally {
       clearTimeout(abortTimer);
-    }
-
-    if (!res.ok) {
-      throw new Error(
-        `Alternate web search tool returned HTTP status ${res.status}`,
-      );
-    }
-
-    const json = await res.json().catch(() => ({}));
-    const result = Array.isArray(json) ? json[0] : json.results?.[0] || json;
-
-    if (!result) {
-      throw new Error("No result returned from Crawl4AI scraper.");
     }
 
     let markdown = "";
