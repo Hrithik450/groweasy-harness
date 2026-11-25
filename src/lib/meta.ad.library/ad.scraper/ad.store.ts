@@ -5,16 +5,13 @@
  * still hold signed CDN URLs expose no media (they expire; the next live scan
  * stores them properly).
  *
- * @module @/lib/meta.ad.library/ad.store
+ * @module @/lib/meta.ad.library/ad.scraper/ad.store
  */
 
-import {
-  getAdsByQuery,
-  ingestScrapedAdCards,
-  type AnchoredMedia,
-  type ScoredScrapedAd,
-} from "@/lib/meta.ad.library/ad.scraper";
-import type { AdCardInput, AdMediaRef, AdRecord, AdStore } from "./types";
+import { getAdsByQuery } from "@/lib/repositories/scraper.repo";
+import { ingestScrapedAdCards } from "./ingestion.service";
+import type { AnchoredMedia, ScoredScrapedAd } from "./types";
+import type { AdCardInput, AdMediaRef, AdRecord, AdStore } from "../types";
 
 const INTERNAL_URL_RE = /^\/api\/attachments\/([A-Za-z0-9]+)$/;
 

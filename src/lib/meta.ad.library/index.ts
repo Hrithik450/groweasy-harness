@@ -10,9 +10,6 @@
 
 export * from "./types";
 export { MetaAdLibrary, type MetaAdLibraryOptions } from "./pipeline";
-export { ScraperAdStore } from "./ad.store";
-export { AttachmentMediaStore } from "./media.store";
-export { Crawl4AIFallback } from "./crawler";
 export { buildMetaAdLibraryUrl } from "./urls";
 export {
   parseMetaAdCards,

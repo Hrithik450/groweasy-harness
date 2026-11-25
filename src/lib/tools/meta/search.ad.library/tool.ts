@@ -27,7 +27,7 @@ import {
   fetchMetaAdsViaGraphQL,
   type MetaAdLibrarySearchResult,
 } from "@/lib/meta.ad.library";
-import { ScraperAdStore } from "@/lib/meta.ad.library/ad.store";
+import { ScraperAdStore } from "@/lib/meta.ad.library/ad.scraper/ad.store";
 import { AttachmentMediaStore } from "@/lib/meta.ad.library/media.store";
 import { Crawl4AIFallback } from "@/lib/meta.ad.library/crawler";
 
