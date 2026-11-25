@@ -108,7 +108,9 @@ async function generateImage(
     ...(isDallE3 ? {} : { output_format: "png" as const }),
   };
 
-  const response = await client.images.generate(imageParams);
+  const response = await client.images.generate(imageParams, {
+    timeout: 180_000,
+  });
 
   const imageData = response.data?.[0];
   if (!imageData) {

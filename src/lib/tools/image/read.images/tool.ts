@@ -96,7 +96,9 @@ export async function executeReadImagesTool(
 
       if (url.startsWith("http://") || url.startsWith("https://")) {
         try {
-          const res = await fetch(url);
+          const res = await fetch(url, {
+            signal: AbortSignal.timeout(30_000),
+          });
           if (!res.ok) {
             missing.push(`${url} (HTTP ${res.status})`);
             continue;

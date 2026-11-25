@@ -162,7 +162,9 @@ export async function executeReadVideosTool(
       let result;
 
       if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
-        const res = await fetch(rawPath);
+        const res = await fetch(rawPath, {
+          signal: AbortSignal.timeout(120_000),
+        });
         if (!res.ok) {
           throw new Error(
             `Failed to fetch remote video (HTTP ${res.status}): ${rawPath}`,
