@@ -5,6 +5,7 @@ import {
   gte,
   inArray,
   isNull,
+  isNotNull,
   lte,
   notInArray,
   or,
@@ -210,4 +211,54 @@ export function getAdsByQuery(
   }));
 
   return limit !== undefined && limit > 0 ? results.slice(0, limit) : results;
+}
+
+export interface AdEmbeddingVector {
+  libraryId: string;
+  embedding: Float32Array;
+}
+
+/**
+ * Id + vector for every active ad embedded with `model`.
+ *
+ * Read-time semantic matching scores a new query against these directly, so a
+ * paraphrase can reuse ads that were ingested under a different query.
+ */
+export function getAdEmbeddingsForModel(
+  model: string,
+  limit = 5000,
+): AdEmbeddingVector[] {
+  const rows = scraperDb
+    .select({
+      libraryId: scrapedAds.libraryId,
+      embedding: scrapedAds.embedding,
+    })
+    .from(scrapedAds)
+    .where(
+      and(
+        eq(scrapedAds.status, "active"),
+        eq(scrapedAds.embeddingModel, model),
+        isNotNull(scrapedAds.embedding),
+      ),
+    )
+    .orderBy(desc(scrapedAds.lastSeenAt))
+    .limit(limit)
+    .all();
+
+  const vectors: AdEmbeddingVector[] = [];
+  for (const row of rows) {
+    if (!row.embedding) continue;
+    try {
+      const parsed: unknown = JSON.parse(row.embedding);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        vectors.push({
+          libraryId: row.libraryId,
+          embedding: new Float32Array(parsed as number[]),
+        });
+      }
+    } catch {
+      // Malformed vectors are skipped; the exact-query cache still works.
+    }
+  }
+  return vectors;
 }

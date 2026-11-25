@@ -11,6 +11,10 @@
 import { getAdsByQuery } from "@/lib/repositories/scraper.repo";
 import { ingestScrapedAdCards } from "./ingestion.service";
 import type { AnchoredMedia, ScoredScrapedAd } from "./types";
+import {
+  findSemanticallyCachedAds,
+  invalidateSemanticCache,
+} from "./semantic.cache.service";
 import type { AdCardInput, AdMediaRef, AdRecord, AdStore } from "../types";
 
 const INTERNAL_URL_RE = /^\/api\/attachments\/([A-Za-z0-9]+)$/;
@@ -55,13 +59,34 @@ export class ScraperAdStore implements AdStore {
     startDate: string;
     endDate: string;
   }): Promise<AdRecord[]> {
-    const ads = getAdsByQuery(
+    const exact = getAdsByQuery(
       params.query,
       new Set(params.excludeIds),
       params.targetCount,
       { startDate: params.startDate, endDate: params.endDate },
     );
-    return ads.map(toAdRecord);
+    if (exact.length >= params.targetCount) return exact.map(toAdRecord);
+
+    // The exact-query rows fell short: reuse ads that answer this query
+    // semantically (a paraphrase) instead of going live for the whole set.
+    let semantic: ScoredScrapedAd[] = [];
+    try {
+      semantic = await findSemanticallyCachedAds({
+        query: params.query,
+        excludeIds: params.excludeIds,
+        limit: params.targetCount - exact.length,
+      });
+    } catch {
+      // Semantic lookup is an optimization; the live scan still follows.
+    }
+
+    const seen = new Set(exact.map((ad) => ad.libraryId));
+    const merged = [
+      ...exact,
+      ...semantic.filter((ad) => !seen.has(ad.libraryId)),
+    ].sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+    return merged.slice(0, params.targetCount).map(toAdRecord);
   }
 
   async ingest(params: {
@@ -94,6 +119,9 @@ export class ScraperAdStore implements AdStore {
         })),
       mediaByAnchor,
     });
+
+    // Newly ingested ads must be visible to the next semantic lookup.
+    invalidateSemanticCache();
 
     return result.relevantAds.map(toAdRecord);
   }
