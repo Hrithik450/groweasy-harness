@@ -1,35 +1,3 @@
-/**
- * Meta Ad Library via the page's own GraphQL payload.
- *
- * The public Ad Library is a Relay app. A single page load gives two things:
- *
- *   1. ~27 ads already embedded as server-rendered JSON in the HTML, and
- *   2. a fully-tokened `AdLibraryFilterContextProviderQuery` POST body that
- *      can be cloned into `AdLibrarySearchPaginationQuery` requests.
- *
- * Replaying that body with `variables.cursor` paginates without scrolling. A
- * measured run for "physiotherapy centre" (IN, ~970 results) returned 104
- * unique ads in 8 requests / ~10 s / ~506 KB, against ~23 s for the equivalent
- * scroll loop at 2.5 s per step. The JSON is also richer than the rendered
- * cards: ad id, page, active flag, start/end timestamps, platforms, active
- * time, collation metadata and the full creative snapshot.
- *
- * Operational requirements and known fragility:
- *
- *   - A real browser is required for cookies and the page's `lsd` token. A
- *     bare fetch cannot paginate.
- *   - Google Chrome must be installed, or set META_BROWSER_EXECUTABLE_PATH.
- *     META_BROWSER_CHANNEL overrides the default `chrome` channel.
- *   - `doc_id` and `v` are deploy-versioned by Meta. Override them with
- *     META_AD_LIBRARY_DOC_ID / META_AD_LIBRARY_GRAPHQL_VERSION when Meta
- *     rotates them, or re-capture from a fresh page load.
- *   - Cursors are short-lived and tied to the page's session. Use them
- *     immediately and never persist them.
- *
- * Callers should treat any failure here as "fall back to Crawl4AI", not as a
- * reason to fail the whole search.
- */
-
 import type { Browser, LaunchOptions, Page } from "playwright-core";
 import { buildMetaAdLibraryUrl } from "./urls";
 import { randomUUID } from "node:crypto";
@@ -626,8 +594,8 @@ export async function fetchMetaAdsViaGraphQL(
       }
     }
 
-    let requests = 0;
     let bytes = 0;
+    let requests = 0;
     let paginationMs = 0;
 
     if (filterBody && rawAds.size < targetCount) {

@@ -90,11 +90,6 @@ export const SESSION_SUGGESTIONS: Record<
       prompt:
         "Write today's performance report with the top three moves we should make.",
     },
-    {
-      icon: "clock",
-      title: "Schedule daily automation",
-      prompt: "Set up a daily automated marketing review at 9:00 AM.",
-    },
   ],
   businessProfile: [
     {
@@ -136,7 +131,6 @@ export const SESSION_CHIPS: Record<SessionSlug, readonly string[]> = {
     "Find audiences",
     "Competitor research",
     "Daily report",
-    "Schedule 9 am",
   ],
   businessProfile: [
     "Refresh profile",
