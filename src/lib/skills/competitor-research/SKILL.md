@@ -434,6 +434,7 @@ Below is one high-quality competitor report built from a phrase search. It is th
 
 - Save the complete report once with `saveCompetitorResearch`, passing `blocks` as the flat `{ root, elements }` spec. The tool validates it, saves it and displays it in chat; never render the report with `renderUIBlock`.
 - If the tool reports review issues, fix them and call it again (up to three attempts).
+- **Never ignore a tool failure.** When any tool returns an error — especially an invalid or unrenderable `blocks`/UI spec or bad input parameters — read the error, fix the cause and call the tool again. Do not save a partial report, skip the step, or fall back to Markdown to work around it.
 - Fetch existing research first. Save only when new competitors, keywords, or ad IDs are found. Save with `saveCompetitorResearch`, passing `blocks` as the flat `{ root, elements }` spec so the finding opens on its own page.
 - Quote the exact research URL the tool returns. Never build one yourself.
 - If new direct competitors or phrases emerged, fetch the profile and persist only new entries (`updateBusinessProfile`).

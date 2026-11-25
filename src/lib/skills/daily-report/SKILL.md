@@ -276,4 +276,5 @@ Below is the required daily report output standard, not inspiration. Your report
 
 - Save the complete report with `updateDailyReport`, passing `blocks` as the flat `{ root, elements }` spec. The tool validates it, saves it and displays it in chat; never render the report with `renderUIBlock`.
 - If the tool reports review issues, fix them and call it again (up to three attempts).
+- **Never ignore a tool failure.** When any tool returns an error — especially an invalid or unrenderable `blocks`/UI spec or bad input parameters — read the error, fix the cause and call the tool again. Do not save a partial report, skip the step, or fall back to Markdown to work around it.
 - Quote the exact report URL the tool returns. Never build one yourself.
