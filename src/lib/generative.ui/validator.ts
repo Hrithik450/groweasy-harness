@@ -181,6 +181,22 @@ function validateSpec(spec: CanonicalUIMesssage): void {
       }
     }
 
+    // Link targets must be a real https URL or an in-app path; an empty or
+    // placeholder href renders as a dead link.
+    if (element.type === "Link") {
+      const href = (element.props as { href?: unknown } | undefined)?.href;
+      const valid =
+        typeof href === "string" &&
+        /^(?:https?:\/\/\S+|\/(?!\/)\S*|mailto:\S+|tel:\S+|#\S*)$/i.test(
+          href.trim(),
+        );
+      if (!valid) {
+        throw new Error(
+          `Invalid Link ("${elId}") at "href": expected an https URL or an app path, got "${String(href)}".`,
+        );
+      }
+    }
+
     // Replace with validated props from Zod.
     element.props = parseResult.data as Record<string, unknown>;
 
@@ -220,6 +236,52 @@ function validateSpec(spec: CanonicalUIMesssage): void {
         `Invalid Card ("${elId}"): a selectable card cannot contain a Button. Use selectable cards for compact choices, or a Button for a direct action card.`,
       );
     }
+  }
+
+  // Every child/slot id must exist, and every element must be reachable from
+  // the root. A dangling id or an orphan is a broken block, not a style issue,
+  // so reject it here instead of paying for a model verdict.
+  const childIdsOf = (element: CanonicalUINode): string[] =>
+    Array.isArray(element.children) ? element.children : [];
+  const slotIdsOf = (element: CanonicalUINode): string[] =>
+    isRecord(element.slots)
+      ? Object.values(element.slots).flatMap((ids) =>
+          Array.isArray(ids) ? ids : [],
+        )
+      : [];
+
+  for (const [elId, element] of Object.entries(elements)) {
+    for (const childId of childIdsOf(element)) {
+      if (!elements[childId]) {
+        throw new Error(
+          `Invalid UI specification: "${elId}" references missing child "${childId}".`,
+        );
+      }
+    }
+    for (const id of slotIdsOf(element)) {
+      if (!elements[id]) {
+        throw new Error(
+          `Invalid UI specification: "${elId}" slot references missing element "${id}".`,
+        );
+      }
+    }
+  }
+
+  const reachable = new Set<string>();
+  const queue: string[] = [root];
+  while (queue.length > 0) {
+    const id = queue.pop();
+    if (id === undefined || reachable.has(id)) continue;
+    const element = elements[id];
+    if (!element) continue;
+    reachable.add(id);
+    queue.push(...childIdsOf(element), ...slotIdsOf(element));
+  }
+  const orphans = Object.keys(elements).filter((id) => !reachable.has(id));
+  if (orphans.length > 0) {
+    throw new Error(
+      `Invalid UI specification: unreachable element(s) ${orphans.join(", ")} — every element must be rendered from "${root}".`,
+    );
   }
 
   // Selectable Chips are a commit group: they must sit first or last.

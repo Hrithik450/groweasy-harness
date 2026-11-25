@@ -42,6 +42,8 @@ interface TurnRenderState {
   rejected: number;
   /** The last spec that actually rendered, for duplicate detection. */
   lastSpec: string | null;
+  /** Newest spec that normalized; emitted when the judge never passes. */
+  lastCandidate: CanonicalUIMesssage | null;
 }
 
 /**
@@ -61,7 +63,12 @@ function renderStateFor(key: string): TurnRenderState {
   const existing = renderStateByTurn.get(key);
   if (existing) return existing;
   if (renderStateByTurn.size > 2000) renderStateByTurn.clear();
-  const fresh: TurnRenderState = { attempts: 0, rejected: 0, lastSpec: null };
+  const fresh: TurnRenderState = {
+    attempts: 0,
+    rejected: 0,
+    lastSpec: null,
+    lastCandidate: null,
+  };
   renderStateByTurn.set(key, fresh);
   return fresh;
 }
@@ -121,7 +128,43 @@ async function abortTurn(
   };
 }
 
-/** Record one rejection, stopping the turn on the fourth in a row. */
+/**
+ * Emit the newest normalized draft when the judge never passes. The user gets
+ * a real view instead of an apology; the turn is not concluded, so the agent
+ * can still save its work.
+ */
+async function renderLastCandidate(
+  input: RenderUIBlockInput,
+  state: TurnRenderState,
+): Promise<RenderUIBlockOutput> {
+  const candidate = state.lastCandidate;
+  if (!candidate) {
+    return abortTurn(
+      input,
+      "The view could not be prepared.",
+      "I couldn't prepare this view. Please retry.",
+    );
+  }
+
+  try {
+    await input.context?.emitEvent?.({ type: "ui/block", spec: candidate });
+  } catch {
+    // Rendering the fallback is best-effort; the draft still goes back.
+  }
+
+  state.lastSpec = JSON.stringify(candidate);
+  state.rejected = 0;
+
+  return {
+    success: true,
+    data: {
+      spec: candidate,
+      contentParts: [{ type: "input_text", text: "Rendered the latest draft." }],
+    },
+  };
+}
+
+/** Record one rejection, falling back to the draft on the fourth in a row. */
 async function rejection(
   input: RenderUIBlockInput,
   message: string,
@@ -138,12 +181,7 @@ async function rejection(
     };
   }
 
-  renderStateByTurn.delete(key);
-  return abortTurn(
-    input,
-    message,
-    `I couldn't build this view after ${state.rejected} attempts. Please retry.`,
-  );
+  return renderLastCandidate(input, state);
 }
 
 export async function executeRenderUIBlockTool(
@@ -156,12 +194,7 @@ export async function executeRenderUIBlockTool(
   // A turn renders one block (two at most, with a follow-up question). More
   // than that means the model is looping, whether or not the blocks pass.
   if (state.attempts > MAX_RENDER_ATTEMPTS) {
-    renderStateByTurn.delete(key);
-    return abortTurn(
-      input,
-      "Too many renderUIBlock calls in one turn.",
-      "I stopped this turn after repeated attempts to build the view. Please retry.",
-    );
+    return renderLastCandidate(input, state);
   }
 
   if (!input.args?.spec) {
@@ -194,10 +227,22 @@ export async function executeRenderUIBlockTool(
       };
     }
 
-    // verdict goes back to the loop as the tool result, so the model can retry.
-    const verdict = await validateUIBlockFormat(normalizedSpec, input.context);
-    if (verdict !== null && !verdict.pass) {
-      return rejection(input, formatRejection(verdict));
+    // Every normalized draft is eligible for the fallback render.
+    state.lastCandidate = normalizedSpec;
+
+    // On the last allowed attempt, skip the judge and render the draft: the
+    // user gets a real view instead of an apology loop.
+    const finalAttempt = state.rejected + 1 >= MAX_CONSECUTIVE_REJECTIONS;
+    if (!finalAttempt) {
+      // The verdict goes back to the loop as the tool result, so the model can
+      // retry with specific fixes.
+      const verdict = await validateUIBlockFormat(
+        normalizedSpec,
+        input.context,
+      );
+      if (verdict !== null && !verdict.pass) {
+        return rejection(input, formatRejection(verdict));
+      }
     }
 
     if (input.context?.emitEvent) {
