@@ -7,6 +7,14 @@
 export { buildMetaAdLibraryUrl } from "../urls";
 export { parseMetaAdCards } from "../parse";
 export { ingestScrapedAds, ingestScrapedAdCards } from "./ingestion.service";
+export {
+  canonicalizeAdText,
+  canonicalizeQueryText,
+  computeEmbeddingHash,
+  extractAdIdFromReference,
+  normalizeQueryKey,
+  sha256Hex,
+} from "./utils";
 export { EXACT_CACHE_MIN_SCORE } from "./policy";
 export {
   getAdsByQuery,

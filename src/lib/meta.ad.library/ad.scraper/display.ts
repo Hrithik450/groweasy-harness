@@ -9,6 +9,8 @@
  * @module @/lib/meta.ad.library/ad.scraper/display
  */
 
+import { ZERO_WIDTH_RE } from "./utils";
+
 /** Frontend chrome lines that carry no ad information. */
 const NOISE_LINE_RE =
   /^(?:\*[* ]*\*[* ]*\*|platforms|see ad details|\*\*sponsored\*\*|sponsored)$/i;
@@ -18,9 +20,6 @@ const MARKDOWN_IMAGE_RE = /!\[[^\]]*\]\(([^)\s]+)\)/g;
 
 /** A line that is one of the media lines this pipeline appends. */
 const MEDIA_LINE_RE = /^(Video|Image):\s+(https?:\S+)$/i;
-
-/** Zero-width characters Meta interleaves into rendered layout. */
-const ZERO_WIDTH_RE = /[​‌‍﻿]/g;
 
 /** Whitespace-only (or zero-width-only) line. */
 const BLANK_LINE_RE = /^[\s​‌‍﻿]*$/;

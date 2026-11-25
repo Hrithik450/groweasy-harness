@@ -9,7 +9,15 @@
 
 import crypto from "node:crypto";
 
-const ZERO_WIDTH_RE = /[​‌‍﻿]/g;
+/** Zero-width characters Meta interleaves into rendered layout. */
+export const ZERO_WIDTH_RE = /[​‌‍﻿]/g;
+
+/** The numeric Meta ad id inside a stored reference. */
+export function extractAdIdFromReference(ref: string): string | null {
+  if (!ref || typeof ref !== "string") return null;
+  const match = ref.match(/\d{10,25}/);
+  return match ? match[0] : null;
+}
 
 /** Stable SHA-256 hex digest. */
 export function sha256Hex(value: string): string {
@@ -94,21 +102,4 @@ export function computeEmbeddingHash(
   canonicalText: string,
 ): string {
   return sha256Hex(`${embeddingModel}\n${canonicalText}`);
-}
-
-/**
- * Normalizes a Meta Ad Library launch date string (e.g. "Started running on
- * Nov 7, 2026" or "Nov 7, 2026") into ISO `YYYY-MM-DD`.
- */
-export function parseMetaAdDate(dateStr?: string | null): string | null {
-  if (!dateStr) return null;
-  const trimmed = dateStr.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-  const match = trimmed.match(
-    /(?:Started running on\s+)?([A-Za-z]+ \d{1,2}, \d{4})/i,
-  );
-  if (!match) return null;
-  const d = new Date(match[1] + " UTC");
-  if (isNaN(d.getTime())) return null;
-  return d.toISOString().split("T")[0];
 }

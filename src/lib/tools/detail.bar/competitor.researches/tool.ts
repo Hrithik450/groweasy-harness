@@ -2,7 +2,7 @@ import { uuidv7 } from "@/lib/utils/uuid";
 import type { ToolInput, ToolOutput } from "@/lib/tools/types";
 import type { CompetitorResearchItem } from "@/lib/detail.bar/types";
 import type { InputContentParam } from "openai/resources/beta/agents/agents";
-import { extractAdIdFromReference } from "@/lib/services/utils";
+import { extractAdIdFromReference } from "@/lib/meta.ad.library/ad.scraper";
 import { getScrapedAdsByIds } from "@/lib/meta.ad.library/ad.scraper";
 import {
   upsertDetailBarItems,
